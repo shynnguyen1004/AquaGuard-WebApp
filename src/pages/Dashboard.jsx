@@ -10,6 +10,7 @@ import ReportsPage from "./ReportsPage";
 
 export default function Dashboard() {
   const [activePage, setActivePage] = useState("dashboard");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const renderContent = () => {
     switch (activePage) {
@@ -52,7 +53,12 @@ export default function Dashboard() {
 
   return (
     <div className="flex h-screen w-full">
-      <Sidebar activePage={activePage} onNavigate={setActivePage} />
+      <Sidebar
+        activePage={activePage}
+        onNavigate={setActivePage}
+        collapsed={sidebarCollapsed}
+        onToggle={() => setSidebarCollapsed(prev => !prev)}
+      />
       {renderContent()}
     </div>
   );

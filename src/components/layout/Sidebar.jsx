@@ -9,38 +9,50 @@ const navItems = [
   { icon: "shield_with_heart", label: "Safety Protocols", page: "safety" },
 ];
 
-function NavItem({ icon, label, active, filled, badge, onClick }) {
+function NavItem({ icon, label, active, filled, badge, onClick, collapsed }) {
   const baseClasses =
-    "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer";
+    "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer relative group";
   const activeClasses = "bg-primary/10 text-primary shadow-sm";
   const inactiveClasses =
     "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800";
 
   return (
     <a
-      className={`${baseClasses} ${active ? activeClasses : inactiveClasses}`}
+      className={`${baseClasses} ${active ? activeClasses : inactiveClasses} ${collapsed ? "justify-center px-3" : ""}`}
       href="#"
       onClick={(e) => {
         e.preventDefault();
         onClick?.();
       }}
+      title={collapsed ? label : undefined}
     >
       <span
         className={`material-symbols-outlined ${active && filled ? "filled-icon" : ""}`}
       >
         {icon}
       </span>
-      <span className="font-medium">{label}</span>
-      {badge && (
+      {!collapsed && <span className="font-medium">{label}</span>}
+      {badge && !collapsed && (
         <span className="ml-auto bg-danger text-white text-[10px] px-2 py-0.5 rounded-full">
           {badge}
         </span>
+      )}
+      {badge && collapsed && (
+        <span className="absolute -top-1 -right-1 bg-danger text-white text-[8px] size-4 rounded-full flex items-center justify-center">
+          {badge}
+        </span>
+      )}
+      {/* Tooltip on hover when collapsed */}
+      {collapsed && (
+        <div className="absolute left-full ml-2 px-3 py-1.5 bg-slate-900 dark:bg-slate-700 text-white text-xs font-medium rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg">
+          {label}
+        </div>
       )}
     </a>
   );
 }
 
-export default function Sidebar({ activePage = "dashboard", onNavigate }) {
+export default function Sidebar({ activePage = "dashboard", onNavigate, collapsed = false, onToggle }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -50,17 +62,40 @@ export default function Sidebar({ activePage = "dashboard", onNavigate }) {
   };
 
   return (
-    <aside className="w-72 flex-shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark flex flex-col">
+    <aside
+      className={`relative flex-shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark flex flex-col transition-all duration-300 ${
+        collapsed ? "w-20" : "w-72"
+      }`}
+    >
+      {/* Toggle button — pinned to the right edge of sidebar */}
+      <button
+        onClick={onToggle}
+        className="absolute top-1/2 -translate-y-1/2 -right-3.5 z-30 size-7 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-500 hover:text-primary hover:bg-primary/10 hover:border-primary/30 transition-all shadow-md"
+        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      >
+        <span className={`material-symbols-outlined text-base transition-transform duration-300 ${collapsed ? "rotate-180" : ""}`}>
+          chevron_left
+        </span>
+      </button>
+
       {/* Logo */}
-      <div className="p-6">
-        <img
-          alt="AquaGuard"
-          src="/images/dark_mode_logo.png"
-        />
+      <div className={`p-4 flex items-center ${collapsed ? "justify-center" : ""}`}>
+        {!collapsed ? (
+          <div className="px-2">
+            <img
+              alt="AquaGuard"
+              src="/images/dark_mode_logo.png"
+            />
+          </div>
+        ) : (
+          <div className="size-10 rounded-xl bg-primary flex items-center justify-center text-white">
+            <span className="material-symbols-outlined filled-icon text-xl">water_drop</span>
+          </div>
+        )}
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-4 py-4 space-y-1">
+      <nav className={`flex-1 py-4 space-y-1 ${collapsed ? "px-2" : "px-4"}`}>
         {navItems.map((item) => (
           <NavItem
             key={item.label}
@@ -70,53 +105,95 @@ export default function Sidebar({ activePage = "dashboard", onNavigate }) {
             filled={item.filled}
             badge={item.badge}
             onClick={() => onNavigate?.(item.page)}
+            collapsed={collapsed}
           />
         ))}
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-slate-200 dark:border-slate-800">
-        <a
-          className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-          href="#"
-        >
-          <span className="material-symbols-outlined">settings</span>
-          <span className="font-medium">Settings</span>
-        </a>
+      <div className={`border-t border-slate-200 dark:border-slate-800 ${collapsed ? "p-2" : "p-4"}`}>
+        {!collapsed ? (
+          <>
+            <a
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              href="#"
+            >
+              <span className="material-symbols-outlined">settings</span>
+              <span className="font-medium">Settings</span>
+            </a>
 
-        <div className="mt-4 p-4 rounded-xl bg-slate-100 dark:bg-slate-800/50">
-          <div className="flex items-center gap-3">
-            <img
-              alt="Profile"
-              className="size-10 rounded-full border-2 border-primary/20 object-cover"
-              src={
-                user?.avatarUrl ||
-                `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.displayName || "User")}&background=11a0b6&color=fff`
-              }
-              referrerPolicy="no-referrer"
-            />
-            <div className="overflow-hidden flex-1">
-              <p className="text-sm font-semibold truncate">
-                {user?.displayName || "User"}
-              </p>
-              <p className="text-xs text-slate-500 truncate">
-                {user?.role === "admin"
-                  ? "System Administrator"
-                  : user?.role === "rescuer"
-                    ? "Rescue Team"
-                    : user?.email || "Citizen"}
-              </p>
+            <div className="mt-4 p-4 rounded-xl bg-slate-100 dark:bg-slate-800/50">
+              <div className="flex items-center gap-3">
+                <img
+                  alt="Profile"
+                  className="size-10 rounded-full border-2 border-primary/20 object-cover"
+                  src={
+                    user?.avatarUrl ||
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.displayName || "User")}&background=11a0b6&color=fff`
+                  }
+                  referrerPolicy="no-referrer"
+                />
+                <div className="overflow-hidden flex-1">
+                  <p className="text-sm font-semibold truncate">
+                    {user?.displayName || "User"}
+                  </p>
+                  <p className="text-xs text-slate-500 truncate">
+                    {user?.role === "admin"
+                      ? "System Administrator"
+                      : user?.role === "rescuer"
+                        ? "Rescue Team"
+                        : user?.email || "Citizen"}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={handleLogout}
+                className="mt-3 w-full flex items-center justify-center gap-2 text-xs font-medium text-slate-500 hover:text-danger py-2 rounded-lg hover:bg-white dark:hover:bg-slate-700 transition-colors"
+              >
+                <span className="material-symbols-outlined text-base">logout</span>
+                Logout
+              </button>
             </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center gap-2 py-2">
+            <a
+              className="size-10 rounded-xl flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors relative group"
+              href="#"
+              title="Settings"
+            >
+              <span className="material-symbols-outlined">settings</span>
+              <div className="absolute left-full ml-2 px-3 py-1.5 bg-slate-900 dark:bg-slate-700 text-white text-xs font-medium rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg">
+                Settings
+              </div>
+            </a>
+            <div className="relative group">
+              <img
+                alt="Profile"
+                className="size-10 rounded-full border-2 border-primary/20 object-cover cursor-pointer"
+                src={
+                  user?.avatarUrl ||
+                  `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.displayName || "User")}&background=11a0b6&color=fff`
+                }
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute left-full ml-2 px-3 py-1.5 bg-slate-900 dark:bg-slate-700 text-white text-xs font-medium rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg">
+                {user?.displayName || "User"}
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="size-10 rounded-xl flex items-center justify-center text-slate-500 hover:text-danger hover:bg-danger/10 transition-colors relative group"
+              title="Logout"
+            >
+              <span className="material-symbols-outlined text-base">logout</span>
+              <div className="absolute left-full ml-2 px-3 py-1.5 bg-slate-900 dark:bg-slate-700 text-white text-xs font-medium rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg">
+                Logout
+              </div>
+            </button>
           </div>
-
-          <button
-            onClick={handleLogout}
-            className="mt-3 w-full flex items-center justify-center gap-2 text-xs font-medium text-slate-500 hover:text-danger py-2 rounded-lg hover:bg-white dark:hover:bg-slate-700 transition-colors"
-          >
-            <span className="material-symbols-outlined text-base">logout</span>
-            Logout
-          </button>
-        </div>
+        )}
       </div>
     </aside>
   );
