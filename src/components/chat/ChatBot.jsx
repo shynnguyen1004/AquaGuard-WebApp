@@ -1,5 +1,20 @@
 import { useState, useRef, useEffect } from "react";
 
+const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+
+const SYSTEM_PROMPT = `You are AquaGuard Assistant — a helpful, concise AI chatbot for the AquaGuard flood disaster management platform.
+
+About AquaGuard: AquaGuard is a flood disaster rescue and management team dedicated to protecting communities. The web platform provides real-time flood monitoring, rescue coordination, live flood mapping, shelter information, and safety education — focused on Da Nang, Vietnam.
+
+Rules:
+- Keep answers SHORT (2-4 sentences max for simple questions, up to 6 for complex ones)
+- Use bullet points for lists
+- Be friendly and professional
+- For emergencies, always mention: Police 113, Fire 114, Ambulance 115
+- You can answer general knowledge questions too, but keep it brief
+- Respond in the same language the user writes in (Vietnamese or English)`;
+
 const quickReplies = [
   "What is AquaGuard?",
   "What should I do during a flood?",
@@ -8,64 +23,60 @@ const quickReplies = [
   "How to contact rescue teams?",
 ];
 
-const botResponses = {
-  "what is aquaguard": {
-    text: "AquaGuard is a flood disaster rescue and management team dedicated to protecting communities from flood disasters.\n\nOur mission includes:\n• 🚨 Real-time flood monitoring & early warnings\n• 🚁 Rapid rescue coordination for affected residents\n• 🗺️ Live flood mapping with severity tracking\n• 🏥 Connecting people to shelters & emergency services\n• 📋 Safety education & disaster preparedness\n\nThis web platform is our command center — helping citizens report emergencies, track rescue operations, and stay informed during flood events.",
-    icon: "water_drop",
-  },
-  "what should i do during a flood": {
-    text: "During a flood, you should:\n\n1. Move to higher ground immediately\n2. Avoid walking or driving through flood water\n3. Stay away from power lines\n4. Listen to emergency broadcasts\n5. If trapped, go to the highest point and signal for help\n\nVisit our Safety Protocols page for more detailed guidelines.",
-    icon: "emergency",
-  },
-  "how to report an emergency": {
-    text: "To report an emergency:\n\n1. Go to the Rescue Requests page\n2. Click 'New Request'\n3. Fill in your location, description, and upload scene photos\n4. Select urgency level and submit\n\nFor immediate help, call Police (113), Fire (114), or Ambulance (115).",
-    icon: "report",
-  },
-  "where is the nearest shelter": {
-    text: "You can find the nearest shelter by:\n\n1. Go to the Live Flood Map page\n2. Use the 'Find Shelter' quick action\n3. The map will show safe zones marked in green\n\nCurrently, shelters are active in Hai Chau, Cam Le, and Ngu Hanh Son districts.",
-    icon: "home_pin",
-  },
-  "how to contact rescue teams": {
-    text: "To contact rescue teams:\n\n• Emergency Hotline: 113 (Police), 114 (Fire), 115 (Ambulance)\n• Use the SOS button on the Dashboard or Map page\n• Submit a Rescue Request through the app\n\nRescue teams are currently deployed across Da Nang area.",
-    icon: "local_fire_department",
-  },
+async function getAIResponse(chatMessages) {
+  try {
+    const messages = [
+      { role: "system", content: SYSTEM_PROMPT },
+      ...chatMessages
+        .filter((m) => m.from !== "system")
+        .map((m) => ({
+          role: m.from === "user" ? "user" : "assistant",
+          content: m.text,
+        })),
+    ];
+
+    const res = await fetch(GROQ_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages,
+        max_tokens: 300,
+        temperature: 0.7,
+      }),
+    });
+
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content;
+    if (!text) throw new Error("No response text");
+
+    return text;
+  } catch (err) {
+    console.error("Groq API error:", err);
+    return null;
+  }
+}
+
+// Fallback responses when API is unavailable
+const fallbackResponses = {
+  aquaguard: "AquaGuard is a flood disaster rescue and management team. Our platform provides real-time flood monitoring, rescue coordination, and safety education for communities in Da Nang, Vietnam.",
+  flood: "During a flood: move to higher ground, avoid flood water, stay away from power lines, and listen to emergency broadcasts. Visit our Safety Protocols page for more details.",
+  shelter: "Go to the Live Flood Map page and use 'Find Shelter' to see safe zones. Shelters are active in Hai Chau, Cam Le, and Ngu Hanh Son districts.",
+  emergency: "For emergencies: call Police (113), Fire (114), or Ambulance (115). You can also submit a Rescue Request through the app.",
+  rescue: "Contact rescue teams via: Police 113, Fire 114, Ambulance 115. Or use the SOS button on the Dashboard, or submit a Rescue Request.",
 };
 
-function getResponse(message) {
-  const lower = message.toLowerCase().trim();
-
-  for (const [key, value] of Object.entries(botResponses)) {
-    if (lower.includes(key) || key.includes(lower)) {
-      return value;
-    }
+function getFallback(message) {
+  const lower = message.toLowerCase();
+  for (const [key, value] of Object.entries(fallbackResponses)) {
+    if (lower.includes(key)) return value;
   }
-
-  if (lower.includes("flood") || lower.includes("water")) {
-    return botResponses["what should i do during a flood"];
-  }
-  if (lower.includes("shelter") || lower.includes("safe")) {
-    return botResponses["where is the nearest shelter"];
-  }
-  if (lower.includes("emergency") || lower.includes("help") || lower.includes("sos") || lower.includes("report")) {
-    return botResponses["how to report an emergency"];
-  }
-  if (lower.includes("rescue") || lower.includes("team") || lower.includes("contact") || lower.includes("call")) {
-    return botResponses["how to contact rescue teams"];
-  }
-  if (lower.includes("aquaguard") || lower.includes("who are you") || lower.includes("what are you") || lower.includes("about")) {
-    return botResponses["what is aquaguard"];
-  }
-  if (lower.includes("hello") || lower.includes("hi") || lower.includes("hey")) {
-    return {
-      text: "Hello! I'm AquaGuard Assistant. I can help you with:\n\n• Flood safety guidelines\n• Emergency reporting\n• Finding shelters\n• Contacting rescue teams\n\nHow can I assist you?",
-      icon: "waving_hand",
-    };
-  }
-
-  return {
-    text: "I'm not sure I understand. I can help with:\n\n• Flood safety tips\n• Emergency reporting\n• Shelter locations\n• Rescue team contacts\n\nTry asking about one of these topics, or use the quick replies below!",
-    icon: "help",
-  };
+  return "I'm having trouble connecting right now. For emergencies, call Police (113), Fire (114), or Ambulance (115). Please try again later!";
 }
 
 export default function ChatBot() {
@@ -73,7 +84,7 @@ export default function ChatBot() {
   const [messages, setMessages] = useState([
     {
       from: "bot",
-      text: "Hi! 👋 I'm AquaGuard Assistant. How can I help you today?",
+      text: "Hi! 👋 I'm AquaGuard Assistant powered by AI. Ask me anything about flood safety, rescue, or any other question!",
       time: new Date(),
     },
   ]);
@@ -94,22 +105,25 @@ export default function ChatBot() {
     if (isOpen) inputRef.current?.focus();
   }, [isOpen]);
 
-  const sendMessage = (text) => {
-    if (!text.trim()) return;
+  const sendMessage = async (text) => {
+    if (!text.trim() || isTyping) return;
 
     const userMsg = { from: "user", text: text.trim(), time: new Date() };
-    setMessages((prev) => [...prev, userMsg]);
+    const updatedMessages = [...messages, userMsg];
+    setMessages(updatedMessages);
     setInput("");
     setIsTyping(true);
 
-    setTimeout(() => {
-      const response = getResponse(text);
-      setMessages((prev) => [
-        ...prev,
-        { from: "bot", text: response.text, icon: response.icon, time: new Date() },
-      ]);
-      setIsTyping(false);
-    }, 800 + Math.random() * 700);
+    let responseText = await getAIResponse(updatedMessages);
+    if (!responseText) {
+      responseText = getFallback(text);
+    }
+
+    setMessages((prev) => [
+      ...prev,
+      { from: "bot", text: responseText, time: new Date() },
+    ]);
+    setIsTyping(false);
   };
 
   const handleSubmit = (e) => {
@@ -131,13 +145,14 @@ export default function ChatBot() {
             .chat-widget ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); border-radius: 9999px; }
             .chat-widget ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.4); }
           `}</style>
+
           {/* Header */}
           <div className="bg-gradient-to-r from-primary to-primary/80 px-4 py-3 flex items-center gap-3">
             <div className="size-9 rounded-full bg-white/20 flex items-center justify-center">
               <span className="material-symbols-outlined text-white text-xl filled-icon">smart_toy</span>
             </div>
             <div className="flex-1">
-              <p className="text-white font-bold text-sm">AquaGuard Assistant</p>
+              <p className="text-white font-bold text-sm">AquaGuard AI</p>
               <p className="text-white/70 text-[10px]">Online • Ready to help</p>
             </div>
             <button
@@ -157,9 +172,7 @@ export default function ChatBot() {
               >
                 {msg.from === "bot" && (
                   <div className="size-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
-                    <span className="material-symbols-outlined text-primary text-sm filled-icon">
-                      {msg.icon || "smart_toy"}
-                    </span>
+                    <span className="material-symbols-outlined text-primary text-sm filled-icon">smart_toy</span>
                   </div>
                 )}
                 <div
@@ -221,7 +234,7 @@ export default function ChatBot() {
             />
             <button
               type="submit"
-              disabled={!input.trim()}
+              disabled={!input.trim() || isTyping}
               className="size-10 rounded-xl bg-primary text-white flex items-center justify-center hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             >
               <span className="material-symbols-outlined text-lg">send</span>
