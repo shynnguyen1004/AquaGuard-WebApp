@@ -67,7 +67,7 @@ export default function ReportIssueForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
-    
+
     setIsSubmitting(true);
     // Simulate API call
     setTimeout(() => {
@@ -100,7 +100,7 @@ export default function ReportIssueForm() {
           <p className="text-sm text-slate-600 dark:text-slate-300">
             Your report has been successfully submitted. Our development team will review it shortly.
           </p>
-          <button 
+          <button
             onClick={() => setSuccess(false)}
             className="mt-6 px-6 py-2.5 bg-slate-100 dark:bg-slate-700 text-sm font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
           >
@@ -179,11 +179,10 @@ export default function ReportIssueForm() {
               onDragLeave={handleDrag}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all ${
-                dragActive
+              className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all ${dragActive
                   ? "border-primary bg-primary/5"
                   : "border-slate-200 dark:border-slate-700 hover:border-primary/50 hover:bg-slate-50 dark:hover:bg-slate-800/50"
-              }`}
+                }`}
             >
               <span className="material-symbols-outlined text-3xl text-slate-400 mb-2">
                 attach_file
