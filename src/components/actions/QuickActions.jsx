@@ -22,10 +22,10 @@ const actions = [
   },
 ];
 
-export default function QuickActions() {
+export default function QuickActions({ hideTitle = false }) {
   return (
-    <div className="p-6">
-      <h2 className="text-lg font-bold mb-4">Quick Actions</h2>
+    <div className={hideTitle ? "px-6 pb-4" : "p-6"}>
+      {!hideTitle && <h2 className="text-lg font-bold mb-4">Quick Actions</h2>}
       <div className="grid grid-cols-1 gap-3">
         {actions.map((action) => (
           <button

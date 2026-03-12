@@ -9,19 +9,19 @@ export default function DashboardHome() {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="max-w-7xl mx-auto p-6 lg:p-8 space-y-8">
+      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8">
         {/* Welcome Section */}
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium">
               Welcome back,
             </p>
-            <h1 className="text-2xl lg:text-3xl font-black tracking-tight mt-1">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight mt-1 truncate">
               {user?.displayName || "Responder Alpha"}
             </h1>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="text-right hidden sm:block">
+          <div className="hidden sm:flex items-center gap-3 flex-shrink-0">
+            <div className="text-right">
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {new Date().toLocaleDateString("en-US", {
                   weekday: "long",
