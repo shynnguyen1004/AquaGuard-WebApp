@@ -5,14 +5,13 @@ import RescueRequestForm from "../components/rescue/RescueRequestForm";
 const initialRequests = [
   {
     id: 1,
-    userName: "Nguyen Van A",
+    userName: "Nguyen Truong Son",
     userAvatar: "",
     description:
       "Nước ngập tầng 1, gia đình 4 người bị mắc kẹt trên tầng 2. Cần hỗ trợ di chuyển đến nơi an toàn gấp.",
     location: "268 Lý Thường Kiệt, Quận 10, TP.HCM",
     urgency: "critical",
     status: "in_progress",
-    assignedTeam: "Rescue Team Alpha",
     timeAgo: "15 min ago",
     images: [
       "https://images.unsplash.com/photo-1547683905-f686c993aae5?w=200&h=150&fit=crop",
@@ -20,21 +19,22 @@ const initialRequests = [
   },
   {
     id: 2,
-    userName: "Tran Thi B",
+    userName: "Nguyen Minh Quan",
     userAvatar: "",
     description:
       "Mực nước dâng cao 1.5m, đường bị chia cắt. Có 2 người già cần được di tản khẩn cấp.",
     location: "45 Bui Vien, Quận 1, TP.HCM",
     urgency: "high",
     status: "pending",
+    assignedTeam: "Rescue Team Alpha",
     timeAgo: "32 min ago",
     images: [
-      "https://images.unsplash.com/photo-1559060017-445fb0722e8b?w=200&h=150&fit=crop",
+      "https://cdn.tienphong.vn/images/45fb2939182052a1a9affe1576b88e79c0d73c1560287970d5114670403ad6c40f2d12a98b34fb9e4f5a00e98dd6d9c9/24.jpg",
     ],
   },
   {
     id: 3,
-    userName: "Le Van C",
+    userName: "Tran Tuan Nghia",
     userAvatar: "",
     description:
       "Cây đổ chặn đường thoát hiểm duy nhất. Cần hỗ trợ dọn dẹp để mở đường thoát.",
@@ -42,7 +42,9 @@ const initialRequests = [
     urgency: "medium",
     status: "pending",
     timeAgo: "1 hour ago",
-    images: [],
+    images: [
+      "https://baokhanhhoa.vn/file/e7837c02857c8ca30185a8c39b582c03/dataimages/201611/original/images1182686_2.jpg"
+    ],
   },
   {
     id: 4,
@@ -98,7 +100,7 @@ const initialRequests = [
     timeAgo: "45 min ago",
     images: [
       "https://images.unsplash.com/photo-1547683905-f686c993aae5?w=200&h=150&fit=crop",
-      "https://images.unsplash.com/photo-1559060017-445fb0722e8b?w=200&h=150&fit=crop",
+      "https://baokhanhhoa.vn/file/e7837c02857c8ca30185a8c39b582c03/dataimages/201611/original/images1182686_2.jpg",
     ],
   },
   {
@@ -232,22 +234,20 @@ export default function RescueRequestPage() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
-                activeTab === tab.key
-                  ? "bg-primary text-white shadow-md shadow-primary/20"
-                  : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:border-primary/30 hover:text-primary"
-              }`}
+              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab.key
+                ? "bg-primary text-white shadow-md shadow-primary/20"
+                : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:border-primary/30 hover:text-primary"
+                }`}
             >
               <span className="material-symbols-outlined text-base">
                 {tab.icon}
               </span>
               {tab.label}
               <span
-                className={`text-[10px] px-2 py-0.5 rounded-full ${
-                  activeTab === tab.key
-                    ? "bg-white/20"
-                    : "bg-slate-100 dark:bg-slate-700"
-                }`}
+                className={`text-[10px] px-2 py-0.5 rounded-full ${activeTab === tab.key
+                  ? "bg-white/20"
+                  : "bg-slate-100 dark:bg-slate-700"
+                  }`}
               >
                 {counts[tab.key]}
               </span>
