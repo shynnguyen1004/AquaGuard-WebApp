@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 
 const familyMembers = [
@@ -26,10 +26,23 @@ export default function SettingsPage() {
   const [family, setFamily] = useState(familyMembers);
   const [showAddFamily, setShowAddFamily] = useState(false);
   const [newMember, setNewMember] = useState({ name: "", relation: "", phone: "" });
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === "system") {
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      root.classList.toggle("dark", prefersDark);
+    } else {
+      root.classList.toggle("dark", theme === "dark");
+    }
+    localStorage.setItem("theme", theme);
+  }, [theme]);
 
   const tabs = [
     { id: "profile", label: "Profile", icon: "person" },
     { id: "family", label: "Family", icon: "group" },
+    { id: "appearance", label: "Appearance", icon: "palette" },
   ];
 
   const handleProfileSave = () => {
@@ -60,7 +73,7 @@ export default function SettingsPage() {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-black text-slate-900 dark:text-white">Settings</h1>
-        <p className="text-sm text-slate-500 mt-1">Manage your profile and family members</p>
+        <p className="text-sm text-slate-500 mt-1">Manage your profile, family, and preferences</p>
       </div>
 
       {/* Tabs */}
@@ -280,6 +293,50 @@ export default function SettingsPage() {
               <p className="text-sm">No family members added yet</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Appearance Tab */}
+      {activeTab === "appearance" && (
+        <div className="max-w-2xl space-y-6">
+          <div className="bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 p-6">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-5">
+              <span className="material-symbols-outlined text-primary text-lg">palette</span>
+              Theme
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[
+                { id: "light", label: "Light", icon: "light_mode", desc: "Bright and clean" },
+                { id: "dark", label: "Dark", icon: "dark_mode", desc: "Easy on the eyes" },
+                { id: "system", label: "System", icon: "desktop_windows", desc: "Match device setting" },
+              ].map((opt) => (
+                <button
+                  key={opt.id}
+                  onClick={() => setTheme(opt.id)}
+                  className={`flex flex-col items-center gap-2 p-5 rounded-2xl border-2 transition-all ${
+                    theme === opt.id
+                      ? "border-primary bg-primary/5 shadow-lg shadow-primary/10"
+                      : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
+                  }`}
+                >
+                  <span className={`material-symbols-outlined text-3xl ${
+                    theme === opt.id ? "text-primary" : "text-slate-400"
+                  }`}>
+                    {opt.icon}
+                  </span>
+                  <span className={`text-sm font-bold ${
+                    theme === opt.id ? "text-primary" : "text-slate-700 dark:text-slate-300"
+                  }`}>
+                    {opt.label}
+                  </span>
+                  <span className="text-[10px] text-slate-400">{opt.desc}</span>
+                  {theme === opt.id && (
+                    <span className="material-symbols-outlined text-primary text-base filled-icon">check_circle</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>
