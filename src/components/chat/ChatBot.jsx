@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 
 const quickReplies = [
+  "What is AquaGuard?",
   "What should I do during a flood?",
   "How to report an emergency?",
   "Where is the nearest shelter?",
@@ -8,6 +9,10 @@ const quickReplies = [
 ];
 
 const botResponses = {
+  "what is aquaguard": {
+    text: "AquaGuard is a flood disaster rescue and management team dedicated to protecting communities from flood disasters.\n\nOur mission includes:\n• 🚨 Real-time flood monitoring & early warnings\n• 🚁 Rapid rescue coordination for affected residents\n• 🗺️ Live flood mapping with severity tracking\n• 🏥 Connecting people to shelters & emergency services\n• 📋 Safety education & disaster preparedness\n\nThis web platform is our command center — helping citizens report emergencies, track rescue operations, and stay informed during flood events.",
+    icon: "water_drop",
+  },
   "what should i do during a flood": {
     text: "During a flood, you should:\n\n1. Move to higher ground immediately\n2. Avoid walking or driving through flood water\n3. Stay away from power lines\n4. Listen to emergency broadcasts\n5. If trapped, go to the highest point and signal for help\n\nVisit our Safety Protocols page for more detailed guidelines.",
     icon: "emergency",
@@ -46,6 +51,9 @@ function getResponse(message) {
   }
   if (lower.includes("rescue") || lower.includes("team") || lower.includes("contact") || lower.includes("call")) {
     return botResponses["how to contact rescue teams"];
+  }
+  if (lower.includes("aquaguard") || lower.includes("who are you") || lower.includes("what are you") || lower.includes("about")) {
+    return botResponses["what is aquaguard"];
   }
   if (lower.includes("hello") || lower.includes("hi") || lower.includes("hey")) {
     return {
