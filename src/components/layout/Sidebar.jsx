@@ -2,17 +2,17 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 
 const navItems = [
-  { icon: "dashboard", label: "Dashboard", active: false },
-  { icon: "map", label: "Live Flood Map", active: true, filled: true },
-  { icon: "emergency", label: "Rescue Requests", active: false, badge: 12 },
-  { icon: "description", label: "Reports", active: false },
-  { icon: "shield_with_heart", label: "Safety Protocols", active: false },
+  { icon: "dashboard", label: "Dashboard", page: "dashboard" },
+  { icon: "map", label: "Live Flood Map", page: "map", filled: true },
+  { icon: "emergency", label: "Rescue Requests", page: "rescue", badge: 12 },
+  { icon: "description", label: "Reports", page: "reports" },
+  { icon: "shield_with_heart", label: "Safety Protocols", page: "safety" },
 ];
 
-function NavItem({ icon, label, active, filled, badge }) {
+function NavItem({ icon, label, active, filled, badge, onClick }) {
   const baseClasses =
-    "flex items-center gap-3 px-4 py-3 rounded-xl transition-colors";
-  const activeClasses = "bg-primary/10 text-primary";
+    "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer";
+  const activeClasses = "bg-primary/10 text-primary shadow-sm";
   const inactiveClasses =
     "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800";
 
@@ -20,6 +20,10 @@ function NavItem({ icon, label, active, filled, badge }) {
     <a
       className={`${baseClasses} ${active ? activeClasses : inactiveClasses}`}
       href="#"
+      onClick={(e) => {
+        e.preventDefault();
+        onClick?.();
+      }}
     >
       <span
         className={`material-symbols-outlined ${active && filled ? "filled-icon" : ""}`}
@@ -36,7 +40,7 @@ function NavItem({ icon, label, active, filled, badge }) {
   );
 }
 
-export default function Sidebar() {
+export default function Sidebar({ activePage = "dashboard", onNavigate }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -58,7 +62,15 @@ export default function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 px-4 py-4 space-y-1">
         {navItems.map((item) => (
-          <NavItem key={item.label} {...item} />
+          <NavItem
+            key={item.label}
+            icon={item.icon}
+            label={item.label}
+            active={activePage === item.page}
+            filled={item.filled}
+            badge={item.badge}
+            onClick={() => onNavigate?.(item.page)}
+          />
         ))}
       </nav>
 
