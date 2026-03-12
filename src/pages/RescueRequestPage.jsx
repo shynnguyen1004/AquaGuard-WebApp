@@ -8,10 +8,11 @@ const initialRequests = [
     userName: "Nguyen Truong Son",
     userAvatar: "",
     description:
-      "Nước ngập tầng 1, gia đình 4 người bị mắc kẹt trên tầng 2. Cần hỗ trợ di chuyển đến nơi an toàn gấp.",
-    location: "268 Lý Thường Kiệt, Quận 10, TP.HCM",
+      "First floor flooded, family of 4 trapped on second floor. Need urgent evacuation assistance.",
+    location: "268 Ly Thuong Kiet, District 10, HCMC",
     urgency: "critical",
     status: "in_progress",
+    assignedTeam: "Rescue Team Delta",
     timeAgo: "15 min ago",
     images: [
       "https://images.unsplash.com/photo-1547683905-f686c993aae5?w=200&h=150&fit=crop",
@@ -22,8 +23,8 @@ const initialRequests = [
     userName: "Nguyen Minh Quan",
     userAvatar: "",
     description:
-      "Mực nước dâng cao 1.5m, đường bị chia cắt. Có 2 người già cần được di tản khẩn cấp.",
-    location: "45 Bui Vien, Quận 1, TP.HCM",
+      "Water level rose 1.5m, road cut off. 2 elderly people need immediate evacuation.",
+    location: "45 Bui Vien, District 1, HCMC",
     urgency: "high",
     status: "pending",
     assignedTeam: "Rescue Team Alpha",
@@ -37,10 +38,11 @@ const initialRequests = [
     userName: "Tran Tuan Nghia",
     userAvatar: "",
     description:
-      "Cây đổ chặn đường thoát hiểm duy nhất. Cần hỗ trợ dọn dẹp để mở đường thoát.",
-    location: "12 Nguyen Hue, Quận 1, TP.HCM",
+      "Fallen tree blocking the only escape route. Need assistance clearing the path.",
+    location: "12 Nguyen Hue, District 1, HCMC",
     urgency: "medium",
     status: "pending",
+    assignedTeam: "Rescue Team Gamma",
     timeAgo: "1 hour ago",
     images: [
       "https://baokhanhhoa.vn/file/e7837c02857c8ca30185a8c39b582c03/dataimages/201611/original/images1182686_2.jpg"
@@ -51,8 +53,8 @@ const initialRequests = [
     userName: "Pham Thi D",
     userAvatar: "",
     description:
-      "Gia đình 3 người đã được di tản thành công đến điểm trú ẩn Trường THCS Trần Hưng Đạo.",
-    location: "78 Phan Xich Long, Phú Nhuận",
+      "Family of 3 successfully evacuated to Tran Hung Dao Middle School shelter.",
+    location: "78 Phan Xich Long, Phu Nhuan",
     urgency: "high",
     status: "resolved",
     assignedTeam: "Rescue Team Beta",
@@ -66,8 +68,8 @@ const initialRequests = [
     userName: "Hoang Van E",
     userAvatar: "",
     description:
-      "Nước đang rút dần nhưng vẫn còn bị cô lập. 6 người cần lương thực và nước uống.",
-    location: "156 Cach Mang Thang Tam, Quận 3",
+      "Water is receding but still isolated. 6 people need food and drinking water.",
+    location: "156 Cach Mang Thang Tam, District 3",
     urgency: "medium",
     status: "in_progress",
     assignedTeam: "Rescue Team Gamma",
@@ -79,8 +81,8 @@ const initialRequests = [
     userName: "Vo Thi F",
     userAvatar: "",
     description:
-      "Mái nhà bị hư hại nặng do gió bão. Gia đình đã di chuyển sang nhà hàng xóm, cần hỗ trợ vật liệu.",
-    location: "34 Le Dai Hanh, Quận 11",
+      "Roof severely damaged by strong winds. Family moved to neighbor's house, need material support.",
+    location: "34 Le Dai Hanh, District 11",
     urgency: "low",
     status: "resolved",
     assignedTeam: "Rescue Team Alpha",
@@ -92,8 +94,8 @@ const initialRequests = [
     userName: "Dang Van G",
     userAvatar: "",
     description:
-      "Khu vực hẻm nhỏ bị ngập sâu 2m. Có khoảng 10 hộ dân cần di tản khẩn cấp.",
-    location: "Hẻm 202 Nguyễn Xí, Bình Thạnh",
+      "Small alley flooded 2m deep. About 10 households need urgent evacuation.",
+    location: "Alley 202 Nguyen Xi, Binh Thanh",
     urgency: "critical",
     status: "in_progress",
     assignedTeam: "Rescue Team Delta",
@@ -108,8 +110,8 @@ const initialRequests = [
     userName: "Ngo Thi H",
     userAvatar: "",
     description:
-      "Đã được giải cứu và đưa về điểm tập trung quận. Cần hỗ trợ y tế cho 1 người bị thương nhẹ.",
-    location: "89 Hai Bà Trưng, Quận 1",
+      "Rescued and taken to district gathering point. Need medical support for 1 person with minor injuries.",
+    location: "89 Hai Ba Trung, District 1",
     urgency: "medium",
     status: "resolved",
     assignedTeam: "Rescue Team Beta",
@@ -159,7 +161,7 @@ export default function RescueRequestPage() {
               Rescue Requests
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Quản lý và theo dõi các yêu cầu cứu hộ
+              Manage and track rescue requests
             </p>
           </div>
           <button
@@ -262,10 +264,10 @@ export default function RescueRequestPage() {
               inbox
             </span>
             <p className="text-lg font-bold text-slate-400 dark:text-slate-500">
-              Không có yêu cầu nào
+              No requests found
             </p>
             <p className="text-sm text-slate-400 dark:text-slate-600 mt-1">
-              Chưa có yêu cầu cứu hộ nào trong danh mục này
+              There are no rescue requests in this category
             </p>
           </div>
         ) : (

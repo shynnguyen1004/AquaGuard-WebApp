@@ -114,7 +114,7 @@ export default function Sidebar({ activePage = "dashboard", onNavigate }) {
             className="mt-3 w-full flex items-center justify-center gap-2 text-xs font-medium text-slate-500 hover:text-danger py-2 rounded-lg hover:bg-white dark:hover:bg-slate-700 transition-colors"
           >
             <span className="material-symbols-outlined text-base">logout</span>
-            Đăng xuất
+            Logout
           </button>
         </div>
       </div>

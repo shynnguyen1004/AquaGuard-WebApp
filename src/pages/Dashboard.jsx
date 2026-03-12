@@ -6,6 +6,7 @@ import FloodMap from "../components/map/FloodMap";
 import DashboardHome from "./DashboardHome";
 import RescueRequestPage from "./RescueRequestPage";
 import SafetyProtocolPage from "./SafetyProtocolPage";
+import ReportsPage from "./ReportsPage";
 
 export default function Dashboard() {
   const [activePage, setActivePage] = useState("dashboard");
@@ -28,6 +29,12 @@ export default function Dashboard() {
         return (
           <main className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900/50 relative overflow-hidden">
             <SafetyProtocolPage />
+          </main>
+        );
+      case "reports":
+        return (
+          <main className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900/50 relative overflow-hidden">
+            <ReportsPage />
           </main>
         );
       default:

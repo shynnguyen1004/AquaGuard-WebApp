@@ -37,7 +37,7 @@ export default function RescueRequestCard({ request }) {
   const urgency = urgencyConfig[request.urgency] || urgencyConfig.medium;
 
   return (
-    <div className="bg-white dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-700/50 p-5 hover:shadow-lg transition-all duration-300 group">
+    <div className="bg-white dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-700/50 p-5 hover:shadow-lg transition-all duration-300 group flex flex-col h-full">
       {/* Top row: user info + status */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -84,34 +84,41 @@ export default function RescueRequestCard({ request }) {
         <span className="text-xs font-medium">{request.location}</span>
       </div>
 
-      {/* Images preview */}
-      {request.images && request.images.length > 0 && (
-        <div className="flex gap-2 mb-3 overflow-x-auto">
-          {request.images.map((img, i) => (
-            <img
-              key={i}
-              alt={`Scene ${i + 1}`}
-              className="h-20 w-28 rounded-lg object-cover border border-slate-200 dark:border-slate-600 flex-shrink-0"
-              src={img}
-            />
-          ))}
-        </div>
-      )}
+      {/* Images preview — fixed height so cards align */}
+      <div className="h-20 mb-3">
+        {request.images && request.images.length > 0 ? (
+          <div className="flex gap-2 overflow-x-auto h-full">
+            {request.images.map((img, i) => (
+              <img
+                key={i}
+                alt={`Scene ${i + 1}`}
+                className="h-full w-28 rounded-lg object-cover border border-slate-200 dark:border-slate-600 flex-shrink-0"
+                src={img}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="h-full w-full rounded-lg border border-dashed border-slate-200 dark:border-slate-700 flex items-center justify-center">
+            <span className="text-xs text-slate-400 dark:text-slate-600">No images attached</span>
+          </div>
+        )}
+      </div>
 
-      {/* Footer: assigned rescue team */}
-      {request.status !== "pending" && request.assignedTeam && (
-        <div className="flex items-center gap-2 pt-3 border-t border-slate-100 dark:border-slate-700/50">
-          <span className="material-symbols-outlined text-primary text-base filled-icon">
-            local_fire_department
+      {/* Spacer to push footer down */}
+      <div className="flex-1" />
+
+      {/* Footer: assigned rescue team — always visible */}
+      <div className="flex items-center gap-2 pt-3 border-t border-slate-100 dark:border-slate-700/50 mt-auto">
+        <span className="material-symbols-outlined text-primary text-base filled-icon">
+          local_fire_department
+        </span>
+        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+          Assigned to:{" "}
+          <span className="text-slate-700 dark:text-slate-300 font-bold">
+            {request.assignedTeam || "Unassigned"}
           </span>
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            Assigned to:{" "}
-            <span className="text-slate-700 dark:text-slate-300 font-bold">
-              {request.assignedTeam}
-            </span>
-          </span>
-        </div>
-      )}
+        </span>
+      </div>
     </div>
   );
 }

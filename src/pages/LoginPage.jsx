@@ -51,22 +51,21 @@ export default function LoginPage() {
           </div>
 
           <h2 className="text-4xl font-bold text-white leading-tight mb-4">
-            Hệ thống quản lý
+            Management System
             <br />
-            <span className="text-primary">thiên tai lũ lụt</span>
+            <span className="text-primary">for Flood Disasters</span>
           </h2>
 
           <p className="text-slate-400 text-lg leading-relaxed mb-8">
-            Giám sát mực nước, cảnh báo sớm, điều phối cứu hộ và bảo vệ cộng
-            đồng trong thời gian thực.
+            Monitor water levels, receive early warnings, coordinate rescue efforts, and protect communities in real-time.
           </p>
 
           {/* Feature highlights */}
           <div className="space-y-4">
             {[
-              { icon: "map", text: "Bản đồ lũ lụt thời gian thực" },
-              { icon: "emergency", text: "Điều phối cứu hộ nhanh chóng" },
-              { icon: "notifications_active", text: "Cảnh báo sớm 24/7" },
+              { icon: "map", text: "Real-time Flood Map" },
+              { icon: "emergency", text: "Rapid Rescue Coordination" },
+              { icon: "notifications_active", text: "24/7 Early Warnings" },
             ].map((feature) => (
               <div
                 key={feature.icon}
@@ -103,10 +102,10 @@ export default function LoginPage() {
 
             <div className="text-center mb-8">
               <h3 className="text-2xl font-bold text-white mb-2">
-                Chào mừng trở lại
+                Welcome Back
               </h3>
               <p className="text-slate-400 text-sm">
-                Đăng nhập để truy cập hệ thống quản lý
+                Sign in to access the management system
               </p>
             </div>
 
@@ -122,7 +121,7 @@ export default function LoginPage() {
                     onClick={clearError}
                     className="text-xs text-danger/70 hover:text-danger mt-1 underline"
                   >
-                    Đóng
+                    Close
                   </button>
                 </div>
               </div>
@@ -137,7 +136,7 @@ export default function LoginPage() {
               {isSigningIn ? (
                 <>
                   <div className="size-5 rounded-full border-2 border-slate-300 border-t-primary animate-spin" />
-                  <span>Đang đăng nhập...</span>
+                  <span>Signing in...</span>
                 </>
               ) : (
                 <>
@@ -160,7 +159,7 @@ export default function LoginPage() {
                       fill="#EA4335"
                     />
                   </svg>
-                  <span>Đăng nhập bằng Google</span>
+                  <span>Sign in with Google</span>
                 </>
               )}
             </button>
@@ -172,7 +171,7 @@ export default function LoginPage() {
               </div>
               <div className="relative flex justify-center text-xs">
                 <span className="px-4 bg-transparent text-slate-500 font-medium">
-                  Được bảo vệ bởi Firebase Authentication
+                  Secured by Firebase Authentication
                 </span>
               </div>
             </div>
@@ -180,15 +179,14 @@ export default function LoginPage() {
             {/* Info */}
             <div className="text-center">
               <p className="text-xs text-slate-500 leading-relaxed">
-                Bằng việc đăng nhập, bạn đồng ý với{" "}
+                By signing in, you agree to AquaGuard's{" "}
                 <a href="#" className="text-primary hover:underline">
-                  Điều khoản dịch vụ
+                  Terms of Service
                 </a>{" "}
-                và{" "}
+                and{" "}
                 <a href="#" className="text-primary hover:underline">
-                  Chính sách bảo mật
-                </a>{" "}
-                của AquaGuard.
+                  Privacy Policy
+                </a>.
               </p>
             </div>
           </div>

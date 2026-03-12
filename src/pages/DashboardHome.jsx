@@ -23,7 +23,7 @@ export default function DashboardHome() {
           <div className="flex items-center gap-3">
             <div className="text-right hidden sm:block">
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {new Date().toLocaleDateString("vi-VN", {
+                {new Date().toLocaleDateString("en-US", {
                   weekday: "long",
                   year: "numeric",
                   month: "long",

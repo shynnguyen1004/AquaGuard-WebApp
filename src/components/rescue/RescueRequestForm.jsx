@@ -55,8 +55,8 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
 
   const validate = () => {
     const errs = {};
-    if (!formData.location.trim()) errs.location = "Vui lòng nhập vị trí";
-    if (!formData.description.trim()) errs.description = "Vui lòng nhập mô tả";
+    if (!formData.location.trim()) errs.location = "Please enter a location";
+    if (!formData.description.trim()) errs.description = "Please enter a description";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -91,8 +91,7 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
             <div>
               <h2 className="text-xl font-black">New Rescue Request</h2>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                Cung cấp thông tin chi tiết để đội cứu hộ có thể hỗ trợ nhanh
-                nhất
+                Provide detailed information so the rescue team can assist as quickly as possible.
               </p>
             </div>
             <button
@@ -115,12 +114,12 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
                 <span className="material-symbols-outlined text-base text-danger filled-icon">
                   location_on
                 </span>
-                Vị trí hiện tại
+                Current Location
               </span>
             </label>
             <input
               type="text"
-              placeholder="VD: 268 Lý Thường Kiệt, Quận 10, TP.HCM"
+              placeholder="e.g.: 268 Ly Thuong Kiet, District 10, HCMC"
               value={formData.location}
               onChange={(e) =>
                 setFormData((p) => ({ ...p, location: e.target.value }))
@@ -141,12 +140,12 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
                 <span className="material-symbols-outlined text-base text-primary filled-icon">
                   description
                 </span>
-                Mô tả tình hình
+                Situation Description
               </span>
             </label>
             <textarea
               rows={4}
-              placeholder="Mô tả chi tiết tình hình hiện tại: mực nước, số người cần giải cứu, tình trạng sức khỏe..."
+              placeholder="Describe the current situation: water level, number of people needing rescue, health conditions..."
               value={formData.description}
               onChange={(e) =>
                 setFormData((p) => ({ ...p, description: e.target.value }))
@@ -167,7 +166,7 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
                 <span className="material-symbols-outlined text-base text-warning filled-icon">
                   priority_high
                 </span>
-                Mức độ khẩn cấp
+                Urgency Level
               </span>
             </label>
             <div className="flex gap-3">
@@ -200,9 +199,9 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
                 <span className="material-symbols-outlined text-base text-primary filled-icon">
                   photo_camera
                 </span>
-                Hình ảnh hiện trường
+                Scene Images
                 <span className="text-xs font-normal text-slate-400">
-                  (tối đa 5 ảnh)
+                  (max 5 images)
                 </span>
               </span>
             </label>
@@ -224,11 +223,11 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
                 cloud_upload
               </span>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Kéo thả ảnh vào đây hoặc{" "}
-                <span className="text-primary font-bold">chọn file</span>
+                Drag and drop images here or{" "}
+                <span className="text-primary font-bold">choose files</span>
               </p>
               <p className="text-[11px] text-slate-400 mt-1">
-                PNG, JPG, WEBP — tối đa 10MB/ảnh
+                PNG, JPG, WEBP — max 10MB/image
               </p>
               <input
                 ref={fileInputRef}
@@ -272,7 +271,7 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
               onClick={onClose}
               className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
             >
-              Hủy
+              Cancel
             </button>
             <button
               type="submit"
@@ -281,7 +280,7 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
               <span className="material-symbols-outlined text-base filled-icon">
                 sos
               </span>
-              Gửi yêu cầu cứu hộ
+              Submit Rescue Request
             </button>
           </div>
         </form>
