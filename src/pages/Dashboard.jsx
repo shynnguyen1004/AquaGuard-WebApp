@@ -9,6 +9,7 @@ import DashboardHome from "./DashboardHome";
 import RescueRequestPage from "./RescueRequestPage";
 import SafetyProtocolPage from "./SafetyProtocolPage";
 import ReportsPage from "./ReportsPage";
+import ChatBot from "../components/chat/ChatBot";
 
 export default function Dashboard() {
   const [activePage, setActivePage] = useState("dashboard");
@@ -78,6 +79,9 @@ export default function Dashboard() {
 
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav activePage={activePage} onNavigate={setActivePage} />
+
+      {/* Chatbot */}
+      <ChatBot />
     </div>
   );
 }
