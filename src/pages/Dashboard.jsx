@@ -9,6 +9,7 @@ import DashboardHome from "./DashboardHome";
 import RescueRequestPage from "./RescueRequestPage";
 import SafetyProtocolPage from "./SafetyProtocolPage";
 import ReportsPage from "./ReportsPage";
+import SettingsPage from "./SettingsPage";
 import ChatBot from "../components/chat/ChatBot";
 
 export default function Dashboard() {
@@ -40,6 +41,12 @@ export default function Dashboard() {
         return (
           <main className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900/50 relative overflow-hidden">
             <ReportsPage />
+          </main>
+        );
+      case "settings":
+        return (
+          <main className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900/50 relative overflow-hidden">
+            <SettingsPage />
           </main>
         );
       default:

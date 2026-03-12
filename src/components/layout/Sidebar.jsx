@@ -143,13 +143,17 @@ export default function Sidebar({ activePage = "dashboard", onNavigate, collapse
         <div className={`border-t border-slate-200 dark:border-slate-800 ${collapsed && !mobileOpen ? "p-2" : "p-4"}`}>
           {(!collapsed || mobileOpen) ? (
             <>
-              <a
-                className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                href="#"
+              <button
+                onClick={() => { onNavigate("settings"); if (mobileOpen) onMobileClose(); }}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors w-full text-left ${
+                  activePage === "settings"
+                    ? "bg-primary/10 text-primary font-bold"
+                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                }`}
               >
                 <span className="material-symbols-outlined">settings</span>
                 <span className="font-medium">Settings</span>
-              </a>
+              </button>
 
               <div className="mt-4 p-4 rounded-xl bg-slate-100 dark:bg-slate-800/50">
                 <div className="flex items-center gap-3">
@@ -187,16 +191,20 @@ export default function Sidebar({ activePage = "dashboard", onNavigate, collapse
             </>
           ) : (
             <div className="flex flex-col items-center gap-2 py-2">
-              <a
-                className="size-10 rounded-xl flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors relative group"
-                href="#"
+              <button
+                onClick={() => onNavigate("settings")}
+                className={`size-10 rounded-xl flex items-center justify-center transition-colors relative group ${
+                  activePage === "settings"
+                    ? "bg-primary/10 text-primary"
+                    : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                }`}
                 title="Settings"
               >
                 <span className="material-symbols-outlined">settings</span>
                 <div className="absolute left-full ml-2 px-3 py-1.5 bg-slate-900 dark:bg-slate-700 text-white text-xs font-medium rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg">
                   Settings
                 </div>
-              </a>
+              </button>
               <div className="relative group">
                 <img
                   alt="Profile"
