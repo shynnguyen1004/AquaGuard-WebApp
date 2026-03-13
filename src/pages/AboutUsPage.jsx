@@ -90,7 +90,7 @@ export default function AboutUsPage() {
             Advisor
           </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-6 gap-y-10">
             {[
               { id: 1, name: "Lê Phúc Khang", role: "Advisor" },
               { id: 2, name: "Phan Hoàng Kiên", role: "Advisor" },
@@ -109,8 +109,8 @@ export default function AboutUsPage() {
                 </div>
                 {/* Left-Aligned Name Container */}
                 <div className="text-left">
-                  <h4 className="font-bold text-slate-900 dark:text-white text-xl md:text-2xl leading-tight">{advisor.name}</h4>
-                  <p className="text-slate-500 dark:text-slate-400 italic text-sm mt-1">{advisor.role}</p>
+                  <h4 className="font-bold text-slate-900 dark:text-white text-base md:text-lg leading-tight">{advisor.name}</h4>
+                  <p className="text-slate-500 dark:text-slate-400 italic text-xs mt-1">{advisor.role}</p>
                 </div>
               </div>
             ))}
@@ -123,7 +123,7 @@ export default function AboutUsPage() {
             Core Team
           </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-6 gap-y-10">
 
             {[
               { id: 1, name: "Nguyễn Trường Sơn", avatar: "" },
@@ -155,8 +155,8 @@ export default function AboutUsPage() {
 
                 {/* Left-Aligned Name Container */}
                 <div className="text-left">
-                  <h4 className="font-bold text-slate-900 dark:text-white text-xl md:text-2xl leading-tight">{contributor.name}</h4>
-                  <p className="text-slate-500 dark:text-slate-400 italic text-sm mt-1">Core Team Member</p>
+                  <h4 className="font-bold text-slate-900 dark:text-white text-base md:text-lg leading-tight">{contributor.name}</h4>
+                  <p className="text-slate-500 dark:text-slate-400 italic text-xs mt-1">Core Team Member</p>
                 </div>
               </div>
             ))}
