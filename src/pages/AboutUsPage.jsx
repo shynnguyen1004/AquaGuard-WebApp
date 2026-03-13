@@ -84,10 +84,42 @@ export default function AboutUsPage() {
           </div>
         </div>
 
-        {/* Contributors Section */}
+        {/* Advisors Section */}
         <div className="mb-24">
           <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-12 border-b-2 border-slate-900/10 dark:border-white/10 pb-4">
-            Contributors
+            Advisor
+          </h2>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
+            {[
+              { id: 1, name: "Lê Phúc Khang", role: "Advisor" },
+              { id: 2, name: "Phan Hoàng Kiên", role: "Advisor" },
+              { id: 3, name: "Trần Gia Kiệt", role: "Advisor" },
+            ].map(advisor => (
+              <div key={advisor.id} className="flex flex-col group cursor-default">
+                {/* Large Square Image Container */}
+                <div className="w-full aspect-square bg-[#e2e8f0] dark:bg-slate-800 mb-5 overflow-hidden relative flex items-center justify-center">
+                  {/* Subtle Background Pattern */}
+                  <div className="absolute inset-0 opacity-60 dark:opacity-20 pointer-events-none" 
+                       style={{ backgroundImage: 'repeating-radial-gradient(circle at center, transparent 0, transparent 40px, rgba(255,255,255,0.7) 40px, rgba(255,255,255,0.7) 41px)' }}>
+                  </div>
+                  <span className="material-symbols-outlined text-7xl text-slate-400 dark:text-slate-600 z-10 group-hover:scale-110 transition-transform duration-500">person</span>
+                  <div className="absolute inset-0 bg-black/5 dark:bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20 pointer-events-none" />
+                </div>
+                {/* Left-Aligned Name Container */}
+                <div className="text-left">
+                  <h4 className="font-bold text-slate-900 dark:text-white text-xl md:text-2xl leading-tight">{advisor.name}</h4>
+                  <p className="text-slate-500 dark:text-slate-400 italic text-sm mt-1">{advisor.role}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Core Team Section */}
+        <div className="mb-24">
+          <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-12 border-b-2 border-slate-900/10 dark:border-white/10 pb-4">
+            Core Team
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
@@ -99,14 +131,15 @@ export default function AboutUsPage() {
               { id: 4, name: "Trần Tuấn Nghĩa", avatar: "" },
               { id: 5, name: "Trương Nguyễn Bảo Khang", avatar: "../dist/images/khang.png" },
               { id: 6, name: "Aleksander Binkowski", avatar: "" },
+              { id: 7, name: "Hoàng Thịnh", avatar: "" },
             ].map(contributor => (
               <div key={contributor.id} className="flex flex-col group cursor-default">
                 {/* Large Square Image Container */}
                 <div className="w-full aspect-square bg-[#e2e8f0] dark:bg-slate-800 mb-5 overflow-hidden relative flex items-center justify-center">
-                  
+
                   {/* Subtle Background Pattern (Concentric Circles imitating the screenshot) */}
-                  <div className="absolute inset-0 opacity-60 dark:opacity-20 pointer-events-none" 
-                       style={{ backgroundImage: 'repeating-radial-gradient(circle at center, transparent 0, transparent 40px, rgba(255,255,255,0.7) 40px, rgba(255,255,255,0.7) 41px)' }}>
+                  <div className="absolute inset-0 opacity-60 dark:opacity-20 pointer-events-none"
+                    style={{ backgroundImage: 'repeating-radial-gradient(circle at center, transparent 0, transparent 40px, rgba(255,255,255,0.7) 40px, rgba(255,255,255,0.7) 41px)' }}>
                   </div>
 
                   {contributor.avatar ? (
@@ -114,15 +147,15 @@ export default function AboutUsPage() {
                   ) : (
                     <span className="material-symbols-outlined text-7xl text-slate-400 dark:text-slate-600 z-10 group-hover:scale-110 transition-transform duration-500">person</span>
                   )}
-                  
+
                   {/* Hover Overlay */}
                   <div className="absolute inset-0 bg-black/5 dark:bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20 pointer-events-none" />
                 </div>
-                
+
                 {/* Left-Aligned Name Container */}
                 <div className="text-left">
                   <h4 className="font-bold text-slate-900 dark:text-white text-xl md:text-2xl leading-tight">{contributor.name}</h4>
-                  <p className="text-slate-500 dark:text-slate-400 italic text-sm mt-1">Contributor</p>
+                  <p className="text-slate-500 dark:text-slate-400 italic text-sm mt-1">Core Team Member</p>
                 </div>
               </div>
             ))}
