@@ -24,14 +24,21 @@ export default function AboutUsPage() {
               <div className="size-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                 <span className="material-symbols-outlined text-2xl">flag</span>
               </div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Our Mission</h2>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Our Vision and Mission</h2>
             </div>
-            <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-              Every year, floods displace thousands of families and cause unprecedented damage. AquaGuard was built on the core belief that access to timely information and quick communication saves lives. Our platform serves as a central hub connecting citizens, rescue teams, and local authorities to seamlessly manage crisis situations.
+            
+            <h3 className="text-md font-bold text-slate-900 dark:text-white mt-6 mb-2">Vision (Long-term Vision)</h3>
+            <p className="text-slate-600 dark:text-slate-400 leading-relaxed mb-6">
+              To build a resilient and accessible digital platform that improves disaster preparedness and emergency response, helping communities in flood-prone regions stay safer and better connected during natural disasters.
             </p>
-            <p className="text-slate-600 dark:text-slate-400 leading-relaxed mt-4">
-              Whether you need to report rising water levels, request immediate rescue for a family member, or stay updated on active community safety protocols, AquaGuard aims to be your reliable partner during extreme weather events.
-            </p>
+
+            <h3 className="text-md font-bold text-slate-900 dark:text-white mb-2">Mission (Product Mission)</h3>
+            <ul className="list-disc pl-5 text-slate-600 dark:text-slate-400 leading-relaxed space-y-2">
+              <li>Provide residents with reliable flood alerts and safety information during emergencies.</li>
+              <li>Enable fast and simple communication between citizens and rescue teams through SOS reporting and location sharing.</li>
+              <li>Support authorities and responders with real-time situational data to improve rescue coordination and decision-making.</li>
+              <li className="italic">*Future: Deploy a drone system that connects with the AquaGuard app to connect to victims in every region, despite connectivity loss.</li>
+            </ul>
           </div>
 
           {/* Key Features */}
