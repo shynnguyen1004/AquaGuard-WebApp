@@ -95,13 +95,14 @@ export default function AboutUsPage() {
               { id: 1, name: "Lê Phúc Khang", role: "Advisor" },
               { id: 2, name: "Phan Hoàng Kiên", role: "Advisor" },
               { id: 3, name: "Trần Gia Kiệt", role: "Advisor" },
+              { id: 4, name: "Lê Quốc Huy", role: "Advisor" },
             ].map(advisor => (
               <div key={advisor.id} className="flex flex-col group cursor-default">
                 {/* Large Square Image Container */}
                 <div className="w-full aspect-square bg-[#e2e8f0] dark:bg-slate-800 mb-5 overflow-hidden relative flex items-center justify-center">
                   {/* Subtle Background Pattern */}
-                  <div className="absolute inset-0 opacity-60 dark:opacity-20 pointer-events-none" 
-                       style={{ backgroundImage: 'repeating-radial-gradient(circle at center, transparent 0, transparent 40px, rgba(255,255,255,0.7) 40px, rgba(255,255,255,0.7) 41px)' }}>
+                  <div className="absolute inset-0 opacity-60 dark:opacity-20 pointer-events-none"
+                    style={{ backgroundImage: 'repeating-radial-gradient(circle at center, transparent 0, transparent 40px, rgba(255,255,255,0.7) 40px, rgba(255,255,255,0.7) 41px)' }}>
                   </div>
                   <span className="material-symbols-outlined text-7xl text-slate-400 dark:text-slate-600 z-10 group-hover:scale-110 transition-transform duration-500">person</span>
                   <div className="absolute inset-0 bg-black/5 dark:bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20 pointer-events-none" />
@@ -131,7 +132,7 @@ export default function AboutUsPage() {
               { id: 4, name: "Trần Tuấn Nghĩa", avatar: "" },
               { id: 5, name: "Trương Nguyễn Bảo Khang", avatar: "../dist/images/khang.png" },
               { id: 6, name: "Aleksander Binkowski", avatar: "" },
-              { id: 7, name: "Hoàng Thịnh", avatar: "" },
+              { id: 7, name: "Lê Hoàng Thịnh", avatar: "" },
             ].map(contributor => (
               <div key={contributor.id} className="flex flex-col group cursor-default">
                 {/* Large Square Image Container */}
