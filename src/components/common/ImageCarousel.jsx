@@ -73,21 +73,21 @@ const ImageCarousel = ({ images }) => {
         ))}
       </div>
 
-      {/* Navigation Arrows */}
+      {/* Navigation Arrows (Outside Image) */}
       <button 
         onClick={prevSlide}
-        className="absolute left-10 md:left-20 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-white text-primary shadow-sm hover:bg-slate-50 transition-colors z-20 focus:outline-none"
+        className="absolute left-0 lg:left-2 top-1/2 -translate-y-1/2 w-8 md:w-12 h-10 md:h-14 flex items-center justify-center bg-white shadow-sm hover:bg-slate-50 transition-colors z-30 focus:outline-none border border-slate-200"
         aria-label="Previous slide"
       >
-        <span className="material-symbols-outlined text-[1.4rem] font-bold">arrow_back_ios_new</span>
+        <span className="material-symbols-outlined text-primary text-[2rem] font-light">chevron_left</span>
       </button>
 
       <button 
         onClick={nextSlide}
-        className="absolute right-10 md:right-20 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-white text-primary shadow-sm hover:bg-slate-50 transition-colors z-20 focus:outline-none"
+        className="absolute right-0 lg:right-2 top-1/2 -translate-y-1/2 w-8 md:w-12 h-10 md:h-14 flex items-center justify-center bg-white shadow-sm hover:bg-slate-50 transition-colors z-30 focus:outline-none border border-slate-200"
         aria-label="Next slide"
       >
-        <span className="material-symbols-outlined text-[1.4rem] font-bold">arrow_forward_ios</span>
+        <span className="material-symbols-outlined text-primary text-[2rem] font-light">chevron_right</span>
       </button>
 
       {/* Indicators */}
