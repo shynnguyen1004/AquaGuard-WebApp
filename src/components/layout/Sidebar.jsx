@@ -7,6 +7,7 @@ const navItems = [
   { icon: "emergency", label: "Rescue Requests", page: "rescue", badge: 12 },
   { icon: "description", label: "Reports", page: "reports" },
   { icon: "shield_with_heart", label: "Safety Protocols", page: "safety" },
+  { icon: "info", label: "About Us", page: "about" },
 ];
 
 function NavItem({ icon, label, active, filled, badge, onClick, collapsed }) {
