@@ -115,6 +115,12 @@ export default function Sidebar({ activePage = "dashboard", onNavigate, collapse
               <img
                 alt="AquaGuard"
                 src="/images/dark_mode_logo.png"
+                className="hidden dark:block"
+              />
+              <img
+                alt="AquaGuard"
+                src="/images/light_mode_logo.png"
+                className="block dark:hidden"
               />
             </div>
           ) : (
