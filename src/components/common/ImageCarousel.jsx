@@ -76,30 +76,30 @@ const ImageCarousel = ({ images }) => {
       {/* Navigation Arrows */}
       <button 
         onClick={prevSlide}
-        className="absolute left-10 md:left-20 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-lg bg-white/90 text-primary shadow-md hover:bg-white hover:scale-110 transition-all z-20 focus:outline-none"
+        className="absolute left-10 md:left-20 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-white text-primary shadow-sm hover:bg-slate-50 transition-colors z-20 focus:outline-none"
         aria-label="Previous slide"
       >
-        <span className="material-symbols-outlined font-bold">arrow_back_ios_new</span>
+        <span className="material-symbols-outlined text-[1.4rem] font-bold">arrow_back_ios_new</span>
       </button>
 
       <button 
         onClick={nextSlide}
-        className="absolute right-10 md:right-20 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-lg bg-white/90 text-primary shadow-md hover:bg-white hover:scale-110 transition-all z-20 focus:outline-none"
+        className="absolute right-10 md:right-20 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-white text-primary shadow-sm hover:bg-slate-50 transition-colors z-20 focus:outline-none"
         aria-label="Next slide"
       >
-        <span className="material-symbols-outlined font-bold">arrow_forward_ios</span>
+        <span className="material-symbols-outlined text-[1.4rem] font-bold">arrow_forward_ios</span>
       </button>
 
       {/* Indicators */}
-      <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-3 z-20">
+      <div className="absolute bottom-6 left-0 right-0 flex justify-center items-center gap-2 z-20">
         {images.map((_, index) => (
           <button
             key={index}
             onClick={() => goToSlide(index)}
-            className={`w-2.5 h-2.5 rounded-full transition-all ${
+            className={`rounded-full transition-all duration-300 ${
               currentIndex === index 
-                ? "bg-white scale-125 shadow-sm" 
-                : "bg-white/50 hover:bg-white/80"
+                ? "w-2.5 h-2.5 bg-white shadow-sm" 
+                : "w-2 h-2 bg-white/40 hover:bg-white/60"
             }`}
             aria-label={`Go to slide ${index + 1}`}
           />
