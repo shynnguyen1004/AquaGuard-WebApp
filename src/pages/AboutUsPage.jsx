@@ -99,20 +99,33 @@ export default function AboutUsPage() {
             </span>
           </div>
 
-          <div className="bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 text-center">
-            <div className="size-16 bg-slate-100 dark:bg-slate-700 rounded-full mx-auto flex items-center justify-center mb-4">
-               <span className="material-symbols-outlined text-3xl text-slate-400">code</span>
+          <div className="bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 p-6">
+            <h3 className="font-bold text-slate-900 dark:text-white mb-4 text-center">Academic Supervisors</h3>
+            <div className="space-y-4 mb-6">
+              <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                <p className="font-semibold text-slate-900 dark:text-white text-sm">Dr. Võ Thanh Hằng</p>
+                <p className="text-xs text-slate-500 mt-1">Faculty of Environment and Natural Resources Engineering</p>
+                <p className="text-xs text-slate-400">Ho Chi Minh City University of Technology (HCMUT)</p>
+              </div>
+              <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                 <p className="font-semibold text-slate-900 dark:text-white text-sm">MSc. Bùi Xuân Giang</p>
+                 <p className="text-xs text-slate-500 mt-1">Faculty of Computer Science and Engineering</p>
+                 <p className="text-xs text-slate-400">Ho Chi Minh City University of Technology (HCMUT)</p>
+              </div>
             </div>
-            <h3 className="font-bold text-slate-900 dark:text-white mb-2">The Development Team</h3>
-            <p className="text-sm text-slate-500 mb-4">
-              Built with purpose by a dedicated team of engineers focused on solving climate emergency challenges through modern technology.
-            </p>
-            <div className="flex justify-center gap-2">
+
+            <h3 className="font-bold text-slate-900 dark:text-white mb-3 text-center">Contributors</h3>
+            <div className="flex flex-wrap gap-2 justify-center mb-4">
+              {['Nguyen Truong Son', 'Nguyen Minh Quan', 'Nguyen Minh Quan', 'Tran Tuan Nghia', 'Truong Nguyen Bao Khang'].map((name, i) => (
+                <span key={i} className="px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-xs font-medium">
+                  {name}
+                </span>
+              ))}
+            </div>
+            
+            <div className="flex justify-center gap-2 mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
               <a href="#" className="size-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 hover:text-primary transition">
                 <i className="fab fa-github"></i>
-              </a>
-              <a href="#" className="size-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 hover:text-primary transition">
-                <i className="fab fa-linkedin"></i>
               </a>
               <a href="mailto:contact@aquaguard.app" className="size-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 hover:text-primary transition">
                 <span className="material-symbols-outlined text-[1rem]">mail</span>
