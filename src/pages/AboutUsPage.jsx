@@ -50,11 +50,13 @@ export default function AboutUsPage() {
             {/* Supervisor 1 */}
             <div className="flex flex-col md:flex-row gap-10 items-start">
                {/* Headshot placeholder */}
-               <div className="w-56 h-72 bg-slate-200 dark:bg-slate-800 rounded-3xl flex-shrink-0 flex items-center justify-center overflow-hidden shadow-inner border border-slate-300/50 dark:border-slate-700/50">
+               <div className="w-56 h-72 bg-slate-200 dark:bg-slate-800 rounded-3xl flex-shrink-0 flex items-center justify-center overflow-hidden shadow-inner border border-slate-300/50 dark:border-slate-700/50 relative group">
+                   {/* To add an image, replace the span below with an img tag like: 
+                       <img src="/images/your_image.jpg" alt="Võ Thanh Hằng" className="w-full h-full object-cover" /> 
+                   */}
                    <span className="material-symbols-outlined text-7xl text-slate-400">person</span>
                </div>
                <div className="flex-1 pt-2">
-                  <h4 className="text-primary font-bold mb-1 text-lg">Dr.</h4>
                   <h3 className="text-4xl font-extrabold text-slate-900 dark:text-white mb-2">Võ Thanh Hằng</h3>
                   <p className="text-slate-500 italic mb-6 text-lg">(Võ Thanh Hằng)</p>
                   <p className="text-slate-600 dark:text-slate-400 text-lg leading-relaxed mb-4">
@@ -66,11 +68,13 @@ export default function AboutUsPage() {
              {/* Supervisor 2 */}
             <div className="flex flex-col md:flex-row gap-10 items-start">
                {/* Headshot placeholder */}
-               <div className="w-56 h-72 bg-slate-200 dark:bg-slate-800 rounded-3xl flex-shrink-0 flex items-center justify-center overflow-hidden shadow-inner border border-slate-300/50 dark:border-slate-700/50">
+               <div className="w-56 h-72 bg-slate-200 dark:bg-slate-800 rounded-3xl flex-shrink-0 flex items-center justify-center overflow-hidden shadow-inner border border-slate-300/50 dark:border-slate-700/50 relative group">
+                   {/* To add an image, replace the span below with an img tag like: 
+                       <img src="/images/your_image.jpg" alt="Bùi Xuân Giang" className="w-full h-full object-cover" /> 
+                   */}
                    <span className="material-symbols-outlined text-7xl text-slate-400">person</span>
                </div>
                <div className="flex-1 pt-2">
-                  <h4 className="text-primary font-bold mb-1 text-lg">MSc.</h4>
                   <h3 className="text-4xl font-extrabold text-slate-900 dark:text-white mb-2">Bùi Xuân Giang</h3>
                   <p className="text-slate-500 italic mb-6 text-lg">(Bùi Xuân Giang)</p>
                   <p className="text-slate-600 dark:text-slate-400 text-lg leading-relaxed mb-4">
@@ -91,15 +95,20 @@ export default function AboutUsPage() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-y-12 gap-x-6 justify-items-center">
             
             {[
-               { id: 1, name: "Nguyen Truong Son", vnName: "Nguyễn Trường Sơn" },
-               { id: 2, name: "Nguyen Minh Quan", vnName: "Nguyễn Minh Quân" },
-               { id: 3, name: "Nguyen Minh Quan", vnName: "Nguyễn Minh Quân" },
-               { id: 4, name: "Tran Tuan Nghia", vnName: "Trần Tuấn Nghĩa" },
-               { id: 5, name: "Truong Nguyen Bao Khang", vnName: "Trương Nguyễn Bảo Khang" },
+               { id: 1, name: "Nguyen Truong Son", vnName: "Nguyễn Trường Sơn", avatar: "" },
+               { id: 2, name: "Nguyen Minh Quan", vnName: "Nguyễn Minh Quân", avatar: "" },
+               { id: 3, name: "Nguyen Minh Quan", vnName: "Nguyễn Minh Quân", avatar: "" },
+               { id: 4, name: "Tran Tuan Nghia", vnName: "Trần Tuấn Nghĩa", avatar: "" },
+               { id: 5, name: "Truong Nguyen Bao Khang", vnName: "Trương Nguyễn Bảo Khang", avatar: "" },
             ].map(contributor => (
                <div key={contributor.id} className="text-center group">
                  <div className="w-40 h-40 rounded-full bg-slate-200 dark:bg-slate-800 mx-auto flex items-center justify-center mb-5 overflow-hidden shadow-inner border-4 border-white dark:border-slate-900 group-hover:border-primary/50 transition-colors duration-300 ease-in-out cursor-pointer relative">
-                    <span className="material-symbols-outlined text-5xl text-slate-400 shadow-sm group-hover:scale-110 transition-transform duration-300">person</span>
+                    {/* If contributor has an avatar mapped above, show it, otherwise show placeholder icon */}
+                    {contributor.avatar ? (
+                       <img src={contributor.avatar} alt={contributor.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
+                    ) : (
+                       <span className="material-symbols-outlined text-5xl text-slate-400 shadow-sm group-hover:scale-110 transition-transform duration-300">person</span>
+                    )}
                     <div className="absolute inset-0 bg-black/5 dark:bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                  </div>
                  <h4 className="font-bold text-slate-900 dark:text-white text-[1.05rem] max-w-[150px] mx-auto leading-tight">{contributor.name}</h4>
