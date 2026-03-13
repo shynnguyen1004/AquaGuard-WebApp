@@ -1,5 +1,5 @@
-// If no local image, we can use an unspalsh layout or standard icons.
 import { useAuth } from "../contexts/AuthContext";
+import ImageCarousel from "../components/common/ImageCarousel";
 
 export default function AboutUsPage() {
   const { user } = useAuth();
@@ -14,29 +14,58 @@ export default function AboutUsPage() {
           <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-8 border-b-2 border-slate-900/10 dark:border-white/10 pb-4">
             Vision & Mission
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+
+            {/* Vision */}
             <div className="bg-white dark:bg-slate-800/40 p-8 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">visibility</span>
-                Vision (Long-term Vision)
+                Vision
               </h3>
-              <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-lg">
-                To build a resilient and accessible digital platform that improves disaster preparedness and emergency response, helping communities in flood-prone regions stay safer and better connected during natural disasters.
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-[1.05rem]">
+                To build a resilient and accessible digital platform that improves disaster preparedness and helps flood-prone communities stay safe and connected.
               </p>
             </div>
+
+            {/* Mission */}
             <div className="bg-white dark:bg-slate-800/40 p-8 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">flag</span>
-                Mission (Product Mission)
+                Mission
               </h3>
               <ul className="list-disc pl-5 text-slate-600 dark:text-slate-400 leading-relaxed space-y-3 text-[1.05rem]">
-                <li>Provide residents with reliable flood alerts and safety information during emergencies.</li>
-                <li>Enable fast and simple communication between citizens and rescue teams through SOS reporting and location sharing.</li>
-                <li>Support authorities and responders with real-time situational data to improve rescue coordination and decision-making.</li>
-                <li className="italic text-primary/80 list-none -ml-5 pt-2">*Future: Deploy a drone system that connects with the AquaGuard app to connect to victims in every region, despite connectivity loss.</li>
+                <li>Provide reliable flood alerts and safety information.</li>
+                <li>Enable fast communication between citizens and rescue teams via SOS.</li>
+                <li>Support authorities with real-time situational data.</li>
               </ul>
             </div>
+
+            {/* Future */}
+            <div className="bg-white dark:bg-slate-800/40 p-8 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">rocket_launch</span>
+                Future
+              </h3>
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-[1.05rem]">
+                Deploy a drone system integrated with the AquaGuard app to connect to isolated victims in every region, ensuring communication even during widespread connectivity loss.
+              </p>
+            </div>
+
           </div>
+        </div>
+
+        {/* Gallery Section */}
+        <div className="mb-24">
+          <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-8 border-b-2 border-slate-900/10 dark:border-white/10 pb-4">
+            Gallery
+          </h2>
+          <ImageCarousel
+            images={[
+              { url: 'https://scontent.fsgn2-4.fna.fbcdn.net/v/t39.30808-6/628259397_122114044779169933_5458293276885252524_n.jpg?stp=cp6_dst-jpg_tt6&_nc_cat=101&ccb=1-7&_nc_sid=13d280&_nc_ohc=ve0wEakybbQQ7kNvwEKBoC5&_nc_oc=AdmOj9UHHuXriXukYTitBU6WnO2o3DbgCSqpY08F24QNzX2OpMh7TAXHeuuVbk0CO3I-LvUCr97M5FSR1TGgTKDL&_nc_zt=23&_nc_ht=scontent.fsgn2-4.fna&_nc_gid=LsZDPWxN2cr3UlqygwNPfA&_nc_ss=8&oh=00_AfwNwVjQ4nUNvU-ixCQ1OXPQDOQOXJ3erHsp0HxqO5BhBw&oe=69B9CEA9' },
+              { url: 'https://scontent.fsgn2-6.fna.fbcdn.net/v/t39.30808-6/628255462_122114039691169933_8695820490978034300_n.jpg?_nc_cat=110&ccb=1-7&_nc_sid=13d280&_nc_ohc=nDfAUJjpEXIQ7kNvwF3aZzk&_nc_oc=Adl1uvcsID9pB25gEi6plp56EF2-fRDU6UKK2nh0MTVD_KX260KjGcRPvQKDn0M4m0h3Y3MH26Py6mz17-_rvdX9&_nc_zt=23&_nc_ht=scontent.fsgn2-6.fna&_nc_gid=xFz73T-hh2t5IcsYj2SjIg&_nc_ss=8&oh=00_Afz_3nenlNzgdUTbHmhbz_zwqEMBnBSgIgS1vPvnUcoqiA&oe=69B9CACF' },
+              { url: 'https://scontent.fsgn2-5.fna.fbcdn.net/v/t39.30808-6/626497518_1472419668219087_1113749333387464840_n.jpg?_nc_cat=104&ccb=1-7&_nc_sid=7b2446&_nc_ohc=3H0QElcPgx8Q7kNvwFjlXJd&_nc_oc=AdlJAk0NylO5ZIvkSo6zvnOHvbpiBLru87yt2JWhX0yQYAB4FixXFXnRe7Z-yVKfk-0j-jJev15cqtRpDSIA-n8N&_nc_zt=23&_nc_ht=scontent.fsgn2-5.fna&_nc_gid=ibP4esnxCm6zUcbyw3Ft-Q&_nc_ss=8&oh=00_AfykvpNionMNOnqR4FlbHqG1krbeXZ1vERbx4l5ZLKbISg&oe=69B9A13D' }
+            ]}
+          />
         </div>
 
         {/* Academic Supervisors Section */}
