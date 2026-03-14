@@ -1,6 +1,9 @@
+import { useState, useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { collection, getDocs } from "firebase/firestore";
+import { getFirebaseDb } from "../../config/firebase";
 import MapLegend from "./MapLegend";
 
 // Custom colored pin icon using inline SVG
@@ -26,50 +29,109 @@ function createPinIcon(color) {
   });
 }
 
-const floodMarkers = [
-  {
-    lat: 15.985, lng: 108.05,
-    color: "#a855f7",
-    label: "Critical",
-    detail: "Water +3.2m",
-    address: "Hoa Vang District, Da Nang",
-    description: "Flash flood — multiple households submerged. Rescue teams deployed.",
-  },
-  {
-    lat: 16.068, lng: 108.214,
-    color: "#ef4444",
-    label: "Severe",
-    detail: "Water +2.5m",
-    address: "268 Ly Thuong Kiet, Hai Chau, Da Nang",
-    description: "Road completely flooded. Vehicles stranded, pedestrians trapped.",
-  },
-  {
-    lat: 16.108, lng: 108.215,
-    color: "#ef4444",
-    label: "Severe",
-    detail: "Water +1.8m",
-    address: "Son Tra District, Da Nang",
-    description: "Coastal flooding due to high tide. Evacuation in progress.",
-  },
-  {
-    lat: 16.015, lng: 108.205,
-    color: "#f59e0b",
-    label: "Moderate",
-    detail: "Water +0.9m",
-    address: "Cam Le District, Da Nang",
-    description: "Low-lying areas experiencing rising water levels. Monitoring active.",
-  },
-  {
-    lat: 16.039, lng: 108.237,
-    color: "#10b981",
-    label: "Safe",
-    detail: "Normal level",
-    address: "My An, Ngu Hanh Son, Da Nang",
-    description: "Water levels stable. No immediate risk detected.",
-  },
-];
+// Map severity → color & label
+const severityMap = {
+  critical: { color: "#a855f7", label: "Critical" },
+  severe:   { color: "#ef4444", label: "Severe" },
+  moderate: { color: "#f59e0b", label: "Moderate" },
+  low:      { color: "#10b981", label: "Low" },
+  safe:     { color: "#10b981", label: "Safe" },
+};
+
+/**
+ * Parse Firestore location → { lat, lng }
+ * Handles: GeoPoint objects, plain objects {latitude, longitude}, and strings
+ */
+function parseLocation(location) {
+  if (!location) return null;
+
+  // Handle Firestore GeoPoint or plain object with lat/lng
+  if (typeof location === "object") {
+    // GeoPoint has .latitude and .longitude
+    if (typeof location.latitude === "number" && typeof location.longitude === "number") {
+      return { lat: location.latitude, lng: location.longitude };
+    }
+    // Some GeoPoint implementations use _lat / _long
+    if (typeof location._lat === "number" && typeof location._long === "number") {
+      return { lat: location._lat, lng: location._long };
+    }
+    // Plain object with lat/lng
+    if (typeof location.lat === "number" && typeof location.lng === "number") {
+      return { lat: location.lat, lng: location.lng };
+    }
+    return null;
+  }
+
+  // Handle string format: "[16.0146° N, 108.2091° E]"
+  if (typeof location === "string") {
+    const cleaned = location
+      .replace(/[\[\]]/g, "")
+      .replace(/°/g, "")
+      .replace(/\s*[NSEW]\s*/gi, "")
+      .trim();
+    const parts = cleaned.split(",").map((s) => parseFloat(s.trim()));
+    if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      return { lat: parts[0], lng: parts[1] };
+    }
+  }
+
+  return null;
+}
 
 export default function FloodMap() {
+  const [markers, setMarkers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    async function fetchFloodZones() {
+      try {
+        console.log("[FloodMap] Bắt đầu kết nối Firestore...");
+        const db = getFirebaseDb();
+        console.log("[FloodMap] Firestore instance OK. Đang fetch flood_zones...");
+
+        const floodZonesRef = collection(db, "flood_zones");
+        const snapshot = await getDocs(floodZonesRef);
+
+        console.log("[FloodMap] Số documents nhận được:", snapshot.size);
+
+        const data = [];
+        snapshot.docs.forEach((doc) => {
+          const d = doc.data();
+          console.log("[FloodMap] Document:", doc.id, d);
+
+          const pos = parseLocation(d.location);
+          if (!pos) {
+            console.warn("[FloodMap] Không parse được location:", d.location);
+            return;
+          }
+
+          const sev = severityMap[d.severity?.toLowerCase()] || severityMap.safe;
+          data.push({
+            id: doc.id,
+            lat: pos.lat,
+            lng: pos.lng,
+            name: d.name || "",
+            label: sev.label,
+            color: sev.color,
+            waterLevel: d.water_level ?? null,
+          });
+        });
+
+        console.log("[FloodMap] Tổng markers hiển thị:", data.length);
+        setMarkers(data);
+        setError(null);
+      } catch (err) {
+        console.error("[FloodMap] Lỗi:", err.code, err.message, err);
+        setError(`Lỗi: ${err.code || err.message}`);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchFloodZones();
+  }, []);
+
   return (
     <div className="flex-1 relative">
       <style>{`
@@ -82,6 +144,25 @@ export default function FloodMap() {
         .leaflet-popup-content { margin: 0 !important; min-width: 220px; }
         .leaflet-popup-tip { box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important; }
       `}</style>
+
+      {/* Loading overlay */}
+      {loading && (
+        <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3">
+            <div className="size-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
+              Đang tải dữ liệu bản đồ...
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Error banner */}
+      {error && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-red-500/90 text-white text-sm px-4 py-2 rounded-lg shadow-lg max-w-md text-center">
+          {error}
+        </div>
+      )}
 
       <MapContainer
         center={[16.054, 108.202]}
@@ -96,9 +177,9 @@ export default function FloodMap() {
           url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
         />
 
-        {floodMarkers.map((marker, i) => (
+        {markers.map((marker) => (
           <Marker
-            key={i}
+            key={marker.id}
             position={[marker.lat, marker.lng]}
             icon={createPinIcon(marker.color)}
           >
@@ -112,17 +193,18 @@ export default function FloodMap() {
                   <span className="font-black text-sm" style={{ color: marker.color }}>
                     {marker.label}
                   </span>
-                  <span className="text-[10px] font-bold text-slate-500 ml-auto bg-slate-100 px-2 py-0.5 rounded-full">
-                    {marker.detail}
-                  </span>
+                  {marker.waterLevel != null && (
+                    <span className="text-[10px] font-bold text-slate-500 ml-auto bg-slate-100 px-2 py-0.5 rounded-full">
+                      Water +{marker.waterLevel}m
+                    </span>
+                  )}
                 </div>
-                <p className="text-xs text-slate-700 leading-relaxed mb-2">
-                  {marker.description}
-                </p>
-                <div className="flex items-start gap-1.5 text-[11px] text-slate-500">
-                  <span className="material-symbols-outlined text-sm mt-px">location_on</span>
-                  <span>{marker.address}</span>
-                </div>
+                {marker.name && (
+                  <div className="flex items-start gap-1.5 text-[11px] text-slate-500">
+                    <span className="material-symbols-outlined text-sm mt-px">location_on</span>
+                    <span>{marker.name}</span>
+                  </div>
+                )}
               </div>
             </Popup>
           </Marker>
