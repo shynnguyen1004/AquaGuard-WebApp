@@ -1,14 +1,6 @@
 import { useAuth } from "../../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-
-const navItems = [
-  { icon: "dashboard", label: "Dashboard", page: "dashboard" },
-  { icon: "map", label: "Live Flood Map", page: "map", filled: true },
-  { icon: "emergency", label: "Rescue Requests", page: "rescue", badge: 12 },
-  { icon: "description", label: "Reports", page: "reports" },
-  { icon: "shield_with_heart", label: "Safety Protocols", page: "safety" },
-  { icon: "info", label: "About Us", page: "about" },
-];
+import { getNavItemsForRole, getRoleLabel } from "../../config/rbac";
 
 function NavItem({ icon, label, active, filled, badge, onClick, collapsed }) {
   const baseClasses =
@@ -54,8 +46,9 @@ function NavItem({ icon, label, active, filled, badge, onClick, collapsed }) {
 }
 
 export default function Sidebar({ activePage = "dashboard", onNavigate, collapsed = false, onToggle, mobileOpen = false, onMobileClose }) {
-  const { user, logout } = useAuth();
+  const { user, role, logout } = useAuth();
   const navigate = useNavigate();
+  const navItems = getNavItemsForRole(role);
 
   const handleLogout = async () => {
     await logout();
@@ -152,11 +145,10 @@ export default function Sidebar({ activePage = "dashboard", onNavigate, collapse
             <>
               <button
                 onClick={() => { onNavigate("settings"); if (mobileOpen) onMobileClose(); }}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors w-full text-left ${
-                  activePage === "settings"
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors w-full text-left ${activePage === "settings"
                     ? "bg-primary/10 text-primary font-bold"
                     : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                }`}
+                  }`}
               >
                 <span className="material-symbols-outlined">settings</span>
                 <span className="font-medium">Settings</span>
@@ -178,11 +170,7 @@ export default function Sidebar({ activePage = "dashboard", onNavigate, collapse
                       {user?.displayName || "User"}
                     </p>
                     <p className="text-xs text-slate-500 truncate">
-                      {user?.role === "admin"
-                        ? "System Administrator"
-                        : user?.role === "rescuer"
-                          ? "Rescue Team"
-                          : user?.email || "Citizen"}
+                      {getRoleLabel(role)}
                     </p>
                   </div>
                 </div>
@@ -200,11 +188,10 @@ export default function Sidebar({ activePage = "dashboard", onNavigate, collapse
             <div className="flex flex-col items-center gap-2 py-2">
               <button
                 onClick={() => onNavigate("settings")}
-                className={`size-10 rounded-xl flex items-center justify-center transition-colors relative group ${
-                  activePage === "settings"
+                className={`size-10 rounded-xl flex items-center justify-center transition-colors relative group ${activePage === "settings"
                     ? "bg-primary/10 text-primary"
                     : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-                }`}
+                  }`}
                 title="Settings"
               >
                 <span className="material-symbols-outlined">settings</span>

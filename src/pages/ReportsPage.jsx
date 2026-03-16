@@ -8,10 +8,10 @@ export default function ReportsPage() {
         {/* Header */}
         <div className="mb-6 sm:mb-8">
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight flex items-center gap-3">
-            Reports & News
+            News & Alerts
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-2xl">
-            Stay updated with the latest flood warnings from authorities and submit bug reports or feature suggestions to improve the application.
+            Stay updated with the latest flood warnings and news from authorities.
           </p>
         </div>
 

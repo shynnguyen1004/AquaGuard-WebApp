@@ -11,12 +11,28 @@ import SafetyProtocolPage from "./SafetyProtocolPage";
 import ReportsPage from "./ReportsPage";
 import SettingsPage from "./SettingsPage";
 import AboutUsPage from "./AboutUsPage";
+import AdminDashboard from "./admin/AdminDashboard";
+import RescuerDashboard from "./rescuer/RescuerDashboard";
+import CitizenSOSPage from "./citizen/CitizenSOSPage";
 import ChatBot from "../components/chat/ChatBot";
+import RoleSelectionModal from "../components/auth/RoleSelectionModal";
+import { useAuth } from "../contexts/AuthContext";
+import { canAccessPage } from "../config/rbac";
 
 export default function Dashboard() {
   const [activePage, setActivePage] = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user, role, needsRoleSelection, selectRole } = useAuth();
+
+  // Guard navigation — redirect to dashboard if the user can't access the page
+  const handleNavigate = (page) => {
+    if (canAccessPage(role, page)) {
+      setActivePage(page);
+    } else {
+      setActivePage("dashboard");
+    }
+  };
 
   const renderContent = () => {
     switch (activePage) {
@@ -24,6 +40,12 @@ export default function Dashboard() {
         return (
           <main className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900/50 relative overflow-hidden">
             <DashboardHome />
+          </main>
+        );
+      case "sos":
+        return (
+          <main className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900/50 relative overflow-hidden">
+            <CitizenSOSPage />
           </main>
         );
       case "rescue":
@@ -38,7 +60,7 @@ export default function Dashboard() {
             <SafetyProtocolPage />
           </main>
         );
-      case "reports":
+      case "news":
         return (
           <main className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900/50 relative overflow-hidden">
             <ReportsPage />
@@ -56,6 +78,27 @@ export default function Dashboard() {
             <AboutUsPage />
           </main>
         );
+
+      // ── Admin pages ──
+      case "admin":
+      case "admin-users":
+      case "admin-teams":
+      case "admin-sensors":
+      case "admin-analytics":
+        return (
+          <main className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900/50 relative overflow-hidden">
+            <AdminDashboard />
+          </main>
+        );
+
+      // ── Rescuer pages ──
+      case "rescuer-dashboard":
+        return (
+          <main className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900/50 relative overflow-hidden">
+            <RescuerDashboard />
+          </main>
+        );
+
       default:
         return (
           <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
@@ -78,7 +121,7 @@ export default function Dashboard() {
         {/* Sidebar (desktop: static, mobile: overlay drawer) */}
         <Sidebar
           activePage={activePage}
-          onNavigate={setActivePage}
+          onNavigate={handleNavigate}
           collapsed={sidebarCollapsed}
           onToggle={() => setSidebarCollapsed(prev => !prev)}
           mobileOpen={mobileMenuOpen}
@@ -92,10 +135,19 @@ export default function Dashboard() {
       </div>
 
       {/* Mobile Bottom Navigation */}
-      <MobileBottomNav activePage={activePage} onNavigate={setActivePage} />
+      <MobileBottomNav activePage={activePage} onNavigate={handleNavigate} />
 
       {/* Chatbot */}
       <ChatBot />
+
+      {/* Role Selection Modal for first-time users */}
+      {needsRoleSelection && (
+        <RoleSelectionModal
+          userName={user?.displayName || "User"}
+          onSelect={selectRole}
+        />
+      )}
     </div>
   );
 }
+
