@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { signInWithPopup, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { getFirebaseAuth, getGoogleProvider, getFirebaseDb } from "../config/firebase";
+import { getFirebaseAuth, getGoogleProvider, getFirebaseDb, sendPhoneOTP } from "../config/firebase";
 import { ROLES } from "../config/rbac";
 
 const AuthContext = createContext(null);
@@ -74,6 +74,8 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [needsRoleSelection, setNeedsRoleSelection] = useState(false);
+  const [confirmationResult, setConfirmationResult] = useState(null);
+  const [phoneAuthStep, setPhoneAuthStep] = useState(null); // null | 'otp_sent'
   const [pendingFirebaseUser, setPendingFirebaseUser] = useState(null);
 
   /** Wrapper: always persist role changes. */
@@ -258,6 +260,85 @@ export function AuthProvider({ children }) {
     setPendingFirebaseUser(null);
   };
 
+  // ── Phone Login: Step 1 — Send OTP ──
+  const loginWithPhone = async (phoneNumber) => {
+    setError(null);
+    setLoading(true);
+    try {
+      const result = await sendPhoneOTP(phoneNumber);
+      setConfirmationResult(result);
+      setPhoneAuthStep("otp_sent");
+    } catch (err) {
+      setError(err.message || "Failed to send OTP");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Phone Login: Step 2 — Verify OTP ──
+  const verifyOTP = async (code) => {
+    if (!confirmationResult) {
+      setError("No OTP request found. Please request a new code.");
+      throw new Error("No confirmation result");
+    }
+
+    setError(null);
+    setLoading(true);
+    try {
+      const result = await confirmationResult.confirm(code);
+      const firebaseUser = result.user;
+      const idToken = await firebaseUser.getIdToken();
+
+      // Same flow as Google login: check Firestore for role
+      const { role: firestoreRole, isNew } = await fetchUserRole(firebaseUser.uid);
+
+      if (isNew) {
+        const tempUser = {
+          uid: firebaseUser.uid,
+          displayName: firebaseUser.displayName || firebaseUser.phoneNumber || "User",
+          email: firebaseUser.email || "",
+          phoneNumber: firebaseUser.phoneNumber || "",
+          avatarUrl: firebaseUser.photoURL || "",
+        };
+        localStorage.setItem("aquaguard_token", idToken);
+        setToken(idToken);
+        setUser(tempUser);
+        setPendingFirebaseUser(firebaseUser);
+        setNeedsRoleSelection(true);
+        setPhoneAuthStep(null);
+        setConfirmationResult(null);
+        setLoading(false);
+        return tempUser;
+      }
+
+      const resolvedRole = firestoreRole || ROLES.CITIZEN;
+      setPhoneAuthStep(null);
+      setConfirmationResult(null);
+      return await completeLogin(firebaseUser, idToken, resolvedRole);
+    } catch (err) {
+      if (err.code === "auth/invalid-verification-code") {
+        setError("Invalid OTP code. Please try again.");
+      } else if (err.code === "auth/code-expired") {
+        setError("OTP expired. Please request a new code.");
+        setPhoneAuthStep(null);
+        setConfirmationResult(null);
+      } else {
+        setError(err.message || "OTP verification failed");
+      }
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Reset phone auth state ──
+  const resetPhoneAuth = () => {
+    setPhoneAuthStep(null);
+    setConfirmationResult(null);
+    setError(null);
+  };
+
   // ── Logout ──
   const logout = async () => {
     try {
@@ -272,13 +353,15 @@ export function AuthProvider({ children }) {
     setRole(null);
     setNeedsRoleSelection(false);
     setPendingFirebaseUser(null);
+    setPhoneAuthStep(null);
+    setConfirmationResult(null);
   };
 
   const clearError = () => setError(null);
 
   return (
     <AuthContext.Provider
-      value={{ user, role, token, loading, error, needsRoleSelection, loginWithGoogle, selectRole, logout, clearError }}
+      value={{ user, role, token, loading, error, needsRoleSelection, phoneAuthStep, loginWithGoogle, loginWithPhone, verifyOTP, resetPhoneAuth, selectRole, logout, clearError }}
     >
       {children}
     </AuthContext.Provider>

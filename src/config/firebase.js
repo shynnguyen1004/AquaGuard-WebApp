@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -43,4 +43,33 @@ export function getFirebaseDb() {
     dbInstance = getFirestore(getFirebaseApp());
   }
   return dbInstance;
+}
+
+/**
+ * Set up an invisible reCAPTCHA verifier on a given DOM element.
+ * Must be called before signInWithPhoneNumber.
+ */
+let recaptchaVerifierInstance = null;
+
+export function setupRecaptcha(elementId = "recaptcha-container") {
+  const auth = getFirebaseAuth();
+  // Clear existing verifier if any
+  if (recaptchaVerifierInstance) {
+    try { recaptchaVerifierInstance.clear(); } catch { /* ignore */ }
+  }
+  recaptchaVerifierInstance = new RecaptchaVerifier(auth, elementId, {
+    size: "invisible",
+    callback: () => { /* reCAPTCHA solved */ },
+  });
+  return recaptchaVerifierInstance;
+}
+
+/**
+ * Send OTP to phone number. Returns confirmationResult.
+ */
+export async function sendPhoneOTP(phoneNumber) {
+  const auth = getFirebaseAuth();
+  const recaptchaVerifier = setupRecaptcha();
+  const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, recaptchaVerifier);
+  return confirmationResult;
 }
