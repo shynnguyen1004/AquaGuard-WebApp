@@ -7,11 +7,19 @@ import AdminFloodMapEditor from "../../components/map/AdminFloodMapEditor";
 
 const TABS = [
   { key: "overview", label: "Overview", icon: "dashboard" },
-  { key: "users", label: "Users", icon: "group" },
   { key: "rescuers", label: "Rescue Teams", icon: "local_fire_department" },
   { key: "requests", label: "SOS Requests", icon: "emergency" },
   { key: "map", label: "Flood Map", icon: "map" },
 ];
+
+// Map sidebar page names to internal tab keys
+const SIDEBAR_TO_TAB = {
+  "admin-users": "users",
+  "admin-teams": "rescuers",
+  "admin-sensors": "overview",
+  "admin-analytics": "overview",
+  "admin": "overview",
+};
 
 function StatCard({ icon, label, value, color, bgColor }) {
   return (
@@ -76,12 +84,21 @@ function UserRow({ userData, onRoleChange }) {
   );
 }
 
-export default function AdminDashboard() {
+export default function AdminDashboard({ activePage = "admin" }) {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(() => SIDEBAR_TO_TAB[activePage] || "overview");
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [rescueRequests, setRescueRequests] = useState([]);
+
+  // Sync internal tab when sidebar page changes
+  useEffect(() => {
+    const mapped = SIDEBAR_TO_TAB[activePage];
+    if (mapped) setActiveTab(mapped);
+  }, [activePage]);
+
+  // Determine if a sub-page was directly navigated from sidebar
+  const isSidebarSubPage = activePage !== "admin";
 
   // Fetch all users
   const fetchUsers = async () => {
@@ -153,23 +170,25 @@ export default function AdminDashboard() {
           </p>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
-                activeTab === tab.key
-                  ? "bg-primary text-white shadow-md shadow-primary/20"
-                  : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:border-primary/30 hover:text-primary"
-              }`}
-            >
-              <span className="material-symbols-outlined text-base">{tab.icon}</span>
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        {/* Tabs — hide when navigated from sidebar sub-page */}
+        {!isSidebarSubPage && (
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {TABS.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
+                  activeTab === tab.key
+                    ? "bg-primary text-white shadow-md shadow-primary/20"
+                    : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:border-primary/30 hover:text-primary"
+                }`}
+              >
+                <span className="material-symbols-outlined text-base">{tab.icon}</span>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Tab Content */}
         {activeTab === "overview" && (

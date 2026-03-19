@@ -87,7 +87,7 @@ export default function Dashboard() {
       case "admin-analytics":
         return (
           <main className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900/50 relative overflow-hidden">
-            <AdminDashboard />
+            <AdminDashboard activePage={activePage} />
           </main>
         );
 

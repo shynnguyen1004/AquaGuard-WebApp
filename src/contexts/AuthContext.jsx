@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { signInWithPopup, signOut } from "firebase/auth";
+import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { getFirebaseAuth, getGoogleProvider, getFirebaseDb, sendPhoneOTP } from "../config/firebase";
 import { ROLES } from "../config/rbac";
@@ -18,6 +18,28 @@ function saveRoleToStorage(r) {
 /** Read persisted role. */
 function loadRoleFromStorage() {
   return localStorage.getItem("aquaguard_role") || null;
+}
+
+/** Persist user profile to localStorage so it survives page reloads. */
+function saveUserToStorage(u) {
+  if (u) {
+    localStorage.setItem("aquaguard_user", JSON.stringify({
+      uid: u.uid || "",
+      displayName: u.displayName || "",
+      email: u.email || "",
+      avatarUrl: u.avatarUrl || u.photoURL || "",
+    }));
+  }
+}
+
+/** Read persisted user profile. */
+function loadUserFromStorage() {
+  try {
+    const raw = localStorage.getItem("aquaguard_user");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -85,52 +107,76 @@ export function AuthProvider({ children }) {
     saveRoleToStorage(resolved);
   };
 
-  // ── Restore session on mount ──
+  // ── Restore session on mount via Firebase onAuthStateChanged ──
   useEffect(() => {
-    const restoreSession = async () => {
-      const savedToken = localStorage.getItem("aquaguard_token");
-      if (!savedToken) {
-        setLoading(false);
-        return;
-      }
+    const auth = getFirebaseAuth();
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // Firebase still has a valid auth session
+        const idToken = await firebaseUser.getIdToken();
+        const restoredUser = {
+          uid: firebaseUser.uid,
+          displayName: firebaseUser.displayName || "User",
+          email: firebaseUser.email || "",
+          avatarUrl: firebaseUser.photoURL || "",
+        };
 
-      try {
-        const res = await fetch(`${API_BASE}/auth/me`, {
-          headers: { Authorization: `Bearer ${savedToken}` },
-        });
+        // Try to get role from Firestore
+        const { role: fsRole } = await fetchUserRole(firebaseUser.uid);
+        const resolvedRole = fsRole || loadRoleFromStorage() || ROLES.CITIZEN;
 
-        if (res.ok) {
-          const data = await res.json();
-          const userData = data.data.user;
-          setUser(userData);
-          setToken(savedToken);
-
-          const backendRole = userData.role;
-          if (backendRole) {
-            updateRole(backendRole);
-          } else if (userData.uid) {
-            const { role: fsRole } = await fetchUserRole(userData.uid);
-            updateRole(fsRole || loadRoleFromStorage() || ROLES.CITIZEN);
+        // Try backend to get/refresh token
+        try {
+          const res = await fetch(`${API_BASE}/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idToken }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            localStorage.setItem("aquaguard_token", data.data.accessToken);
+            setToken(data.data.accessToken);
+            const userData = {
+              ...data.data.user,
+              avatarUrl: data.data.user.avatarUrl || firebaseUser.photoURL || "",
+              displayName: data.data.user.displayName || firebaseUser.displayName || "User",
+              role: data.data.user.role || resolvedRole,
+            };
+            setUser(userData);
+            updateRole(userData.role);
+            saveUserToStorage(userData);
           } else {
-            updateRole(loadRoleFromStorage() || ROLES.CITIZEN);
+            // Backend failed, use Firebase user directly
+            localStorage.setItem("aquaguard_token", idToken);
+            setToken(idToken);
+            restoredUser.role = resolvedRole;
+            setUser(restoredUser);
+            updateRole(resolvedRole);
+            saveUserToStorage(restoredUser);
           }
-        } else {
-          localStorage.removeItem("aquaguard_token");
-          localStorage.removeItem("aquaguard_role");
-          setToken(null);
-          setRole(null);
+        } catch {
+          // Backend unreachable, use Firebase user directly
+          console.warn("Backend not reachable, using Firebase user info");
+          localStorage.setItem("aquaguard_token", idToken);
+          setToken(idToken);
+          restoredUser.role = resolvedRole;
+          setUser(restoredUser);
+          updateRole(resolvedRole);
+          saveUserToStorage(restoredUser);
         }
-      } catch {
-        console.warn("Backend not reachable, keeping saved session");
-        const savedRole = loadRoleFromStorage();
-        if (!role && savedRole) setRole(savedRole);
-        if (!role && !savedRole) updateRole(ROLES.CITIZEN);
-      } finally {
-        setLoading(false);
+      } else {
+        // No Firebase session — clear everything
+        localStorage.removeItem("aquaguard_token");
+        localStorage.removeItem("aquaguard_role");
+        localStorage.removeItem("aquaguard_user");
+        setToken(null);
+        setUser(null);
+        setRole(null);
       }
-    };
+      setLoading(false);
+    });
 
-    restoreSession();
+    return () => unsubscribe();
   }, []);
 
   // ── Login ──
@@ -246,6 +292,7 @@ export function AuthProvider({ children }) {
     setToken(fallbackToken);
     setUser(fallbackUser);
     updateRole(resolvedRole);
+    saveUserToStorage(fallbackUser);
     return fallbackUser;
   };
 
@@ -348,6 +395,7 @@ export function AuthProvider({ children }) {
     }
     localStorage.removeItem("aquaguard_token");
     localStorage.removeItem("aquaguard_role");
+    localStorage.removeItem("aquaguard_user");
     setToken(null);
     setUser(null);
     setRole(null);
