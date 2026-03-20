@@ -27,9 +27,9 @@ const ALL_NAV_ITEMS = [
   { icon: "assignment_ind", label: "Rescuer Dashboard", page: "rescuer-dashboard", roles: [ROLES.RESCUER], mobileNav: false },
 
   // ── Shared (citizen + rescuer) ──
-  { icon: "newspaper", label: "News & Alerts", page: "news", roles: [ROLES.CITIZEN, ROLES.RESCUER], mobileNav: true },
+  { icon: "newspaper", label: "News & Alerts", page: "news", roles: [], mobileNav: false },
   { icon: "shield_with_heart", label: "Safety Protocols", page: "safety", roles: [ROLES.CITIZEN, ROLES.RESCUER], mobileNav: true },
-  { icon: "info", label: "About Us", page: "about", roles: [ROLES.CITIZEN, ROLES.RESCUER], mobileNav: false },
+  { icon: "info", label: "About Us", page: "about", roles: [], mobileNav: false },
 
   // ── Admin ──
   { icon: "admin_panel_settings", label: "Admin Dashboard", page: "admin", roles: [ROLES.ADMIN], mobileNav: true },

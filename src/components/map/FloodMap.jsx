@@ -6,6 +6,8 @@ import { collection, getDocs } from "firebase/firestore";
 import { getFirebaseDb } from "../../config/firebase";
 import MapLegend from "./MapLegend";
 
+const OWM_KEY = import.meta.env.VITE_OWM_API_KEY || "";
+
 // Custom colored pin icon using inline SVG
 function createPinIcon(color) {
   const svg = `
@@ -38,31 +40,32 @@ const severityMap = {
   safe:     { color: "#10b981", label: "Safe" },
 };
 
+// Weather overlay layers
+const WEATHER_LAYERS = [
+  { key: "rain_radar", label: "Radar mưa", icon: "rainy", color: "#3b82f6", free: true },
+  { key: "wind_new", label: "Gió", icon: "air", color: "#38bdf8", free: false },
+  { key: "clouds_new", label: "Mây", icon: "cloud", color: "#94a3b8", free: false },
+  { key: "temp_new", label: "Nhiệt độ", icon: "thermostat", color: "#f97316", free: false },
+  { key: "pressure_new", label: "Áp suất", icon: "speed", color: "#a78bfa", free: false },
+];
+
 /**
  * Parse Firestore location → { lat, lng }
- * Handles: GeoPoint objects, plain objects {latitude, longitude}, and strings
  */
 function parseLocation(location) {
   if (!location) return null;
-
-  // Handle Firestore GeoPoint or plain object with lat/lng
   if (typeof location === "object") {
-    // GeoPoint has .latitude and .longitude
     if (typeof location.latitude === "number" && typeof location.longitude === "number") {
       return { lat: location.latitude, lng: location.longitude };
     }
-    // Some GeoPoint implementations use _lat / _long
     if (typeof location._lat === "number" && typeof location._long === "number") {
       return { lat: location._lat, lng: location._long };
     }
-    // Plain object with lat/lng
     if (typeof location.lat === "number" && typeof location.lng === "number") {
       return { lat: location.lat, lng: location.lng };
     }
     return null;
   }
-
-  // Handle string format: "[16.0146° N, 108.2091° E]"
   if (typeof location === "string") {
     const cleaned = location
       .replace(/[\[\]]/g, "")
@@ -74,7 +77,6 @@ function parseLocation(location) {
       return { lat: parts[0], lng: parts[1] };
     }
   }
-
   return null;
 }
 
@@ -82,30 +84,51 @@ export default function FloodMap() {
   const [markers, setMarkers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeWeatherLayers, setActiveWeatherLayers] = useState([]);
+  const [weatherPanelOpen, setWeatherPanelOpen] = useState(false);
+  const [rainRadarUrl, setRainRadarUrl] = useState(null);
+
+  const toggleWeatherLayer = (layerKey) => {
+    setActiveWeatherLayers((prev) =>
+      prev.includes(layerKey)
+        ? prev.filter((k) => k !== layerKey)
+        : [...prev, layerKey]
+    );
+  };
+
+  // Fetch RainViewer radar timestamp (free, no API key)
+  useEffect(() => {
+    async function fetchRainRadar() {
+      try {
+        const res = await fetch("https://api.rainviewer.com/public/weather-maps.json");
+        const data = await res.json();
+        const lastFrame = data.radar?.past?.slice(-1)[0];
+        if (lastFrame) {
+          // Format: {host}{path}/{size}/{z}/{x}/{y}/{color}/{options}.png
+          setRainRadarUrl(`${data.host}${lastFrame.path}/256/{z}/{x}/{y}/6/1_1.png`);
+        }
+      } catch (err) {
+        console.warn("[FloodMap] Could not fetch RainViewer data:", err);
+      }
+    }
+    fetchRainRadar();
+    // Refresh every 5 minutes
+    const interval = setInterval(fetchRainRadar, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     async function fetchFloodZones() {
       try {
-        console.log("[FloodMap] Bắt đầu kết nối Firestore...");
         const db = getFirebaseDb();
-        console.log("[FloodMap] Firestore instance OK. Đang fetch flood_zones...");
-
         const floodZonesRef = collection(db, "flood_zones");
         const snapshot = await getDocs(floodZonesRef);
-
-        console.log("[FloodMap] Số documents nhận được:", snapshot.size);
 
         const data = [];
         snapshot.docs.forEach((doc) => {
           const d = doc.data();
-          console.log("[FloodMap] Document:", doc.id, d);
-
           const pos = parseLocation(d.location);
-          if (!pos) {
-            console.warn("[FloodMap] Không parse được location:", d.location);
-            return;
-          }
-
+          if (!pos) return;
           const sev = severityMap[d.severity?.toLowerCase()] || severityMap.safe;
           data.push({
             id: doc.id,
@@ -118,7 +141,6 @@ export default function FloodMap() {
           });
         });
 
-        console.log("[FloodMap] Tổng markers hiển thị:", data.length);
         setMarkers(data);
         setError(null);
       } catch (err) {
@@ -128,9 +150,12 @@ export default function FloodMap() {
         setLoading(false);
       }
     }
-
     fetchFloodZones();
   }, []);
+
+  // Determine which OWM layers are active (excluding rain_radar which uses RainViewer)
+  const activeOWMLayers = activeWeatherLayers.filter((k) => k !== "rain_radar");
+  const isRainRadarActive = activeWeatherLayers.includes("rain_radar");
 
   return (
     <div className="flex-1 relative">
@@ -164,18 +189,105 @@ export default function FloodMap() {
         </div>
       )}
 
+      {/* Weather Layer Toggle Panel */}
+      <div className="absolute top-4 right-4 z-[1000]">
+        <button
+          onClick={() => setWeatherPanelOpen(!weatherPanelOpen)}
+          className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${
+            activeWeatherLayers.length > 0
+              ? "bg-primary text-white shadow-primary/30"
+              : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+          } hover:scale-105`}
+          title="Lớp thời tiết"
+        >
+          <span className="material-symbols-outlined text-xl">layers</span>
+        </button>
+
+        {weatherPanelOpen && (
+          <div className="mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-3 min-w-[200px]">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">
+              Lớp thời tiết
+            </p>
+            {WEATHER_LAYERS.map((layer) => {
+              const isActive = activeWeatherLayers.includes(layer.key);
+              const isDisabled = !layer.free && !OWM_KEY;
+              return (
+                <button
+                  key={layer.key}
+                  onClick={() => !isDisabled && toggleWeatherLayer(layer.key)}
+                  className={`flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+                    isDisabled
+                      ? "text-slate-300 dark:text-slate-600 cursor-not-allowed"
+                      : isActive
+                        ? "bg-primary/10 text-primary"
+                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50"
+                  }`}
+                  title={isDisabled ? "Cần API key OpenWeatherMap" : ""}
+                >
+                  <span
+                    className="material-symbols-outlined text-base"
+                    style={isActive ? { color: layer.color } : {}}
+                  >
+                    {layer.icon}
+                  </span>
+                  <span className="flex-1 text-left">{layer.label}</span>
+                  {layer.free && (
+                    <span className="text-[8px] font-bold bg-safe/20 text-safe px-1.5 py-0.5 rounded-full">
+                      FREE
+                    </span>
+                  )}
+                  {isActive && (
+                    <span className="material-symbols-outlined text-sm text-primary">
+                      check_circle
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+            {activeWeatherLayers.length > 0 && (
+              <button
+                onClick={() => setActiveWeatherLayers([])}
+                className="w-full mt-1 px-3 py-1.5 text-[11px] font-medium text-slate-400 hover:text-danger transition-colors"
+              >
+                Tắt tất cả
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
       <MapContainer
         center={[16.054, 108.202]}
-        zoom={12}
+        zoom={6}
         className="w-full h-full z-0"
         zoomControl={true}
         scrollWheelZoom={true}
       >
-        {/* CartoDB Voyager — clean, modern map style */}
+        {/* VNDMS Vietnam map — includes Hoàng Sa & Trường Sa */}
         <TileLayer
-          attribution='&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://vndms.dmc.gov.vn/">VNDMS</a>'
+          url="https://tiles.vndms.gov.vn/styles/vndms-basic/{z}/{x}/{y}.png"
         />
+
+        {/* RainViewer precipitation radar (FREE, no API key) */}
+        {isRainRadarActive && rainRadarUrl && (
+          <TileLayer
+            url={rainRadarUrl}
+            opacity={0.7}
+            zIndex={10}
+          />
+        )}
+
+        {/* OpenWeatherMap weather overlay layers (requires active API key) */}
+        {OWM_KEY &&
+          activeOWMLayers.map((layerKey) => (
+            <TileLayer
+              key={layerKey}
+              url={`https://tile.openweathermap.org/map/${layerKey}/{z}/{x}/{y}.png?appid=${OWM_KEY}`}
+              opacity={0.6}
+              zIndex={10}
+            />
+          ))}
 
         {markers.map((marker) => (
           <Marker

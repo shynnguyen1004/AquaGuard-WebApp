@@ -13,7 +13,7 @@ const statusColors = {
   unknown: "bg-slate-400 text-white",
 };
 
-export default function SettingsPage() {
+export default function SettingsPage({ onNavigate }) {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("profile");
   const [profile, setProfile] = useState({
@@ -43,6 +43,7 @@ export default function SettingsPage() {
     { id: "profile", label: "Profile", icon: "person" },
     { id: "family", label: "Family", icon: "group" },
     { id: "appearance", label: "Appearance", icon: "palette" },
+    { id: "more", label: "More", icon: "more_horiz" },
   ];
 
   const handleProfileSave = () => {
@@ -331,6 +332,49 @@ export default function SettingsPage() {
                   )}
                 </button>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* More Tab */}
+      {activeTab === "more" && (
+        <div className="max-w-2xl space-y-6">
+          <div className="bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 p-6">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-5">
+              <span className="material-symbols-outlined text-primary text-lg">more_horiz</span>
+              More Pages
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* About Us Card */}
+              <button
+                onClick={() => onNavigate?.("about")}
+                className="flex items-center gap-4 p-5 rounded-2xl border-2 border-slate-200 dark:border-slate-700 hover:border-primary/40 hover:bg-primary/5 transition-all group text-left"
+              >
+                <div className="size-12 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center group-hover:from-primary/30 group-hover:to-primary/10 transition-all">
+                  <span className="material-symbols-outlined text-primary text-2xl">info</span>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors">About Us</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Learn about the AquaGuard team</p>
+                </div>
+                <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 ml-auto group-hover:text-primary transition-colors">chevron_right</span>
+              </button>
+
+              {/* News & Reports Card */}
+              <button
+                onClick={() => onNavigate?.("news")}
+                className="flex items-center gap-4 p-5 rounded-2xl border-2 border-slate-200 dark:border-slate-700 hover:border-primary/40 hover:bg-primary/5 transition-all group text-left"
+              >
+                <div className="size-12 rounded-xl bg-gradient-to-br from-warning/20 to-warning/5 flex items-center justify-center group-hover:from-warning/30 group-hover:to-warning/10 transition-all">
+                  <span className="material-symbols-outlined text-warning text-2xl">newspaper</span>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors">News & Reports</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Latest flood news and alerts</p>
+                </div>
+                <span className="material-symbols-outlined text-slate-300 dark:text-slate-600 ml-auto group-hover:text-primary transition-colors">chevron_right</span>
+              </button>
             </div>
           </div>
         </div>
