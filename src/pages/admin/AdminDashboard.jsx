@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
-import { getFirebaseDb } from "../../config/firebase";
 import { ROLES, getRoleLabel, getRoleBadgeClasses } from "../../config/rbac";
 import { useAuth } from "../../contexts/AuthContext";
 import AdminFloodMapEditor from "../../components/map/AdminFloodMapEditor";
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
 const TABS = [
   { key: "overview", label: "Overview", icon: "dashboard" },
@@ -61,7 +61,7 @@ function UserRow({ userData, onRoleChange }) {
         />
         <div className="min-w-0">
           <p className="text-sm font-semibold truncate">{userData.displayName || "Unknown"}</p>
-          <p className="text-xs text-slate-500 truncate">{userData.email || "No email"}</p>
+          <p className="text-xs text-slate-500 truncate">{userData.phoneNumber || userData.email || "No contact"}</p>
         </div>
       </div>
 
@@ -100,14 +100,15 @@ export default function AdminDashboard({ activePage = "admin" }) {
   // Determine if a sub-page was directly navigated from sidebar
   const isSidebarSubPage = activePage !== "admin";
 
-  // Fetch all users
+  // Fetch all users from PostgreSQL backend
   const fetchUsers = async () => {
     setLoadingUsers(true);
     try {
-      const db = getFirebaseDb();
-      const snapshot = await getDocs(collection(db, "users"));
-      const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setUsers(list);
+      const res = await fetch(`${API_BASE}/auth/users`);
+      const data = await res.json();
+      if (data.success) {
+        setUsers(data.data);
+      }
     } catch (err) {
       console.error("Failed to fetch users:", err);
     } finally {
@@ -134,11 +135,16 @@ export default function AdminDashboard({ activePage = "admin" }) {
 
   const handleRoleChange = async (userId, newRole) => {
     try {
-      const db = getFirebaseDb();
-      await updateDoc(doc(db, "users", userId), { role: newRole });
-      setUsers((prev) =>
-        prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
-      );
+      const res = await fetch(`${API_BASE}/auth/users/${userId}/role`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: newRole }),
+      });
+      if (res.ok) {
+        setUsers((prev) =>
+          prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
+        );
+      }
     } catch (err) {
       console.error("Failed to update role:", err);
     }
@@ -245,7 +251,7 @@ export default function AdminDashboard({ activePage = "admin" }) {
                         />
                         <div>
                           <p className="text-sm font-medium">{r.displayName || "Unknown"}</p>
-                          <p className="text-xs text-slate-500">{r.email}</p>
+                          <p className="text-xs text-slate-500">{r.phoneNumber || r.email || ""}</p>
                         </div>
                       </div>
                     ))}
@@ -310,7 +316,7 @@ export default function AdminDashboard({ activePage = "admin" }) {
                       />
                       <div>
                         <p className="font-bold">{r.displayName || "Unknown"}</p>
-                        <p className="text-xs text-slate-500">{r.email}</p>
+                        <p className="text-xs text-slate-500">{r.phoneNumber || r.email || ""}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">

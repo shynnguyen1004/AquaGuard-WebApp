@@ -3,16 +3,23 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
 export default function LoginPage() {
-  const { loginWithGoogle, loginWithPhone, verifyOTP, resetPhoneAuth, phoneAuthStep, error, clearError, loading } = useAuth();
+  const { loginWithGoogle, loginWithPhonePassword, registerWithPhone, error, clearError, loading } = useAuth();
   const navigate = useNavigate();
   const [isSigningIn, setIsSigningIn] = useState(false);
 
-  // Phone auth state
-  const [authMode, setAuthMode] = useState("google"); // "google" | "phone"
+  // Auth mode: "google" | "phone"
+  const [authMode, setAuthMode] = useState("google");
+  // Phone sub-mode: "login" | "register"
+  const [phoneMode, setPhoneMode] = useState("login");
+
+  // Phone auth fields
   const [phoneNumber, setPhoneNumber] = useState("+84");
-  const [otpCode, setOtpCode] = useState("");
-  const [isSendingOTP, setIsSendingOTP] = useState(false);
-  const [isVerifyingOTP, setIsVerifyingOTP] = useState(false);
+  const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [selectedRole, setSelectedRole] = useState("citizen");
+  const [showPassword, setShowPassword] = useState(false);
+  const [rolePassword, setRolePassword] = useState("");
+  const [rolePasswordError, setRolePasswordError] = useState("");
 
   const handleGoogleLogin = async () => {
     setIsSigningIn(true);
@@ -21,69 +28,79 @@ export default function LoginPage() {
       await loginWithGoogle();
       navigate("/", { replace: true });
     } catch {
-      // Error is handled by AuthContext
+      // Error handled by AuthContext
     } finally {
       setIsSigningIn(false);
     }
   };
 
-  const handleSendOTP = async (e) => {
+  const handlePhoneLogin = async (e) => {
     e.preventDefault();
-    if (!phoneNumber || phoneNumber.length < 10) return;
-    setIsSendingOTP(true);
+    if (!phoneNumber || phoneNumber.length < 10 || !password) return;
+    setIsSigningIn(true);
     clearError();
     try {
-      await loginWithPhone(phoneNumber);
-    } catch {
-      // Error handled by AuthContext
-    } finally {
-      setIsSendingOTP(false);
-    }
-  };
-
-  const handleVerifyOTP = async (e) => {
-    e.preventDefault();
-    if (!otpCode || otpCode.length !== 6) return;
-    setIsVerifyingOTP(true);
-    clearError();
-    try {
-      await verifyOTP(otpCode);
+      await loginWithPhonePassword(phoneNumber, password);
       navigate("/", { replace: true });
     } catch {
       // Error handled by AuthContext
     } finally {
-      setIsVerifyingOTP(false);
+      setIsSigningIn(false);
     }
   };
 
-  const handleBackToPhone = () => {
-    resetPhoneAuth();
-    setOtpCode("");
+  const handlePhoneRegister = async (e) => {
+    e.preventDefault();
+    if (!phoneNumber || phoneNumber.length < 10 || !password) return;
+
+    // Validate role password for admin and rescuer
+    if ((selectedRole === "admin" || selectedRole === "rescuer") && rolePassword !== "123456") {
+      setRolePasswordError("Incorrect role password");
+      return;
+    }
+    setRolePasswordError("");
+
+    setIsSigningIn(true);
+    clearError();
+    try {
+      await registerWithPhone(phoneNumber, password, displayName, selectedRole);
+      navigate("/", { replace: true });
+    } catch {
+      // Error handled by AuthContext
+    } finally {
+      setIsSigningIn(false);
+    }
   };
 
   const switchMode = (mode) => {
     setAuthMode(mode);
     clearError();
-    if (mode === "google") {
-      resetPhoneAuth();
-      setPhoneNumber("+84");
-      setOtpCode("");
-    }
+    setPassword("");
   };
+
+  const switchPhoneMode = (mode) => {
+    setPhoneMode(mode);
+    clearError();
+    setPassword("");
+    setDisplayName("");
+    setRolePassword("");
+    setRolePasswordError("");
+    setSelectedRole("citizen");
+  };
+
+  const roles = [
+    { key: "citizen", label: "Citizen", icon: "person" },
+    { key: "rescuer", label: "Rescuer", icon: "local_fire_department", requiresPassword: true },
+    { key: "admin", label: "Admin", icon: "admin_panel_settings", requiresPassword: true },
+  ];
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background-dark relative">
-      {/* Invisible reCAPTCHA container */}
-      <div id="recaptcha-container" />
-
-      {/* Animated Background Elements */}
+      {/* Animated Background */}
       <div className="absolute inset-0 overflow-hidden">
-        {/* Gradient orbs */}
         <div className="absolute -top-40 -left-40 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse" />
         <div className="absolute top-1/3 -right-20 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-pulse [animation-delay:1s]" />
         <div className="absolute -bottom-32 left-1/3 w-72 h-72 bg-primary/15 rounded-full blur-3xl animate-pulse [animation-delay:2s]" />
-
-        {/* Grid pattern */}
         <div
           className="absolute inset-0 opacity-[0.03]"
           style={{
@@ -98,33 +115,24 @@ export default function LoginPage() {
       <div className="hidden lg:flex flex-1 items-center justify-center relative z-10">
         <div className="max-w-lg px-12">
           <div className="p-6">
-            <img
-              alt="AquaGuard"
-              src="/images/dark_mode_logo.png"
-            />
+            <img alt="AquaGuard" src="/images/dark_mode_logo.png" />
           </div>
-
           <h2 className="text-4xl font-bold text-white leading-tight mb-4">
             Management System
             <br />
             <span className="text-primary">for Flood Disasters</span>
           </h2>
-
           <p className="text-slate-400 text-lg leading-relaxed mb-8">
-            Monitor water levels, receive early warnings, coordinate rescue efforts, and protect communities in real-time.
+            Monitor water levels, receive early warnings, coordinate rescue
+            efforts, and protect communities in real-time.
           </p>
-
-          {/* Feature highlights */}
           <div className="space-y-4">
             {[
               { icon: "map", text: "Real-time Flood Map" },
               { icon: "emergency", text: "Rapid Rescue Coordination" },
               { icon: "notifications_active", text: "24/7 Early Warnings" },
             ].map((feature) => (
-              <div
-                key={feature.icon}
-                className="flex items-center gap-3 text-slate-300"
-              >
+              <div key={feature.icon} className="flex items-center gap-3 text-slate-300">
                 <div className="size-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
                   <span className="material-symbols-outlined text-primary text-xl">
                     {feature.icon}
@@ -140,26 +148,23 @@ export default function LoginPage() {
       {/* Right Side — Login Form */}
       <div className="flex-1 flex items-center justify-center relative z-10 px-6">
         <div className="w-full max-w-md">
-          {/* Card */}
           <div className="bg-white/[0.03] backdrop-blur-2xl border border-white/10 rounded-3xl p-10 shadow-2xl">
             {/* Mobile logo */}
             <div className="lg:hidden flex items-center gap-3 mb-8 justify-center">
               <div className="size-10 rounded-xl bg-primary flex items-center justify-center text-white">
-                <span className="material-symbols-outlined filled-icon text-2xl">
-                  water_drop
-                </span>
+                <span className="material-symbols-outlined filled-icon text-2xl">water_drop</span>
               </div>
-              <h1 className="text-2xl font-bold text-white tracking-tight">
-                AquaGuard
-              </h1>
+              <h1 className="text-2xl font-bold text-white tracking-tight">AquaGuard</h1>
             </div>
 
             <div className="text-center mb-8">
               <h3 className="text-2xl font-bold text-white mb-2">
-                Welcome Back
+                {authMode === "phone" && phoneMode === "register" ? "Create Account" : "Welcome Back"}
               </h3>
               <p className="text-slate-400 text-sm">
-                Sign in to access the management system
+                {authMode === "phone" && phoneMode === "register"
+                  ? "Register with your phone number"
+                  : "Sign in to access the management system"}
               </p>
             </div>
 
@@ -197,15 +202,10 @@ export default function LoginPage() {
             {/* Error Message */}
             {error && (
               <div className="mb-6 p-4 rounded-xl bg-danger/10 border border-danger/20 flex items-start gap-3">
-                <span className="material-symbols-outlined text-danger text-xl mt-0.5">
-                  error
-                </span>
+                <span className="material-symbols-outlined text-danger text-xl mt-0.5">error</span>
                 <div>
                   <p className="text-sm text-danger font-medium">{error}</p>
-                  <button
-                    onClick={clearError}
-                    className="text-xs text-danger/70 hover:text-danger mt-1 underline"
-                  >
+                  <button onClick={clearError} className="text-xs text-danger/70 hover:text-danger mt-1 underline">
                     Close
                   </button>
                 </div>
@@ -238,105 +238,200 @@ export default function LoginPage() {
               </button>
             )}
 
-            {/* ── Phone Login ── */}
+            {/* ── Phone Login / Register ── */}
             {authMode === "phone" && (
               <div>
-                {/* Step 1: Enter phone number */}
-                {phoneAuthStep !== "otp_sent" && (
-                  <form onSubmit={handleSendOTP} className="space-y-4">
+                {/* Phone sub-mode tabs */}
+                <div className="flex gap-1 mb-5">
+                  <button
+                    onClick={() => switchPhoneMode("login")}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                      phoneMode === "login"
+                        ? "text-primary border-b-2 border-primary"
+                        : "text-slate-500 hover:text-slate-300"
+                    }`}
+                  >
+                    Login
+                  </button>
+                  <button
+                    onClick={() => switchPhoneMode("register")}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                      phoneMode === "register"
+                        ? "text-primary border-b-2 border-primary"
+                        : "text-slate-500 hover:text-slate-300"
+                    }`}
+                  >
+                    Register
+                  </button>
+                </div>
+
+                <form
+                  onSubmit={phoneMode === "login" ? handlePhoneLogin : handlePhoneRegister}
+                  className="space-y-4"
+                >
+                  {/* Display Name (register only) */}
+                  {phoneMode === "register" && (
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Phone Number
+                        Display Name
                       </label>
-                      <div className="flex gap-2">
+                      <div className="relative">
+                        <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">
+                          badge
+                        </span>
                         <input
-                          type="tel"
-                          value={phoneNumber}
-                          onChange={(e) => setPhoneNumber(e.target.value)}
-                          placeholder="+84 xxx xxx xxx"
-                          className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all text-sm"
+                          type="text"
+                          value={displayName}
+                          onChange={(e) => setDisplayName(e.target.value)}
+                          placeholder="Your name"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all text-sm"
                         />
                       </div>
-                      <p className="text-xs text-slate-500 mt-2">
-                        Enter your phone number with country code (e.g. +84)
-                      </p>
                     </div>
+                  )}
 
-                    <button
-                      type="submit"
-                      disabled={isSendingOTP || loading || phoneNumber.length < 10}
-                      className="w-full flex items-center justify-center gap-3 bg-primary hover:bg-primary/90 text-white font-semibold py-4 px-6 rounded-2xl transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isSendingOTP ? (
-                        <>
-                          <div className="size-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                          <span>Sending OTP...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="material-symbols-outlined text-xl">sms</span>
-                          <span>Send OTP Code</span>
-                        </>
-                      )}
-                    </button>
-                  </form>
-                )}
-
-                {/* Step 2: Enter OTP */}
-                {phoneAuthStep === "otp_sent" && (
-                  <form onSubmit={handleVerifyOTP} className="space-y-4">
-                    <div className="text-center mb-2">
-                      <div className="size-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-3">
-                        <span className="material-symbols-outlined text-primary text-2xl">mark_email_read</span>
-                      </div>
-                      <p className="text-sm text-slate-300">
-                        OTP sent to <span className="text-primary font-medium">{phoneNumber}</span>
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Enter 6-digit OTP
-                      </label>
+                  {/* Phone Number */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Phone Number
+                    </label>
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">
+                        phone
+                      </span>
                       <input
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={6}
-                        value={otpCode}
-                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
-                        placeholder="000000"
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-white text-center text-2xl font-mono tracking-[0.5em] placeholder-slate-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all"
-                        autoFocus
+                        type="tel"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        placeholder="+84 xxx xxx xxx"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all text-sm"
                       />
                     </div>
+                  </div>
 
-                    <button
-                      type="submit"
-                      disabled={isVerifyingOTP || loading || otpCode.length !== 6}
-                      className="w-full flex items-center justify-center gap-3 bg-primary hover:bg-primary/90 text-white font-semibold py-4 px-6 rounded-2xl transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isVerifyingOTP ? (
-                        <>
-                          <div className="size-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                          <span>Verifying...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="material-symbols-outlined text-xl">verified</span>
-                          <span>Verify & Login</span>
-                        </>
+                  {/* Password */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Password
+                    </label>
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">
+                        lock
+                      </span>
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder={phoneMode === "register" ? "Min 6 characters" : "Enter your password"}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-11 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-lg">
+                          {showPassword ? "visibility_off" : "visibility"}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Role Selection (register only) */}
+                  {phoneMode === "register" && (
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Role
+                      </label>
+                      <div className="flex gap-2">
+                        {roles.map((r) => (
+                          <button
+                            key={r.key}
+                            type="button"
+                            onClick={() => { setSelectedRole(r.key); setRolePassword(""); setRolePasswordError(""); }}
+                            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                              selectedRole === r.key
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-white/10 bg-white/5 text-slate-400 hover:text-slate-300 hover:border-white/20"
+                            }`}
+                          >
+                            <span className="material-symbols-outlined text-base">{r.icon}</span>
+                            {r.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Role Password (for admin & rescuer) */}
+                      {roles.find((r) => r.key === selectedRole)?.requiresPassword && (
+                        <div className="mt-3 p-3 bg-warning/5 rounded-xl border border-warning/20">
+                          <label className="block text-xs font-bold text-warning mb-2 flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-sm">lock</span>
+                            Role Password Required
+                          </label>
+                          <input
+                            type="password"
+                            value={rolePassword}
+                            onChange={(e) => { setRolePassword(e.target.value); setRolePasswordError(""); }}
+                            placeholder="Enter role password"
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-warning/50 focus:ring-1 focus:ring-warning/30 transition-all"
+                          />
+                          {rolePasswordError && (
+                            <p className="text-xs text-danger font-medium mt-1.5 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-xs">error</span>
+                              {rolePasswordError}
+                            </p>
+                          )}
+                        </div>
                       )}
-                    </button>
+                    </div>
+                  )}
 
-                    <button
-                      type="button"
-                      onClick={handleBackToPhone}
-                      className="w-full text-sm text-slate-400 hover:text-slate-300 py-2 transition-colors"
-                    >
-                      ← Change phone number
-                    </button>
-                  </form>
-                )}
+                  {/* Submit Button */}
+                  <button
+                    type="submit"
+                    disabled={isSigningIn || loading || phoneNumber.length < 10 || password.length < 1}
+                    className="w-full flex items-center justify-center gap-3 bg-primary hover:bg-primary/90 text-white font-semibold py-4 px-6 rounded-2xl transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSigningIn ? (
+                      <>
+                        <div className="size-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                        <span>{phoneMode === "register" ? "Creating account..." : "Signing in..."}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-xl">
+                          {phoneMode === "register" ? "person_add" : "login"}
+                        </span>
+                        <span>{phoneMode === "register" ? "Create Account" : "Sign In"}</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+
+                {/* Switch login/register */}
+                <p className="text-center text-sm text-slate-500 mt-4">
+                  {phoneMode === "login" ? (
+                    <>
+                      Don't have an account?{" "}
+                      <button
+                        onClick={() => switchPhoneMode("register")}
+                        className="text-primary hover:underline font-medium"
+                      >
+                        Register
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      Already have an account?{" "}
+                      <button
+                        onClick={() => switchPhoneMode("login")}
+                        className="text-primary hover:underline font-medium"
+                      >
+                        Login
+                      </button>
+                    </>
+                  )}
+                </p>
               </div>
             )}
 
@@ -347,7 +442,7 @@ export default function LoginPage() {
               </div>
               <div className="relative flex justify-center text-xs">
                 <span className="px-4 bg-transparent text-slate-500 font-medium">
-                  Secured by Firebase Authentication
+                  {authMode === "phone" ? "Secured by AquaGuard API" : "Secured by Firebase Authentication"}
                 </span>
               </div>
             </div>
@@ -356,13 +451,9 @@ export default function LoginPage() {
             <div className="text-center">
               <p className="text-xs text-slate-500 leading-relaxed">
                 By signing in, you agree to AquaGuard's{" "}
-                <a href="#" className="text-primary hover:underline">
-                  Terms of Service
-                </a>{" "}
+                <a href="#" className="text-primary hover:underline">Terms of Service</a>{" "}
                 and{" "}
-                <a href="#" className="text-primary hover:underline">
-                  Privacy Policy
-                </a>.
+                <a href="#" className="text-primary hover:underline">Privacy Policy</a>.
               </p>
             </div>
           </div>
