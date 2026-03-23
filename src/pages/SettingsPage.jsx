@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "../contexts/LanguageContext";
+import { getRoleBadgeClasses } from "../config/rbac";
 
 const familyMembers = [
   { id: 1, name: "Nguyen Van A", relation: "Father", phone: "0901 234 567", status: "safe", avatar: "NVA" },
@@ -20,10 +21,10 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("profile");
   const [profile, setProfile] = useState({
     displayName: user?.displayName || "User",
-    email: user?.email || "user@example.com",
-    phone: "0901 234 567",
+    email: user?.email || "",
+    phone: user?.phoneNumber || "",
     address: "Da Nang, Vietnam",
-    emergencyContact: "0901 234 568",
+    emergencyContact: "",
   });
   const [family, setFamily] = useState(familyMembers);
   const [showAddFamily, setShowAddFamily] = useState(false);
@@ -115,9 +116,9 @@ export default function SettingsPage() {
               </div>
               <div>
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white">{profile.displayName}</h2>
-                <p className="text-sm text-slate-500">{profile.email}</p>
-                <span className="inline-block mt-2 text-[10px] font-bold px-3 py-1 rounded-full bg-primary/10 text-primary">
-                  {t("settings.profile.citizen")}
+                <p className="text-sm text-slate-500">{profile.phone || profile.email || "No contact"}</p>
+                <span className={`inline-block mt-2 text-[10px] font-bold px-3 py-1 rounded-full border ${getRoleBadgeClasses(user?.role)}`}>
+                  {t(`roles.${user?.role || "citizen"}`)}
                 </span>
               </div>
             </div>
