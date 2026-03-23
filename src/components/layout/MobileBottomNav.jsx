@@ -1,8 +1,10 @@
 import { useAuth } from "../../contexts/AuthContext";
+import { useLanguage } from "../../contexts/LanguageContext";
 import { getMobileNavItemsForRole } from "../../config/rbac";
 
 export default function MobileBottomNav({ activePage, onNavigate }) {
   const { role } = useAuth();
+  const { t } = useLanguage();
   const navItems = getMobileNavItemsForRole(role);
 
   if (navItems.length === 0) return null;
@@ -24,7 +26,7 @@ export default function MobileBottomNav({ activePage, onNavigate }) {
               <span className={`material-symbols-outlined text-xl ${isActive ? "filled-icon" : ""}`}>
                 {item.icon}
               </span>
-              <span className="text-[10px] font-bold">{item.label}</span>
+              <span className="text-[10px] font-bold">{t(item.labelKey) || item.label}</span>
               {item.badge && (
                 <span className="absolute top-1 right-1 bg-danger text-white text-[7px] size-3.5 rounded-full flex items-center justify-center font-bold">
                   {item.badge}

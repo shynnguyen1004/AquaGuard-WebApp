@@ -1,21 +1,23 @@
 import { useAuth } from "../../contexts/AuthContext";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 export default function Header() {
   const { user } = useAuth();
+  const { t } = useLanguage();
 
   return (
     <header className="h-20 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-background-dark/80 backdrop-blur-md px-8 flex items-center justify-between z-10">
       <div className="flex items-center gap-6">
         <div>
           <h2 className="text-lg font-bold">
-            Welcome back, {user?.displayName?.split(" ")[0] || "User"}
+            {t("header.welcomeBack")} {user?.displayName?.split(" ")[0] || "User"}
           </h2>
           <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
             <span className="material-symbols-outlined text-sm">
               location_on
             </span>
             <span className="text-xs font-medium">
-              Da Nang City, Vietnam
+              {t("header.location")}
             </span>
           </div>
         </div>
@@ -29,10 +31,10 @@ export default function Header() {
           </span>
           <div>
             <p className="text-[10px] font-bold text-danger uppercase leading-none">
-              Current Risk Level
+              {t("header.riskLabel")}
             </p>
             <p className="text-sm font-black text-danger tracking-tight">
-              DANGER
+              {t("header.riskValue")}
             </p>
           </div>
         </div>
@@ -43,7 +45,7 @@ export default function Header() {
         <div className="relative group">
           <input
             className="w-64 pl-10 pr-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border-none focus:ring-2 focus:ring-primary text-sm transition-all"
-            placeholder="Search zone or rescue point..."
+            placeholder={t("header.searchPlaceholder")}
             type="text"
           />
           <span className="material-symbols-outlined absolute left-3 top-2 text-slate-400 text-xl">

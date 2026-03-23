@@ -1,6 +1,7 @@
 import { useAuth } from "../../contexts/AuthContext";
+import { useLanguage } from "../../contexts/LanguageContext";
 import { useNavigate } from "react-router-dom";
-import { getNavItemsForRole, getRoleLabel } from "../../config/rbac";
+import { getNavItemsForRole } from "../../config/rbac";
 
 function NavItem({ icon, label, active, filled, badge, onClick, collapsed }) {
   const baseClasses =
@@ -47,6 +48,7 @@ function NavItem({ icon, label, active, filled, badge, onClick, collapsed }) {
 
 export default function Sidebar({ activePage = "dashboard", onNavigate, collapsed = false, onToggle, mobileOpen = false, onMobileClose }) {
   const { user, role, logout } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const navItems = getNavItemsForRole(role);
 
@@ -127,9 +129,9 @@ export default function Sidebar({ activePage = "dashboard", onNavigate, collapse
         <nav className={`flex-1 py-4 space-y-1 ${collapsed && !mobileOpen ? "px-2" : "px-4"}`}>
           {navItems.map((item) => (
             <NavItem
-              key={item.label}
+              key={item.page}
               icon={item.icon}
-              label={item.label}
+              label={t(item.labelKey) || item.label}
               active={activePage === item.page}
               filled={item.filled}
               badge={item.badge}
@@ -151,7 +153,7 @@ export default function Sidebar({ activePage = "dashboard", onNavigate, collapse
                   }`}
               >
                 <span className="material-symbols-outlined">settings</span>
-                <span className="font-medium">Settings</span>
+                <span className="font-medium">{t("nav.settings")}</span>
               </button>
 
               <div className="mt-4 p-4 rounded-xl bg-slate-100 dark:bg-slate-800/50">
@@ -170,7 +172,7 @@ export default function Sidebar({ activePage = "dashboard", onNavigate, collapse
                       {user?.displayName || "User"}
                     </p>
                     <p className="text-xs text-slate-500 truncate">
-                      {getRoleLabel(role)}
+                      {t(`roles.${role}`) || role}
                     </p>
                   </div>
                 </div>
@@ -180,7 +182,7 @@ export default function Sidebar({ activePage = "dashboard", onNavigate, collapse
                   className="mt-3 w-full flex items-center justify-center gap-2 text-xs font-medium text-slate-500 hover:text-danger py-2 rounded-lg hover:bg-white dark:hover:bg-slate-700 transition-colors"
                 >
                   <span className="material-symbols-outlined text-base">logout</span>
-                  Logout
+                  {t("nav.logout")}
                 </button>
               </div>
             </>

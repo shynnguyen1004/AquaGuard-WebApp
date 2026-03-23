@@ -1,88 +1,62 @@
 import { useState } from "react";
-
-const guides = [
-  {
-    id: "before",
-    title: "Before a Flood",
-    urgency: "Info",
-    urgencyBg: "bg-primary/15",
-    urgencyText: "text-primary",
-    icon: "inventory_2",
-    iconBg: "bg-primary",
-    points: [
-      "Prepare an emergency kit (water, food, flashlight, first-aid, batteries).",
-      "Identify the safest evacuation routes to higher ground.",
-      "Keep important documents in a waterproof container.",
-      "Move essential items, electronics, and valuables to upper floors.",
-    ],
-  },
-  {
-    id: "during",
-    title: "During a Flood",
-    urgency: "Critical",
-    urgencyBg: "bg-danger/15",
-    urgencyText: "text-danger",
-    icon: "home",
-    iconBg: "bg-danger",
-    points: [
-      "Move to higher ground immediately.",
-      "Avoid walking or driving through flood waters (15cm of moving water can knock you down).",
-      "Stay away from downed power lines and electrical wires.",
-      "Turn off utilities at the main switches if instructed to do so.",
-      "Listen to emergency broadcasts for latest updates.",
-    ],
-  },
-  {
-    id: "after",
-    title: "After a Flood",
-    urgency: "Medium",
-    urgencyBg: "bg-warning/15",
-    urgencyText: "text-warning",
-    icon: "description",
-    iconBg: "bg-safe",
-    points: [
-      "Return home only when authorities say it's safe.",
-      "Wear protective clothing, including rubber boots and gloves.",
-      "Document property damage with photos for insurance claims.",
-      "Watch for structural damage, mold, and displaced wildlife.",
-      "Do not consume tap water until it has been declared safe.",
-    ],
-  },
-  {
-    id: "evacuation",
-    title: "Evacuation Guide",
-    urgency: "High",
-    urgencyBg: "bg-danger/15",
-    urgencyText: "text-danger",
-    icon: "directions_run",
-    iconBg: "bg-warning",
-    points: [
-      "Leave immediately when advised to evacuate by local authorities.",
-      "Take your emergency supply kit and essential medications.",
-      "Lock your home before leaving.",
-      "Follow designated evacuation routes; do not take shortcuts.",
-      "If stranded, do not try to swim to safety. Wait for rescue teams.",
-    ],
-  },
-  {
-    id: "medical",
-    title: "Medical Emergencies",
-    urgency: "Medium",
-    urgencyBg: "bg-warning/15",
-    urgencyText: "text-warning",
-    icon: "medical_services",
-    iconBg: "bg-danger",
-    points: [
-      "Clean and bandage all open wounds immediately to prevent infection.",
-      "Seek emergency medical attention if you suspect waterborne illness.",
-      "Prevent hypothermia by removing wet clothing and staying warm.",
-      "Keep a basic first-aid kit accessible at all times.",
-    ],
-  },
-];
+import { useLanguage } from "../../contexts/LanguageContext";
 
 export default function SafetyGuides() {
+  const { t } = useLanguage();
   const [expandedId, setExpandedId] = useState("during"); // Default open
+
+  const guides = [
+    {
+      id: "before",
+      title: t("safetyPage.beforeFlood"),
+      urgency: t("safetyPage.urgencyInfo"),
+      urgencyBg: "bg-primary/15",
+      urgencyText: "text-primary",
+      icon: "inventory_2",
+      iconBg: "bg-primary",
+      points: t("safetyPage.beforePoints"),
+    },
+    {
+      id: "during",
+      title: t("safetyPage.duringFlood"),
+      urgency: t("safetyPage.urgencyCritical"),
+      urgencyBg: "bg-danger/15",
+      urgencyText: "text-danger",
+      icon: "home",
+      iconBg: "bg-danger",
+      points: t("safetyPage.duringPoints"),
+    },
+    {
+      id: "after",
+      title: t("safetyPage.afterFlood"),
+      urgency: t("safetyPage.urgencyMedium"),
+      urgencyBg: "bg-warning/15",
+      urgencyText: "text-warning",
+      icon: "description",
+      iconBg: "bg-safe",
+      points: t("safetyPage.afterPoints"),
+    },
+    {
+      id: "evacuation",
+      title: t("safetyPage.evacuationGuide"),
+      urgency: t("safetyPage.urgencyHigh"),
+      urgencyBg: "bg-danger/15",
+      urgencyText: "text-danger",
+      icon: "directions_run",
+      iconBg: "bg-warning",
+      points: t("safetyPage.evacuationPoints"),
+    },
+    {
+      id: "medical",
+      title: t("safetyPage.medicalEmergencies"),
+      urgency: t("safetyPage.urgencyMedium"),
+      urgencyBg: "bg-warning/15",
+      urgencyText: "text-warning",
+      icon: "medical_services",
+      iconBg: "bg-danger",
+      points: t("safetyPage.medicalPoints"),
+    },
+  ];
 
   const toggleGuide = (id) => {
     setExpandedId(expandedId === id ? null : id);
@@ -90,7 +64,7 @@ export default function SafetyGuides() {
 
   return (
     <div>
-      <h2 className="text-xl font-black mb-4 tracking-tight">Safety Guides</h2>
+      <h2 className="text-xl font-black mb-4 tracking-tight">{t("safetyPage.safetyGuides")}</h2>
       <div className="space-y-4">
         {guides.map((guide) => (
           <div
@@ -142,7 +116,7 @@ export default function SafetyGuides() {
                 <div className="p-6 pt-0 ml-16">
                   <div className="h-px w-full bg-slate-100 dark:bg-slate-700/50 mb-6" />
                   <ul className="space-y-3">
-                    {guide.points.map((point, index) => (
+                    {Array.isArray(guide.points) && guide.points.map((point, index) => (
                       <li
                         key={index}
                         className="flex items-start gap-3 text-sm text-slate-600 dark:text-slate-300 leading-relaxed"

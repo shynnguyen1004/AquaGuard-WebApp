@@ -1,0 +1,284 @@
+const vi = {
+  // ── Trang Cài đặt ──
+  settings: {
+    title: "Cài đặt",
+    subtitle: "Quản lý hồ sơ, gia đình và tùy chọn của bạn",
+    tabs: {
+      profile: "Hồ sơ",
+      family: "Gia đình",
+      appearance: "Giao diện",
+      language: "Ngôn ngữ",
+    },
+    profile: {
+      personalInfo: "Thông tin cá nhân",
+      fullName: "Họ và tên",
+      email: "Email",
+      phone: "Số điện thoại",
+      emergencyContact: "Liên hệ khẩn cấp",
+      address: "Địa chỉ",
+      saveChanges: "Lưu thay đổi",
+      profileUpdated: "Cập nhật hồ sơ thành công!",
+      citizen: "Công dân",
+    },
+    family: {
+      title: "Thành viên gia đình",
+      subtitle: "Theo dõi tình trạng an toàn của gia đình trong trường hợp khẩn cấp",
+      addMember: "Thêm thành viên",
+      addNewMember: "Thêm thành viên mới",
+      fullName: "Họ và tên",
+      relation: "Quan hệ (VD: Chị gái)",
+      phone: "Số điện thoại",
+      add: "Thêm",
+      cancel: "Hủy",
+      noMembers: "Chưa có thành viên gia đình nào",
+      safe: "an toàn",
+      danger: "nguy hiểm",
+      unknown: "không rõ",
+    },
+    appearance: {
+      theme: "Chủ đề",
+      light: "Sáng",
+      lightDesc: "Sáng và sạch sẽ",
+      dark: "Tối",
+      darkDesc: "Dễ chịu cho mắt",
+      system: "Hệ thống",
+      systemDesc: "Theo cài đặt thiết bị",
+    },
+    language: {
+      title: "Ngôn ngữ",
+      subtitle: "Chọn ngôn ngữ hiển thị ưa thích",
+      english: "English",
+      englishNative: "English",
+      englishDesc: "Display in English",
+      vietnamese: "Tiếng Việt",
+      vietnameseNative: "Tiếng Việt",
+      vietnameseDesc: "Hiển thị bằng Tiếng Việt",
+    },
+  },
+
+  // ── Điều hướng ──
+  nav: {
+    dashboard: "Bảng điều khiển",
+    map: "Bản đồ lũ lụt",
+    sos: "Yêu cầu SOS",
+    rescue: "Yêu cầu cứu hộ",
+    "rescuer-dashboard": "Bảng cứu hộ",
+    news: "Tin tức & Cảnh báo",
+    safety: "Quy trình an toàn",
+    about: "Giới thiệu",
+    admin: "Quản trị viên",
+    "admin-users": "Quản lý người dùng",
+    "admin-teams": "Đội cứu hộ",
+    "admin-sensors": "Cảm biến lũ",
+    "admin-analytics": "Phân tích hệ thống",
+    settings: "Cài đặt",
+    logout: "Đăng xuất",
+  },
+
+  // ── Tiêu đề ──
+  header: {
+    welcomeBack: "Chào mừng trở lại,",
+    location: "Thành phố Đà Nẵng, Việt Nam",
+    riskLabel: "Mức độ rủi ro hiện tại",
+    riskValue: "NGUY HIỂM",
+    searchPlaceholder: "Tìm kiếm khu vực hoặc điểm cứu hộ...",
+  },
+
+  // ── Trang chủ ──
+  dashboard: {
+    welcomeBack: "Chào mừng trở lại,",
+    lastUpdated: "Cập nhật lần cuối: vừa xong",
+  },
+
+  // ── Thẻ trạng thái ──
+  statusCard: {
+    currentStatus: "Trạng thái hiện tại",
+    danger: "Nguy hiểm",
+    warning: "Cảnh báo",
+    safe: "An toàn",
+    dangerAction: "Hành động ngay lập tức",
+    warningAction: "Cảnh giác và theo dõi cập nhật",
+    safeAction: "Không có mối đe dọa nào",
+    location: "ĐH Bách Khoa TP.HCM, Phường Điện Hồng",
+  },
+
+  // ── Tổng quan thống kê ──
+  stats: {
+    overview: "Tổng quan",
+    waterLevel: "Mức nước",
+    rescueTeams: "Đội cứu hộ",
+    sheltersOpen: "Nơi trú ẩn",
+    evacuated: "Sơ tán",
+    deployed: "đã triển khai",
+    capacity: "sức chứa",
+    today: "hôm nay",
+  },
+
+  // ── Hành động nhanh (Dashboard) ──
+  quickActions: {
+    title: "Hành động nhanh",
+    shelter: "Nơi trú ẩn",
+    shelterDesc: "Tìm nơi trú ẩn gần nhất",
+    sos: "SOS",
+    sosDesc: "Liên hệ khẩn cấp",
+    family: "Gia đình",
+    familyDesc: "Kiểm tra gia đình",
+  },
+
+  // ── Cảnh báo Dashboard ──
+  dashboardAlerts: {
+    title: "Cảnh báo hiện tại",
+    active: "Đang hoạt động",
+    heavyRainfall: "Dự kiến mưa lớn",
+    riverRising: "Mực nước sông đang dâng",
+    stormWarning: "Cảnh báo bão",
+    minAgo: "phút trước",
+    hourAgo: "giờ trước",
+    hoursAgo: "giờ trước",
+  },
+
+  // ── Quick Actions bảng phải ──
+  rightPanel: {
+    quickActions: "Hành động nhanh",
+    sos: "SOS",
+    sosSubtitle: "Liên hệ khẩn cấp trực tiếp",
+    findShelter: "Tìm nơi trú ẩn",
+    findShelterSubtitle: "Điều hướng đến nơi an toàn gần nhất",
+    familyCheck: "Kiểm tra gia đình",
+    familyCheckSubtitle: "Liên hệ thành viên đã đăng ký",
+  },
+
+  // ── Cảnh báo hiện tại (Bảng phải) ──
+  activeAlerts: {
+    title: "Cảnh báo hiện tại",
+    live: "TRỰC TIẾP",
+    heavyRainfall: "Dự kiến mưa lớn",
+    heavyRainfallDesc: "Cảnh báo cấp 3 tại Đà Nẵng. Dự kiến trong 2 giờ tới.",
+    riverRising: "Mực nước sông đang dâng",
+    riverRisingDesc: "Mực nước sông Hàn đang dâng 15cm/giờ.",
+    powerOutage: "Nguy cơ mất điện",
+    powerOutageDesc: "Lưới điện khu vực trung tâm có thể bị tạm ngưng vì an toàn.",
+    urgent: "Khẩn cấp",
+    monitoring: "Đang theo dõi",
+    advisory: "Tư vấn",
+  },
+
+  // ── Hỗ trợ khẩn cấp ──
+  emergency: {
+    title: "Hỗ trợ khẩn cấp",
+    description: "AquaGuard AI đang giám sát tất cả tín hiệu 24/7.",
+    requestBtn: "Yêu cầu hỗ trợ",
+  },
+
+  // ── Trang SOS ──
+  sosPage: {
+    title: "Yêu cầu SOS",
+    subtitle: "Gửi yêu cầu cứu hộ và theo dõi trạng thái theo thời gian thực",
+    sendSOS: "Gửi SOS",
+    myRequests: "Yêu cầu của tôi",
+    loading: "Đang tải yêu cầu của bạn...",
+    noRequests: "Chưa có yêu cầu nào",
+    noRequestsHint: "Bấm \"Gửi SOS\" để gửi yêu cầu cứu hộ đầu tiên",
+    justNow: "Vừa xong",
+    minAgo: "phút trước",
+    hAgo: "giờ trước",
+    unknownLocation: "Vị trí không xác định",
+    urgency: "mức độ",
+    assignedTo: "Được giao cho:",
+    pending: "Đang chờ",
+    assigned: "Đã phân công",
+    inProgress: "Đang xử lý",
+    resolved: "Đã giải quyết",
+    low: "Thấp",
+    medium: "Trung bình",
+    high: "Cao",
+    critical: "Nghiêm trọng",
+  },
+
+  // ── Form yêu cầu cứu hộ ──
+  rescueForm: {
+    title: "Yêu cầu cứu hộ mới",
+    subtitle: "Cung cấp thông tin chi tiết để đội cứu hộ hỗ trợ nhanh nhất có thể.",
+    location: "Vị trí hiện tại",
+    locationPlaceholder: "VD: 268 Lý Thường Kiệt, Quận 10, TP.HCM",
+    locationError: "Vui lòng nhập vị trí",
+    description: "Mô tả tình huống",
+    descriptionPlaceholder: "Mô tả tình huống hiện tại: mực nước, số người cần cứu hộ, tình trạng sức khỏe...",
+    descriptionError: "Vui lòng nhập mô tả",
+    urgencyLevel: "Mức độ khẩn cấp",
+    sceneImages: "Hình ảnh hiện trường",
+    maxImages: "(tối đa 5 hình)",
+    dragDrop: "Kéo thả hình ảnh vào đây hoặc",
+    chooseFiles: "chọn tệp",
+    fileTypes: "PNG, JPG, WEBP — tối đa 10MB/hình",
+    cancel: "Hủy",
+    submit: "Gửi yêu cầu cứu hộ",
+    low: "Thấp",
+    medium: "Trung bình",
+    high: "Cao",
+    critical: "Nghiêm trọng",
+  },
+
+  // ── Vai trò ──
+  roles: {
+    admin: "Quản trị viên hệ thống",
+    rescuer: "Đội cứu hộ",
+    citizen: "Công dân",
+    user: "Người dùng",
+  },
+
+  // ── Trang Quy trình An toàn ──
+  safetyPage: {
+    title: "Quy trình An toàn",
+    subtitle: "Thông tin liên hệ khẩn cấp và hướng dẫn an toàn cho thiên tai lũ lụt.",
+    emergencyAssistance: "Hỗ trợ Khẩn cấp",
+    safetyGuides: "Hướng dẫn An toàn",
+    police: "Công an",
+    fireBrigade: "Cứu hỏa",
+    ambulance: "Cấp cứu",
+    urgencyInfo: "Thông tin",
+    urgencyCritical: "Nghiêm trọng",
+    urgencyMedium: "Trung bình",
+    urgencyHigh: "Cao",
+    beforeFlood: "Trước lũ lụt",
+    beforePoints: [
+      "Chuẩn bị bộ ​​dụng cụ khẩn cấp (nước, thực phẩm, đèn pin, sơ cứu, pin).",
+      "Xác định các tuyến đường sơ tán an toàn nhất đến vùng cao hơn.",
+      "Giữ các tài liệu quan trọng trong hộp chống nước.",
+      "Di chuyển các vật dụng thiết yếu, đồ điện tử và đồ có giá trị lên tầng trên.",
+    ],
+    duringFlood: "Trong lũ lụt",
+    duringPoints: [
+      "Di chuyển đến vùng cao hơn ngay lập tức.",
+      "Tránh đi bộ hoặc lái xe qua nước lũ (15cm nước chảy có thể quật ngã bạn).",
+      "Tránh xa các đường dây điện bị đổ và dây điện.",
+      "Tắt các tiện ích tại công tắc chính nếu được hướng dẫn.",
+      "Lắng nghe các bản tin khẩn cấp để cập nhật thông tin mới nhất.",
+    ],
+    afterFlood: "Sau lũ lụt",
+    afterPoints: [
+      "Chỉ trở về nhà khi chính quyền thông báo an toàn.",
+      "Mặc quần áo bảo hộ, bao gồm ủng cao su và găng tay.",
+      "Ghi lại thiệt hại tài sản bằng ảnh để yêu cầu bảo hiểm.",
+      "Chú ý hư hỏng kết cấu, nấm mốc và động vật hoang dã.",
+      "Không uống nước máy cho đến khi được tuyên bố an toàn.",
+    ],
+    evacuationGuide: "Hướng dẫn Sơ tán",
+    evacuationPoints: [
+      "Rời đi ngay lập tức khi chính quyền khuyến cáo sơ tán.",
+      "Mang theo bộ dụng cụ khẩn cấp và thuốc thiết yếu.",
+      "Khóa nhà trước khi rời đi.",
+      "Đi theo các tuyến đường sơ tán được chỉ định; không đi đường tắt.",
+      "Nếu bị kẹt, không cố bơi đến nơi an toàn. Chờ đội cứu hộ.",
+    ],
+    medicalEmergencies: "Cấp cứu Y tế",
+    medicalPoints: [
+      "Lau sạch và băng bó tất cả vết thương hở ngay lập tức để tránh nhiễm trùng.",
+      "Tìm kiếm sự chăm sóc y tế khẩn cấp nếu nghi ngờ bệnh do nước.",
+      "Tránh hạ thân nhiệt bằng cách thay quần áo ướt và giữ ấm.",
+      "Luôn giữ bộ sơ cứu cơ bản ở nơi dễ lấy.",
+    ],
+  },
+};
+
+export default vi;

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { useLanguage } from "../contexts/LanguageContext";
 
 const familyMembers = [
   { id: 1, name: "Nguyen Van A", relation: "Father", phone: "0901 234 567", status: "safe", avatar: "NVA" },
@@ -15,6 +16,7 @@ const statusColors = {
 
 export default function SettingsPage() {
   const { user } = useAuth();
+  const { t, language, setLanguage } = useLanguage();
   const [activeTab, setActiveTab] = useState("profile");
   const [profile, setProfile] = useState({
     displayName: user?.displayName || "User",
@@ -40,13 +42,14 @@ export default function SettingsPage() {
   }, [theme]);
 
   const tabs = [
-    { id: "profile", label: "Profile", icon: "person" },
-    { id: "family", label: "Family", icon: "group" },
-    { id: "appearance", label: "Appearance", icon: "palette" },
+    { id: "profile", label: t("settings.tabs.profile"), icon: "person" },
+    { id: "family", label: t("settings.tabs.family"), icon: "group" },
+    { id: "appearance", label: t("settings.tabs.appearance"), icon: "palette" },
+    { id: "language", label: t("settings.tabs.language"), icon: "translate" },
   ];
 
   const handleProfileSave = () => {
-    alert("Profile updated successfully!");
+    alert(t("settings.profile.profileUpdated"));
   };
 
   const handleAddFamily = () => {
@@ -68,16 +71,20 @@ export default function SettingsPage() {
     setFamily((prev) => prev.filter((m) => m.id !== id));
   };
 
+  const getStatusLabel = (status) => {
+    return t(`settings.family.${status}`) || status;
+  };
+
   return (
     <div className="flex-1 overflow-y-auto p-4 lg:p-8">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-black text-slate-900 dark:text-white">Settings</h1>
-        <p className="text-sm text-slate-500 mt-1">Manage your profile, family, and preferences</p>
+        <h1 className="text-2xl font-black text-slate-900 dark:text-white">{t("settings.title")}</h1>
+        <p className="text-sm text-slate-500 mt-1">{t("settings.subtitle")}</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2 mb-6 flex-wrap">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -110,7 +117,7 @@ export default function SettingsPage() {
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white">{profile.displayName}</h2>
                 <p className="text-sm text-slate-500">{profile.email}</p>
                 <span className="inline-block mt-2 text-[10px] font-bold px-3 py-1 rounded-full bg-primary/10 text-primary">
-                  Citizen
+                  {t("settings.profile.citizen")}
                 </span>
               </div>
             </div>
@@ -120,12 +127,12 @@ export default function SettingsPage() {
           <div className="bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 space-y-5">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <span className="material-symbols-outlined text-primary text-lg">edit</span>
-              Personal Information
+              {t("settings.profile.personalInfo")}
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Full Name</label>
+                <label className="block text-xs font-semibold text-slate-500 mb-1.5">{t("settings.profile.fullName")}</label>
                 <input
                   type="text"
                   value={profile.displayName}
@@ -134,7 +141,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Email</label>
+                <label className="block text-xs font-semibold text-slate-500 mb-1.5">{t("settings.profile.email")}</label>
                 <input
                   type="email"
                   value={profile.email}
@@ -143,7 +150,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Phone Number</label>
+                <label className="block text-xs font-semibold text-slate-500 mb-1.5">{t("settings.profile.phone")}</label>
                 <input
                   type="tel"
                   value={profile.phone}
@@ -152,7 +159,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Emergency Contact</label>
+                <label className="block text-xs font-semibold text-slate-500 mb-1.5">{t("settings.profile.emergencyContact")}</label>
                 <input
                   type="tel"
                   value={profile.emergencyContact}
@@ -161,7 +168,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Address</label>
+                <label className="block text-xs font-semibold text-slate-500 mb-1.5">{t("settings.profile.address")}</label>
                 <input
                   type="text"
                   value={profile.address}
@@ -175,7 +182,7 @@ export default function SettingsPage() {
               onClick={handleProfileSave}
               className="px-6 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
             >
-              Save Changes
+              {t("settings.profile.saveChanges")}
             </button>
           </div>
         </div>
@@ -187,15 +194,15 @@ export default function SettingsPage() {
           {/* Family header */}
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Family Members</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Track the safety status of your family during emergencies</p>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">{t("settings.family.title")}</h3>
+              <p className="text-xs text-slate-500 mt-0.5">{t("settings.family.subtitle")}</p>
             </div>
             <button
               onClick={() => setShowAddFamily(true)}
               className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
             >
               <span className="material-symbols-outlined text-sm">person_add</span>
-              Add Member
+              {t("settings.family.addMember")}
             </button>
           </div>
 
@@ -204,26 +211,26 @@ export default function SettingsPage() {
             <div className="bg-white dark:bg-slate-800/50 rounded-2xl border border-primary/30 p-5 space-y-4">
               <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary text-lg">person_add</span>
-                Add New Family Member
+                {t("settings.family.addNewMember")}
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <input
                   type="text"
-                  placeholder="Full Name"
+                  placeholder={t("settings.family.fullName")}
                   value={newMember.name}
                   onChange={(e) => setNewMember((p) => ({ ...p, name: e.target.value }))}
                   className="px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:ring-2 focus:ring-primary/30"
                 />
                 <input
                   type="text"
-                  placeholder="Relation (e.g. Sister)"
+                  placeholder={t("settings.family.relation")}
                   value={newMember.relation}
                   onChange={(e) => setNewMember((p) => ({ ...p, relation: e.target.value }))}
                   className="px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:ring-2 focus:ring-primary/30"
                 />
                 <input
                   type="tel"
-                  placeholder="Phone Number"
+                  placeholder={t("settings.family.phone")}
                   value={newMember.phone}
                   onChange={(e) => setNewMember((p) => ({ ...p, phone: e.target.value }))}
                   className="px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:ring-2 focus:ring-primary/30"
@@ -234,13 +241,13 @@ export default function SettingsPage() {
                   onClick={handleAddFamily}
                   className="px-5 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/90 transition-colors"
                 >
-                  Add
+                  {t("settings.family.add")}
                 </button>
                 <button
                   onClick={() => { setShowAddFamily(false); setNewMember({ name: "", relation: "", phone: "" }); }}
                   className="px-5 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
                 >
-                  Cancel
+                  {t("settings.family.cancel")}
                 </button>
               </div>
             </div>
@@ -272,7 +279,7 @@ export default function SettingsPage() {
 
                 {/* Status */}
                 <span className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wide ${statusColors[member.status]}`}>
-                  {member.status}
+                  {getStatusLabel(member.status)}
                 </span>
 
                 {/* Actions */}
@@ -289,7 +296,7 @@ export default function SettingsPage() {
           {family.length === 0 && (
             <div className="text-center py-12 text-slate-400">
               <span className="material-symbols-outlined text-4xl mb-2">group_off</span>
-              <p className="text-sm">No family members added yet</p>
+              <p className="text-sm">{t("settings.family.noMembers")}</p>
             </div>
           )}
         </div>
@@ -301,13 +308,13 @@ export default function SettingsPage() {
           <div className="bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 p-6">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-5">
               <span className="material-symbols-outlined text-primary text-lg">palette</span>
-              Theme
+              {t("settings.appearance.theme")}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
-                { id: "light", label: "Light", icon: "light_mode", desc: "Bright and clean" },
-                { id: "dark", label: "Dark", icon: "dark_mode", desc: "Easy on the eyes" },
-                { id: "system", label: "System", icon: "desktop_windows", desc: "Match device setting" },
+                { id: "light", label: t("settings.appearance.light"), icon: "light_mode", desc: t("settings.appearance.lightDesc") },
+                { id: "dark", label: t("settings.appearance.dark"), icon: "dark_mode", desc: t("settings.appearance.darkDesc") },
+                { id: "system", label: t("settings.appearance.system"), icon: "desktop_windows", desc: t("settings.appearance.systemDesc") },
               ].map((opt) => (
                 <button
                   key={opt.id}
@@ -328,6 +335,58 @@ export default function SettingsPage() {
                   <span className="text-[10px] text-slate-400">{opt.desc}</span>
                   {theme === opt.id && (
                     <span className="material-symbols-outlined text-primary text-base filled-icon">check_circle</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Language Tab */}
+      {activeTab === "language" && (
+        <div className="max-w-2xl space-y-6">
+          <div className="bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 p-6">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-2">
+              <span className="material-symbols-outlined text-primary text-lg">translate</span>
+              {t("settings.language.title")}
+            </h3>
+            <p className="text-xs text-slate-500 mb-5">{t("settings.language.subtitle")}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[
+                {
+                  id: "en",
+                  flag: "🇺🇸",
+                  label: t("settings.language.english"),
+                  native: "English",
+                  desc: t("settings.language.englishDesc"),
+                },
+                {
+                  id: "vi",
+                  flag: "🇻🇳",
+                  label: t("settings.language.vietnamese"),
+                  native: "Tiếng Việt",
+                  desc: t("settings.language.vietnameseDesc"),
+                },
+              ].map((opt) => (
+                <button
+                  key={opt.id}
+                  onClick={() => setLanguage(opt.id)}
+                  className={`flex items-center gap-4 p-5 rounded-2xl border-2 transition-all text-left ${language === opt.id
+                    ? "border-primary bg-primary/5 shadow-lg shadow-primary/10"
+                    : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
+                    }`}
+                >
+                  <span className="text-4xl leading-none">{opt.flag}</span>
+                  <div className="flex-1 min-w-0">
+                    <span className={`block text-sm font-bold ${language === opt.id ? "text-primary" : "text-slate-700 dark:text-slate-300"
+                      }`}>
+                      {opt.native}
+                    </span>
+                    <span className="block text-[11px] text-slate-400 mt-0.5">{opt.desc}</span>
+                  </div>
+                  {language === opt.id && (
+                    <span className="material-symbols-outlined text-primary text-xl filled-icon flex-shrink-0">check_circle</span>
                   )}
                 </button>
               ))}

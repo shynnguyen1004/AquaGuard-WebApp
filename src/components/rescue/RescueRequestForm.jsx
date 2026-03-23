@@ -1,15 +1,10 @@
 import { useState, useRef } from "react";
 import { useAuth } from "../../contexts/AuthContext";
-
-const urgencyOptions = [
-  { value: "low", label: "Low", color: "peer-checked:bg-slate-200 peer-checked:text-slate-700 peer-checked:border-slate-400" },
-  { value: "medium", label: "Medium", color: "peer-checked:bg-warning/15 peer-checked:text-warning peer-checked:border-warning" },
-  { value: "high", label: "High", color: "peer-checked:bg-danger/15 peer-checked:text-danger peer-checked:border-danger" },
-  { value: "critical", label: "Critical", color: "peer-checked:bg-danger peer-checked:text-white peer-checked:border-danger" },
-];
+import { useLanguage } from "../../contexts/LanguageContext";
 
 export default function RescueRequestForm({ onClose, onSubmit }) {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
     location: "",
@@ -19,6 +14,13 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
   const [images, setImages] = useState([]);
   const [dragActive, setDragActive] = useState(false);
   const [errors, setErrors] = useState({});
+
+  const urgencyOptions = [
+    { value: "low", label: t("rescueForm.low"), color: "peer-checked:bg-slate-200 peer-checked:text-slate-700 peer-checked:border-slate-400" },
+    { value: "medium", label: t("rescueForm.medium"), color: "peer-checked:bg-warning/15 peer-checked:text-warning peer-checked:border-warning" },
+    { value: "high", label: t("rescueForm.high"), color: "peer-checked:bg-danger/15 peer-checked:text-danger peer-checked:border-danger" },
+    { value: "critical", label: t("rescueForm.critical"), color: "peer-checked:bg-danger peer-checked:text-white peer-checked:border-danger" },
+  ];
 
   const handleImageFiles = (files) => {
     const newImages = Array.from(files)
@@ -55,8 +57,8 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
 
   const validate = () => {
     const errs = {};
-    if (!formData.location.trim()) errs.location = "Please enter a location";
-    if (!formData.description.trim()) errs.description = "Please enter a description";
+    if (!formData.location.trim()) errs.location = t("rescueForm.locationError");
+    if (!formData.description.trim()) errs.description = t("rescueForm.descriptionError");
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -69,7 +71,7 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
       images: images.map((img) => img.preview),
       userName: user?.displayName || "User",
       userAvatar: user?.avatarUrl || "",
-      timeAgo: "Just now",
+      timeAgo: t("sosPage.justNow"),
       status: "pending",
     });
     onClose?.();
@@ -89,9 +91,9 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
         <div className="sticky top-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-6 pb-4 border-b border-slate-100 dark:border-slate-800 rounded-t-3xl z-10">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-black">New Rescue Request</h2>
+              <h2 className="text-xl font-black">{t("rescueForm.title")}</h2>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                Provide detailed information so the rescue team can assist as quickly as possible.
+                {t("rescueForm.subtitle")}
               </p>
             </div>
             <button
@@ -114,12 +116,12 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
                 <span className="material-symbols-outlined text-base text-danger filled-icon">
                   location_on
                 </span>
-                Current Location
+                {t("rescueForm.location")}
               </span>
             </label>
             <input
               type="text"
-              placeholder="e.g.: 268 Ly Thuong Kiet, District 10, HCMC"
+              placeholder={t("rescueForm.locationPlaceholder")}
               value={formData.location}
               onChange={(e) =>
                 setFormData((p) => ({ ...p, location: e.target.value }))
@@ -140,12 +142,12 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
                 <span className="material-symbols-outlined text-base text-primary filled-icon">
                   description
                 </span>
-                Situation Description
+                {t("rescueForm.description")}
               </span>
             </label>
             <textarea
               rows={4}
-              placeholder="Describe the current situation: water level, number of people needing rescue, health conditions..."
+              placeholder={t("rescueForm.descriptionPlaceholder")}
               value={formData.description}
               onChange={(e) =>
                 setFormData((p) => ({ ...p, description: e.target.value }))
@@ -166,7 +168,7 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
                 <span className="material-symbols-outlined text-base text-warning filled-icon">
                   priority_high
                 </span>
-                Urgency Level
+                {t("rescueForm.urgencyLevel")}
               </span>
             </label>
             <div className="flex gap-3">
@@ -199,9 +201,9 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
                 <span className="material-symbols-outlined text-base text-primary filled-icon">
                   photo_camera
                 </span>
-                Scene Images
+                {t("rescueForm.sceneImages")}
                 <span className="text-xs font-normal text-slate-400">
-                  (max 5 images)
+                  {t("rescueForm.maxImages")}
                 </span>
               </span>
             </label>
@@ -223,11 +225,11 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
                 cloud_upload
               </span>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Drag and drop images here or{" "}
-                <span className="text-primary font-bold">choose files</span>
+                {t("rescueForm.dragDrop")}{" "}
+                <span className="text-primary font-bold">{t("rescueForm.chooseFiles")}</span>
               </p>
               <p className="text-[11px] text-slate-400 mt-1">
-                PNG, JPG, WEBP — max 10MB/image
+                {t("rescueForm.fileTypes")}
               </p>
               <input
                 ref={fileInputRef}
@@ -271,7 +273,7 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
               onClick={onClose}
               className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
             >
-              Cancel
+              {t("rescueForm.cancel")}
             </button>
             <button
               type="submit"
@@ -280,7 +282,7 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
               <span className="material-symbols-outlined text-base filled-icon">
                 sos
               </span>
-              Submit Rescue Request
+              {t("rescueForm.submit")}
             </button>
           </div>
         </form>

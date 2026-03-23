@@ -1,4 +1,5 @@
 import { useAuth } from "../contexts/AuthContext";
+import { useLanguage } from "../contexts/LanguageContext";
 import StatusCard from "../components/dashboard/StatusCard";
 import StatsOverview from "../components/dashboard/StatsOverview";
 import DashboardQuickActions from "../components/dashboard/DashboardQuickActions";
@@ -6,6 +7,7 @@ import DashboardAlerts from "../components/dashboard/DashboardAlerts";
 
 export default function DashboardHome() {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -14,7 +16,7 @@ export default function DashboardHome() {
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium">
-              Welcome back,
+              {t("dashboard.welcomeBack")}
             </p>
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight mt-1 truncate">
               {user?.displayName || "Responder Alpha"}
@@ -23,7 +25,7 @@ export default function DashboardHome() {
           <div className="hidden sm:flex items-center gap-3 flex-shrink-0">
             <div className="text-right">
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {new Date().toLocaleDateString("en-US", {
+                {new Date().toLocaleDateString(language === "vi" ? "vi-VN" : "en-US", {
                   weekday: "long",
                   year: "numeric",
                   month: "long",
@@ -31,7 +33,7 @@ export default function DashboardHome() {
                 })}
               </p>
               <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                Last updated: just now
+                {t("dashboard.lastUpdated")}
               </p>
             </div>
             <img

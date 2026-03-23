@@ -16,27 +16,27 @@ export const ROLES = {
  */
 const ALL_NAV_ITEMS = [
   // ── Shared ──
-  { icon: "dashboard", label: "Dashboard", page: "dashboard", roles: [ROLES.CITIZEN, ROLES.RESCUER], mobileNav: true },
-  { icon: "map", label: "Live Flood Map", page: "map", filled: true, roles: [ROLES.CITIZEN, ROLES.RESCUER], mobileNav: true },
+  { icon: "dashboard", label: "Dashboard", labelKey: "nav.dashboard", page: "dashboard", roles: [ROLES.CITIZEN, ROLES.RESCUER], mobileNav: true },
+  { icon: "map", label: "Live Flood Map", labelKey: "nav.map", page: "map", filled: true, roles: [ROLES.CITIZEN, ROLES.RESCUER], mobileNav: true },
 
   // ── Citizen ──
-  { icon: "sos", label: "SOS Request", page: "sos", roles: [ROLES.CITIZEN], mobileNav: true },
+  { icon: "sos", label: "SOS Request", labelKey: "nav.sos", page: "sos", roles: [ROLES.CITIZEN], mobileNav: true },
 
   // ── Rescuer ──
-  { icon: "emergency", label: "Rescue Requests", page: "rescue", badge: null, roles: [ROLES.RESCUER], mobileNav: true },
-  { icon: "assignment_ind", label: "Rescuer Dashboard", page: "rescuer-dashboard", roles: [ROLES.RESCUER], mobileNav: false },
+  { icon: "emergency", label: "Rescue Requests", labelKey: "nav.rescue", page: "rescue", badge: null, roles: [ROLES.RESCUER], mobileNav: true },
+  { icon: "assignment_ind", label: "Rescuer Dashboard", labelKey: "nav.rescuer-dashboard", page: "rescuer-dashboard", roles: [ROLES.RESCUER], mobileNav: false },
 
   // ── Shared (citizen + rescuer) ──
-  { icon: "newspaper", label: "News & Alerts", page: "news", roles: [], mobileNav: false },
-  { icon: "shield_with_heart", label: "Safety Protocols", page: "safety", roles: [ROLES.CITIZEN, ROLES.RESCUER], mobileNav: true },
-  { icon: "info", label: "About Us", page: "about", roles: [], mobileNav: false },
+  { icon: "newspaper", label: "News & Alerts", labelKey: "nav.news", page: "news", roles: [], mobileNav: false },
+  { icon: "shield_with_heart", label: "Safety Protocols", labelKey: "nav.safety", page: "safety", roles: [ROLES.CITIZEN, ROLES.RESCUER], mobileNav: true },
+  { icon: "info", label: "About Us", labelKey: "nav.about", page: "about", roles: [], mobileNav: false },
 
   // ── Admin ──
-  { icon: "admin_panel_settings", label: "Admin Dashboard", page: "admin", roles: [ROLES.ADMIN], mobileNav: true },
-  { icon: "group", label: "User Management", page: "admin-users", roles: [ROLES.ADMIN], mobileNav: true },
-  { icon: "local_fire_department", label: "Rescue Teams", page: "admin-teams", roles: [ROLES.ADMIN], mobileNav: false },
-  { icon: "sensors", label: "Flood Sensors", page: "admin-sensors", roles: [ROLES.ADMIN], mobileNav: false },
-  { icon: "analytics", label: "System Analytics", page: "admin-analytics", roles: [ROLES.ADMIN], mobileNav: false },
+  { icon: "admin_panel_settings", label: "Admin Dashboard", labelKey: "nav.admin", page: "admin", roles: [ROLES.ADMIN], mobileNav: true },
+  { icon: "group", label: "User Management", labelKey: "nav.admin-users", page: "admin-users", roles: [ROLES.ADMIN], mobileNav: true },
+  { icon: "local_fire_department", label: "Rescue Teams", labelKey: "nav.admin-teams", page: "admin-teams", roles: [ROLES.ADMIN], mobileNav: false },
+  { icon: "sensors", label: "Flood Sensors", labelKey: "nav.admin-sensors", page: "admin-sensors", roles: [ROLES.ADMIN], mobileNav: false },
+  { icon: "analytics", label: "System Analytics", labelKey: "nav.admin-analytics", page: "admin-analytics", roles: [ROLES.ADMIN], mobileNav: false },
 ];
 
 /**

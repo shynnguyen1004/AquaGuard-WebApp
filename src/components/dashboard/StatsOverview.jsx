@@ -1,45 +1,4 @@
-const stats = [
-  {
-    icon: "water_drop",
-    label: "Water Level",
-    value: "+2.5m",
-    change: "+0.3m/hr",
-    changeType: "danger",
-    bg: "bg-red-50 dark:bg-red-500/10",
-    iconBg: "bg-danger/15",
-    iconColor: "text-danger",
-  },
-  {
-    icon: "local_fire_department",
-    label: "Rescue Teams",
-    value: "8",
-    change: "3 deployed",
-    changeType: "warning",
-    bg: "bg-amber-50 dark:bg-amber-500/10",
-    iconBg: "bg-warning/15",
-    iconColor: "text-warning",
-  },
-  {
-    icon: "night_shelter",
-    label: "Shelters Open",
-    value: "12",
-    change: "340 capacity",
-    changeType: "safe",
-    bg: "bg-emerald-50 dark:bg-emerald-500/10",
-    iconBg: "bg-safe/15",
-    iconColor: "text-safe",
-  },
-  {
-    icon: "groups",
-    label: "Evacuated",
-    value: "1,247",
-    change: "+89 today",
-    changeType: "primary",
-    bg: "bg-sky-50 dark:bg-sky-500/10",
-    iconBg: "bg-primary/15",
-    iconColor: "text-primary",
-  },
-];
+import { useLanguage } from "../../contexts/LanguageContext";
 
 const changeColors = {
   danger: "text-danger",
@@ -49,9 +8,54 @@ const changeColors = {
 };
 
 export default function StatsOverview() {
+  const { t } = useLanguage();
+
+  const stats = [
+    {
+      icon: "water_drop",
+      label: t("stats.waterLevel"),
+      value: "+2.5m",
+      change: `+0.3m/${t("stats.overview") === "Tổng quan" ? "giờ" : "hr"}`,
+      changeType: "danger",
+      bg: "bg-red-50 dark:bg-red-500/10",
+      iconBg: "bg-danger/15",
+      iconColor: "text-danger",
+    },
+    {
+      icon: "local_fire_department",
+      label: t("stats.rescueTeams"),
+      value: "8",
+      change: `3 ${t("stats.deployed")}`,
+      changeType: "warning",
+      bg: "bg-amber-50 dark:bg-amber-500/10",
+      iconBg: "bg-warning/15",
+      iconColor: "text-warning",
+    },
+    {
+      icon: "night_shelter",
+      label: t("stats.sheltersOpen"),
+      value: "12",
+      change: `340 ${t("stats.capacity")}`,
+      changeType: "safe",
+      bg: "bg-emerald-50 dark:bg-emerald-500/10",
+      iconBg: "bg-safe/15",
+      iconColor: "text-safe",
+    },
+    {
+      icon: "groups",
+      label: t("stats.evacuated"),
+      value: "1,247",
+      change: `+89 ${t("stats.today")}`,
+      changeType: "primary",
+      bg: "bg-sky-50 dark:bg-sky-500/10",
+      iconBg: "bg-primary/15",
+      iconColor: "text-primary",
+    },
+  ];
+
   return (
     <div>
-      <h3 className="text-lg font-bold mb-4">Overview</h3>
+      <h3 className="text-lg font-bold mb-4">{t("stats.overview")}</h3>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => (
           <div

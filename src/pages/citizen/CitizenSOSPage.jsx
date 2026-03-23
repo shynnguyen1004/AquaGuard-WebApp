@@ -2,28 +2,30 @@ import { useState, useEffect } from "react";
 import { collection, addDoc, query, where, onSnapshot, orderBy } from "firebase/firestore";
 import { getFirebaseDb } from "../../config/firebase";
 import { useAuth } from "../../contexts/AuthContext";
+import { useLanguage } from "../../contexts/LanguageContext";
 import RescueRequestForm from "../../components/rescue/RescueRequestForm";
-
-const STATUS_CONFIG = {
-  pending:     { label: "Pending",     icon: "schedule",        color: "text-warning",  bg: "bg-warning/10", border: "border-warning/20" },
-  assigned:    { label: "Assigned",    icon: "person_search",   color: "text-primary",  bg: "bg-primary/10", border: "border-primary/20" },
-  in_progress: { label: "In Progress", icon: "local_shipping",  color: "text-blue-500", bg: "bg-blue-50",    border: "border-blue-200" },
-  resolved:    { label: "Resolved",    icon: "check_circle",    color: "text-safe",     bg: "bg-safe/10",    border: "border-safe/20" },
-};
-
-const URGENCY_CONFIG = {
-  low:      { label: "Low",      color: "text-slate-500", bg: "bg-slate-100" },
-  medium:   { label: "Medium",   color: "text-warning",   bg: "bg-warning/10" },
-  high:     { label: "High",     color: "text-danger",    bg: "bg-danger/10" },
-  critical: { label: "Critical", color: "text-white",     bg: "bg-danger" },
-};
 
 export default function CitizenSOSPage() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [myRequests, setMyRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const STATUS_CONFIG = {
+    pending:     { label: t("sosPage.pending"),     icon: "schedule",        color: "text-warning",  bg: "bg-warning/10", border: "border-warning/20" },
+    assigned:    { label: t("sosPage.assigned"),    icon: "person_search",   color: "text-primary",  bg: "bg-primary/10", border: "border-primary/20" },
+    in_progress: { label: t("sosPage.inProgress"), icon: "local_shipping",  color: "text-blue-500", bg: "bg-blue-50",    border: "border-blue-200" },
+    resolved:    { label: t("sosPage.resolved"),    icon: "check_circle",    color: "text-safe",     bg: "bg-safe/10",    border: "border-safe/20" },
+  };
+
+  const URGENCY_CONFIG = {
+    low:      { label: t("sosPage.low"),      color: "text-slate-500", bg: "bg-slate-100" },
+    medium:   { label: t("sosPage.medium"),   color: "text-warning",   bg: "bg-warning/10" },
+    high:     { label: t("sosPage.high"),     color: "text-danger",    bg: "bg-danger/10" },
+    critical: { label: t("sosPage.critical"), color: "text-white",     bg: "bg-danger" },
+  };
 
   // Real-time listener for current user's requests
   useEffect(() => {
@@ -88,10 +90,10 @@ export default function CitizenSOSPage() {
     const now = new Date();
     const diffMs = now - d;
     const mins = Math.floor(diffMs / 60000);
-    if (mins < 1) return "Just now";
-    if (mins < 60) return `${mins} min ago`;
+    if (mins < 1) return t("sosPage.justNow");
+    if (mins < 60) return `${mins} ${t("sosPage.minAgo")}`;
     const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
+    if (hours < 24) return `${hours} ${t("sosPage.hAgo")}`;
     return d.toLocaleDateString("vi-VN");
   };
 
@@ -103,10 +105,10 @@ export default function CitizenSOSPage() {
           <div>
             <h1 className="text-2xl lg:text-3xl font-black tracking-tight flex items-center gap-3">
               <span className="material-symbols-outlined text-danger filled-icon text-3xl">sos</span>
-              SOS Request
+              {t("sosPage.title")}
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Send a rescue request and track its status in real time
+              {t("sosPage.subtitle")}
             </p>
           </div>
           <button
@@ -114,7 +116,7 @@ export default function CitizenSOSPage() {
             className="inline-flex items-center gap-2 bg-danger text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-red-600 transition-all shadow-lg shadow-danger/20 hover:shadow-xl hover:shadow-danger/30"
           >
             <span className="material-symbols-outlined text-lg filled-icon">add_circle</span>
-            Send SOS
+            {t("sosPage.sendSOS")}
           </button>
         </div>
 
@@ -122,7 +124,7 @@ export default function CitizenSOSPage() {
         <div className="space-y-4">
           <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
             <span className="material-symbols-outlined text-base">history</span>
-            My Requests ({myRequests.length})
+            {t("sosPage.myRequests")} ({myRequests.length})
           </h2>
 
           {loading ? (
@@ -132,15 +134,15 @@ export default function CitizenSOSPage() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                Loading your requests...
+                {t("sosPage.loading")}
               </div>
             </div>
           ) : myRequests.length === 0 ? (
             <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700/30">
               <span className="material-symbols-outlined text-6xl text-slate-200 dark:text-slate-600 mb-4">inbox</span>
-              <p className="text-lg font-bold text-slate-400 dark:text-slate-500">No requests yet</p>
+              <p className="text-lg font-bold text-slate-400 dark:text-slate-500">{t("sosPage.noRequests")}</p>
               <p className="text-sm text-slate-400 dark:text-slate-600 mt-1">
-                Click "Send SOS" to submit your first rescue request
+                {t("sosPage.noRequestsHint")}
               </p>
             </div>
           ) : (
@@ -166,7 +168,7 @@ export default function CitizenSOSPage() {
                     {/* Location */}
                     <div className="flex items-start gap-2 mb-2">
                       <span className="material-symbols-outlined text-danger text-base mt-0.5 filled-icon">location_on</span>
-                      <p className="text-sm font-semibold">{req.location || "Unknown location"}</p>
+                      <p className="text-sm font-semibold">{req.location || t("sosPage.unknownLocation")}</p>
                     </div>
 
                     {/* Description */}
@@ -177,12 +179,12 @@ export default function CitizenSOSPage() {
                     {/* Bottom: urgency + assigned */}
                     <div className="flex items-center gap-3 ml-6">
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${urgency.bg} ${urgency.color}`}>
-                        {urgency.label} urgency
+                        {urgency.label} {t("sosPage.urgency")}
                       </span>
                       {req.assignedTo && (
                         <span className="text-xs text-slate-400 flex items-center gap-1">
                           <span className="material-symbols-outlined text-xs">person</span>
-                          Assigned to: {req.assignedTo}
+                          {t("sosPage.assignedTo")} {req.assignedTo}
                         </span>
                       )}
                     </div>

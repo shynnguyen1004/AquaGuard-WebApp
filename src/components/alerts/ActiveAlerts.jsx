@@ -1,44 +1,47 @@
+import { useLanguage } from "../../contexts/LanguageContext";
 import AlertCard from "./AlertCard";
 
-const alerts = [
-  {
-    icon: "tsunami",
-    iconColor: "danger",
-    title: "Heavy Rainfall Expected",
-    description: "Level 3 alert in Da Nang. Expected in next 2 hours.",
-    status: "Urgent",
-    statusColor: "danger",
-  },
-  {
-    icon: "waves",
-    iconColor: "warning",
-    title: "River Water Level Rising",
-    description: "Han River levels rising at 15cm/hour.",
-    status: "Monitoring",
-    statusColor: "warning",
-  },
-  {
-    icon: "thunderstorm",
-    iconColor: "primary",
-    title: "Power Outage Risk",
-    description: "Central district grid may be suspended for safety.",
-    status: "Advisory",
-    statusColor: "primary",
-  },
-];
-
 export default function ActiveAlerts() {
+  const { t } = useLanguage();
+
+  const alerts = [
+    {
+      icon: "tsunami",
+      iconColor: "danger",
+      title: t("activeAlerts.heavyRainfall"),
+      description: t("activeAlerts.heavyRainfallDesc"),
+      status: t("activeAlerts.urgent"),
+      statusColor: "danger",
+    },
+    {
+      icon: "waves",
+      iconColor: "warning",
+      title: t("activeAlerts.riverRising"),
+      description: t("activeAlerts.riverRisingDesc"),
+      status: t("activeAlerts.monitoring"),
+      statusColor: "warning",
+    },
+    {
+      icon: "thunderstorm",
+      iconColor: "primary",
+      title: t("activeAlerts.powerOutage"),
+      description: t("activeAlerts.powerOutageDesc"),
+      status: t("activeAlerts.advisory"),
+      statusColor: "primary",
+    },
+  ];
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold">Active Alerts</h2>
+        <h2 className="text-lg font-bold">{t("activeAlerts.title")}</h2>
         <span className="bg-slate-100 dark:bg-slate-800 text-[10px] font-bold px-2 py-1 rounded">
-          LIVE
+          {t("activeAlerts.live")}
         </span>
       </div>
       <div className="space-y-4">
         {alerts.map((alert) => (
-          <AlertCard key={alert.title} {...alert} />
+          <AlertCard key={alert.icon} {...alert} />
         ))}
       </div>
     </div>
