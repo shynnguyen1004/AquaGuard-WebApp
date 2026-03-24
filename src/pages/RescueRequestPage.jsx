@@ -1,124 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import RescueRequestCard from "../components/rescue/RescueRequestCard";
 import RescueRequestForm from "../components/rescue/RescueRequestForm";
 
-const initialRequests = [
-  {
-    id: 1,
-    userName: "Nguyen Truong Son",
-    userAvatar: "",
-    description:
-      "First floor flooded, family of 4 trapped on second floor. Need urgent evacuation assistance.",
-    location: "268 Ly Thuong Kiet, District 10, HCMC",
-    urgency: "critical",
-    status: "in_progress",
-    assignedTeam: "Rescue Team Delta",
-    timeAgo: "15 min ago",
-    images: [
-      "https://images.unsplash.com/photo-1547683905-f686c993aae5?w=200&h=150&fit=crop",
-    ],
-  },
-  {
-    id: 2,
-    userName: "Nguyen Minh Quan",
-    userAvatar: "",
-    description:
-      "Water level rose 1.5m, road cut off. 2 elderly people need immediate evacuation.",
-    location: "45 Bui Vien, District 1, HCMC",
-    urgency: "high",
-    status: "pending",
-    assignedTeam: "Rescue Team Alpha",
-    timeAgo: "32 min ago",
-    images: [
-      "https://cdn.tienphong.vn/images/45fb2939182052a1a9affe1576b88e79c0d73c1560287970d5114670403ad6c40f2d12a98b34fb9e4f5a00e98dd6d9c9/24.jpg",
-    ],
-  },
-  {
-    id: 3,
-    userName: "Tran Tuan Nghia",
-    userAvatar: "",
-    description:
-      "Fallen tree blocking the only escape route. Need assistance clearing the path.",
-    location: "12 Nguyen Hue, District 1, HCMC",
-    urgency: "medium",
-    status: "pending",
-    assignedTeam: "Rescue Team Gamma",
-    timeAgo: "1 hour ago",
-    images: [
-      "https://baokhanhhoa.vn/file/e7837c02857c8ca30185a8c39b582c03/dataimages/201611/original/images1182686_2.jpg"
-    ],
-  },
-  {
-    id: 4,
-    userName: "Pham Thi D",
-    userAvatar: "",
-    description:
-      "Family of 3 successfully evacuated to Tran Hung Dao Middle School shelter.",
-    location: "78 Phan Xich Long, Phu Nhuan",
-    urgency: "high",
-    status: "resolved",
-    assignedTeam: "Rescue Team Beta",
-    timeAgo: "2 hours ago",
-    images: [
-      "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=200&h=150&fit=crop",
-    ],
-  },
-  {
-    id: 5,
-    userName: "Hoang Van E",
-    userAvatar: "",
-    description:
-      "Water is receding but still isolated. 6 people need food and drinking water.",
-    location: "156 Cach Mang Thang Tam, District 3",
-    urgency: "medium",
-    status: "in_progress",
-    assignedTeam: "Rescue Team Gamma",
-    timeAgo: "3 hours ago",
-    images: [],
-  },
-  {
-    id: 6,
-    userName: "Vo Thi F",
-    userAvatar: "",
-    description:
-      "Roof severely damaged by strong winds. Family moved to neighbor's house, need material support.",
-    location: "34 Le Dai Hanh, District 11",
-    urgency: "low",
-    status: "resolved",
-    assignedTeam: "Rescue Team Alpha",
-    timeAgo: "5 hours ago",
-    images: [],
-  },
-  {
-    id: 7,
-    userName: "Dang Van G",
-    userAvatar: "",
-    description:
-      "Small alley flooded 2m deep. About 10 households need urgent evacuation.",
-    location: "Alley 202 Nguyen Xi, Binh Thanh",
-    urgency: "critical",
-    status: "in_progress",
-    assignedTeam: "Rescue Team Delta",
-    timeAgo: "45 min ago",
-    images: [
-      "https://images.unsplash.com/photo-1547683905-f686c993aae5?w=200&h=150&fit=crop",
-      "https://baokhanhhoa.vn/file/e7837c02857c8ca30185a8c39b582c03/dataimages/201611/original/images1182686_2.jpg",
-    ],
-  },
-  {
-    id: 8,
-    userName: "Ngo Thi H",
-    userAvatar: "",
-    description:
-      "Rescued and taken to district gathering point. Need medical support for 1 person with minor injuries.",
-    location: "89 Hai Ba Trung, District 1",
-    urgency: "medium",
-    status: "resolved",
-    assignedTeam: "Rescue Team Beta",
-    timeAgo: "6 hours ago",
-    images: [],
-  },
-];
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
 const tabs = [
   { key: "all", label: "All Requests", icon: "list" },
@@ -130,7 +14,95 @@ const tabs = [
 export default function RescueRequestPage() {
   const [activeTab, setActiveTab] = useState("all");
   const [showForm, setShowForm] = useState(false);
-  const [requests, setRequests] = useState(initialRequests);
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchRequests = async () => {
+    const token = localStorage.getItem("aquaguard_token");
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/sos/all`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (json.success) {
+        setRequests(json.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch requests:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRequests();
+  }, []);
+
+  const handleNewRequest = async (data) => {
+    const token = localStorage.getItem("aquaguard_token");
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/sos`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          location: data.location,
+          description: data.description,
+          urgency: data.urgency || "medium",
+          images: [],
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        fetchRequests();
+      }
+    } catch (err) {
+      console.error("Failed to create request:", err);
+    }
+  };
+
+  const handleAccept = async (requestId) => {
+    const token = localStorage.getItem("aquaguard_token");
+    try {
+      const res = await fetch(`${API_BASE}/sos/${requestId}/accept`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const json = await res.json();
+      if (json.success) fetchRequests();
+    } catch (err) {
+      console.error("Failed to accept:", err);
+    }
+  };
+
+  const handleComplete = async (requestId) => {
+    const token = localStorage.getItem("aquaguard_token");
+    try {
+      const res = await fetch(`${API_BASE}/sos/${requestId}/complete`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const json = await res.json();
+      if (json.success) fetchRequests();
+    } catch (err) {
+      console.error("Failed to complete:", err);
+    }
+  };
 
   const filtered =
     activeTab === "all"
@@ -142,13 +114,6 @@ export default function RescueRequestPage() {
     pending: requests.filter((r) => r.status === "pending").length,
     in_progress: requests.filter((r) => r.status === "in_progress").length,
     resolved: requests.filter((r) => r.status === "resolved").length,
-  };
-
-  const handleNewRequest = (data) => {
-    setRequests((prev) => [
-      { id: Date.now(), ...data },
-      ...prev,
-    ]);
   };
 
   return (
@@ -258,7 +223,11 @@ export default function RescueRequestPage() {
         </div>
 
         {/* Request List */}
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="flex justify-center py-16">
+            <div className="size-10 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="text-center py-20">
             <span className="material-symbols-outlined text-6xl text-slate-300 dark:text-slate-600 mb-4">
               inbox
@@ -273,7 +242,12 @@ export default function RescueRequestPage() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {filtered.map((request) => (
-              <RescueRequestCard key={request.id} request={request} />
+              <RescueRequestCard
+                key={request.id}
+                request={request}
+                onAccept={handleAccept}
+                onComplete={handleComplete}
+              />
             ))}
           </div>
         )}
@@ -283,7 +257,10 @@ export default function RescueRequestPage() {
       {showForm && (
         <RescueRequestForm
           onClose={() => setShowForm(false)}
-          onSubmit={handleNewRequest}
+          onSubmit={(data) => {
+            handleNewRequest(data);
+            setShowForm(false);
+          }}
         />
       )}
     </div>

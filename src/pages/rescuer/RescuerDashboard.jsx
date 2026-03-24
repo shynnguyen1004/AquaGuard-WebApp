@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { collection, getDocs, doc, updateDoc, query, where, onSnapshot } from "firebase/firestore";
-import { getFirebaseDb } from "../../config/firebase";
 import { useAuth } from "../../contexts/AuthContext";
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
 const TABS = [
   { key: "active", label: "Active SOS", icon: "emergency" },
@@ -35,11 +35,17 @@ function SOSCard({ request, onAccept, onComplete, isOwn }) {
     resolved: "bg-safe/10 text-safe border-safe/20",
   };
 
+  const statusLabels = {
+    pending: "Pending",
+    in_progress: "In Progress",
+    resolved: "Resolved",
+  };
+
   return (
     <div className="bg-white dark:bg-slate-800/50 rounded-2xl p-5 border border-slate-100 dark:border-slate-700/30 hover:shadow-lg transition-shadow">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="min-w-0 flex-1">
-          <p className="font-bold text-sm truncate">{request.userName || "Anonymous"}</p>
+          <p className="font-bold text-sm truncate">{request.user_name || "Anonymous"}</p>
           <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
             <span className="material-symbols-outlined text-[14px]">location_on</span>
             {request.location || "Unknown location"}
@@ -52,7 +58,7 @@ function SOSCard({ request, onAccept, onComplete, isOwn }) {
             </span>
           )}
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusColors[request.status] || statusColors.pending}`}>
-            {request.status}
+            {statusLabels[request.status] || request.status}
           </span>
         </div>
       </div>
@@ -76,7 +82,7 @@ function SOSCard({ request, onAccept, onComplete, isOwn }) {
 
       <div className="flex items-center justify-between">
         <span className="text-[10px] text-slate-400">
-          {request.timeAgo || (request.createdAt ? new Date(request.createdAt).toLocaleString() : "")}
+          {request.created_at ? new Date(request.created_at).toLocaleString("vi-VN") : ""}
         </span>
 
         <div className="flex gap-2">
@@ -92,8 +98,8 @@ function SOSCard({ request, onAccept, onComplete, isOwn }) {
             </button>
           )}
 
-          {/* Complete button — shown for own assigned missions */}
-          {isOwn && (request.status === "assigned" || request.status === "in_progress") && onComplete && (
+          {/* Complete button — shown for own in_progress missions */}
+          {isOwn && request.status === "in_progress" && onComplete && (
             <button
               onClick={() => handleAction(() => onComplete(request.id))}
               disabled={processing}
@@ -115,50 +121,49 @@ export default function RescuerDashboard() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch rescue requests
-  useEffect(() => {
-    let unsubscribe = null;
+  const fetchRequests = async () => {
+    const token = localStorage.getItem("aquaguard_token");
+    if (!token) {
+      setLoading(false);
+      return;
+    }
 
-    const setup = async () => {
-      try {
-        const db = getFirebaseDb();
-        const requestsRef = collection(db, "rescue_requests");
-
-        // Use onSnapshot for realtime updates
-        unsubscribe = onSnapshot(requestsRef, (snapshot) => {
-          const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-          setRequests(list);
-          setLoading(false);
-        }, (err) => {
-          console.error("Failed to listen to rescue requests:", err);
-          // Fallback to one-time fetch
-          getDocs(requestsRef).then((snap) => {
-            const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-            setRequests(list);
-          }).catch(() => {});
-          setLoading(false);
-        });
-      } catch (err) {
-        console.error("Failed to setup rescue requests listener:", err);
-        setLoading(false);
+    try {
+      const res = await fetch(`${API_BASE}/sos/all`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (json.success) {
+        setRequests(json.data);
       }
-    };
+    } catch (err) {
+      console.error("Failed to fetch requests:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    setup();
-    return () => { if (unsubscribe) unsubscribe(); };
+  useEffect(() => {
+    fetchRequests();
   }, []);
 
-  const rescuerUid = user?.uid || user?.id || "";
+  const rescuerUid = user?.id || "";
 
   // Accept a rescue request
   const handleAccept = async (requestId) => {
+    const token = localStorage.getItem("aquaguard_token");
     try {
-      const db = getFirebaseDb();
-      await updateDoc(doc(db, "rescue_requests", requestId), {
-        assignedTo: rescuerUid,
-        assignedName: user?.displayName || "Rescuer",
-        status: "assigned",
+      const res = await fetch(`${API_BASE}/sos/${requestId}/accept`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
       });
+      const json = await res.json();
+      if (json.success) {
+        fetchRequests(); // Refresh
+      }
     } catch (err) {
       console.error("Failed to accept request:", err);
     }
@@ -166,12 +171,19 @@ export default function RescuerDashboard() {
 
   // Complete a rescue mission
   const handleComplete = async (requestId) => {
+    const token = localStorage.getItem("aquaguard_token");
     try {
-      const db = getFirebaseDb();
-      await updateDoc(doc(db, "rescue_requests", requestId), {
-        status: "resolved",
-        resolvedAt: new Date().toISOString(),
+      const res = await fetch(`${API_BASE}/sos/${requestId}/complete`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
       });
+      const json = await res.json();
+      if (json.success) {
+        fetchRequests(); // Refresh
+      }
     } catch (err) {
       console.error("Failed to complete request:", err);
     }
@@ -179,8 +191,8 @@ export default function RescuerDashboard() {
 
   // Filter requests by tab
   const activeRequests = requests.filter((r) => r.status === "pending");
-  const myMissions = requests.filter((r) => r.assignedTo === rescuerUid && r.status !== "resolved");
-  const completed = requests.filter((r) => r.assignedTo === rescuerUid && r.status === "resolved");
+  const myMissions = requests.filter((r) => r.assigned_to === rescuerUid && r.status === "in_progress");
+  const completed = requests.filter((r) => r.assigned_to === rescuerUid && r.status === "resolved");
 
   const filteredRequests = activeTab === "active"
     ? activeRequests
@@ -281,7 +293,7 @@ export default function RescuerDashboard() {
                 request={req}
                 onAccept={activeTab === "active" ? handleAccept : undefined}
                 onComplete={activeTab === "my-missions" ? handleComplete : undefined}
-                isOwn={req.assignedTo === rescuerUid}
+                isOwn={req.assigned_to === rescuerUid}
               />
             ))}
           </div>

@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { collection, addDoc, query, where, onSnapshot, orderBy } from "firebase/firestore";
-import { getFirebaseDb } from "../../config/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
 import RescueRequestForm from "../../components/rescue/RescueRequestForm";
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
 export default function CitizenSOSPage() {
   const { user } = useAuth();
@@ -27,56 +27,57 @@ export default function CitizenSOSPage() {
     critical: { label: t("sosPage.critical"), color: "text-white",     bg: "bg-danger" },
   };
 
-  // Real-time listener for current user's requests
-  useEffect(() => {
-    if (!user?.uid) {
+  // Fetch current user's requests from API
+  const fetchMyRequests = async () => {
+    const token = localStorage.getItem("aquaguard_token");
+    if (!token) {
       setLoading(false);
       return;
     }
 
     try {
-      const db = getFirebaseDb();
-      const q = query(
-        collection(db, "rescue_requests"),
-        where("citizenId", "==", user.uid),
-        orderBy("createdAt", "desc")
-      );
-
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const data = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setMyRequests(data);
-        setLoading(false);
-      }, (err) => {
-        console.warn("Firestore listener error:", err.message);
-        setLoading(false);
+      const res = await fetch(`${API_BASE}/sos/my`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-
-      return () => unsubscribe();
+      const json = await res.json();
+      if (json.success) {
+        setMyRequests(json.data);
+      }
     } catch (err) {
-      console.warn("Firestore not available:", err.message);
+      console.error("Failed to fetch requests:", err);
+    } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+  };
 
-  // Submit new SOS request to Firestore
+  useEffect(() => {
+    fetchMyRequests();
+  }, []);
+
+  // Submit new SOS request to API
   const handleNewRequest = async (formData) => {
-    if (!user?.uid) return;
+    const token = localStorage.getItem("aquaguard_token");
+    if (!token) return;
     setSubmitting(true);
     try {
-      const db = getFirebaseDb();
-      await addDoc(collection(db, "rescue_requests"), {
-        citizenId: user.uid,
-        userName: user.displayName || "Citizen",
-        userEmail: user.email || "",
-        location: formData.location,
-        description: formData.description,
-        severity: formData.urgency || "medium",
-        status: "pending",
-        createdAt: new Date().toISOString(),
+      const res = await fetch(`${API_BASE}/sos`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          location: formData.location,
+          description: formData.description,
+          urgency: formData.urgency || "medium",
+          images: [],
+        }),
       });
+      const json = await res.json();
+      if (json.success) {
+        // Refresh the list
+        fetchMyRequests();
+      }
     } catch (err) {
       console.error("Failed to submit SOS request:", err);
     } finally {
@@ -149,7 +150,7 @@ export default function CitizenSOSPage() {
             <div className="space-y-3">
               {myRequests.map((req) => {
                 const status = STATUS_CONFIG[req.status] || STATUS_CONFIG.pending;
-                const urgency = URGENCY_CONFIG[req.severity] || URGENCY_CONFIG.medium;
+                const urgency = URGENCY_CONFIG[req.urgency] || URGENCY_CONFIG.medium;
 
                 return (
                   <div
@@ -162,7 +163,7 @@ export default function CitizenSOSPage() {
                         <span className="material-symbols-outlined text-sm filled-icon">{status.icon}</span>
                         {status.label}
                       </span>
-                      <span className="text-xs text-slate-400">{formatTime(req.createdAt)}</span>
+                      <span className="text-xs text-slate-400">{formatTime(req.created_at)}</span>
                     </div>
 
                     {/* Location */}
@@ -181,10 +182,10 @@ export default function CitizenSOSPage() {
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${urgency.bg} ${urgency.color}`}>
                         {urgency.label} {t("sosPage.urgency")}
                       </span>
-                      {req.assignedTo && (
+                      {req.assigned_name && (
                         <span className="text-xs text-slate-400 flex items-center gap-1">
                           <span className="material-symbols-outlined text-xs">person</span>
-                          {t("sosPage.assignedTo")} {req.assignedTo}
+                          {t("sosPage.assignedTo")} {req.assigned_name}
                         </span>
                       )}
                     </div>

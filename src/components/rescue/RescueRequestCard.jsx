@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 const statusConfig = {
   pending: {
     label: "Pending",
@@ -32,9 +34,19 @@ const urgencyConfig = {
   low: { label: "Low", bg: "bg-slate-100 dark:bg-slate-700", text: "text-slate-500" },
 };
 
-export default function RescueRequestCard({ request }) {
+export default function RescueRequestCard({ request, onAccept, onComplete }) {
+  const [processing, setProcessing] = useState(false);
   const status = statusConfig[request.status] || statusConfig.pending;
   const urgency = urgencyConfig[request.urgency] || urgencyConfig.medium;
+
+  const handleAction = async (action) => {
+    setProcessing(true);
+    try {
+      await action();
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   return (
     <div className="bg-white dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-700/50 p-5 hover:shadow-lg transition-all duration-300 group flex flex-col h-full">
@@ -42,18 +54,15 @@ export default function RescueRequestCard({ request }) {
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
           <img
-            alt={request.userName}
+            alt={request.user_name || request.userName}
             className="size-10 rounded-full border-2 border-slate-200 dark:border-slate-600 object-cover"
-            src={
-              request.userAvatar ||
-              `https://ui-avatars.com/api/?name=${encodeURIComponent(request.userName)}&background=11a0b6&color=fff&size=40`
-            }
+            src={`https://ui-avatars.com/api/?name=${encodeURIComponent(request.user_name || request.userName || "U")}&background=11a0b6&color=fff&size=40`}
             referrerPolicy="no-referrer"
           />
           <div>
-            <p className="text-sm font-bold">{request.userName}</p>
+            <p className="text-sm font-bold">{request.user_name || request.userName || "Anonymous"}</p>
             <p className="text-[11px] text-slate-400 dark:text-slate-500">
-              {request.timeAgo}
+              {request.created_at ? new Date(request.created_at).toLocaleString("vi-VN") : request.timeAgo || ""}
             </p>
           </div>
         </div>
@@ -84,7 +93,7 @@ export default function RescueRequestCard({ request }) {
         <span className="text-xs font-medium">{request.location}</span>
       </div>
 
-      {/* Images preview — fixed height so cards align */}
+      {/* Images preview */}
       <div className="h-20 mb-3">
         {request.images && request.images.length > 0 ? (
           <div className="flex gap-2 overflow-x-auto h-full">
@@ -104,20 +113,45 @@ export default function RescueRequestCard({ request }) {
         )}
       </div>
 
-      {/* Spacer to push footer down */}
+      {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Footer: assigned rescue team — always visible */}
-      <div className="flex items-center gap-2 pt-3 border-t border-slate-100 dark:border-slate-700/50 mt-auto">
-        <span className="material-symbols-outlined text-primary text-base filled-icon">
-          local_fire_department
-        </span>
-        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-          Assigned to:{" "}
-          <span className="text-slate-700 dark:text-slate-300 font-bold">
-            {request.assignedTeam || "Unassigned"}
+      {/* Footer: assigned + action buttons */}
+      <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-700/50 mt-auto">
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary text-base filled-icon">
+            local_fire_department
           </span>
-        </span>
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            Assigned to:{" "}
+            <span className="text-slate-700 dark:text-slate-300 font-bold">
+              {request.assigned_name || "Unassigned"}
+            </span>
+          </span>
+        </div>
+
+        <div className="flex gap-2">
+          {request.status === "pending" && onAccept && (
+            <button
+              onClick={() => handleAction(() => onAccept(request.id))}
+              disabled={processing}
+              className="inline-flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-primary/90 transition-all shadow-md shadow-primary/20 disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-sm">check</span>
+              Accept
+            </button>
+          )}
+          {request.status === "in_progress" && onComplete && (
+            <button
+              onClick={() => handleAction(() => onComplete(request.id))}
+              disabled={processing}
+              className="inline-flex items-center gap-1.5 bg-safe text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-safe/90 transition-all shadow-md shadow-safe/20 disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-sm">done_all</span>
+              Complete
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
