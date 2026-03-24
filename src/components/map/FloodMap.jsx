@@ -1,10 +1,13 @@
-import { useState, useEffect, useRef } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { collection, getDocs } from "firebase/firestore";
 import { getFirebaseDb } from "../../config/firebase";
+import { useAuth } from "../../contexts/AuthContext";
 import MapLegend from "./MapLegend";
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
 const WINDY_API_KEY = import.meta.env.VITE_WINDY_API_KEY || "";
 
@@ -50,6 +53,60 @@ const severityMap = {
   safe:     { color: "#10b981", label: "Safe" },
 };
 
+const familySafetyColors = {
+  safe: { bg: "#10b981", label: "An toàn" },
+  danger: { bg: "#ef4444", label: "Nguy hiểm" },
+  injured: { bg: "#f97316", label: "Bị thương" },
+  unknown: { bg: "#94a3b8", label: "Chưa rõ" },
+};
+
+// Family member icon (person pin)
+function createFamilyIcon(safetyStatus) {
+  const color = familySafetyColors[safetyStatus]?.bg || "#94a3b8";
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44">
+      <defs>
+        <filter id="fshadow" x="-20%" y="-10%" width="140%" height="130%">
+          <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.3)" />
+        </filter>
+      </defs>
+      <path d="M18 0C9.16 0 2 7.16 2 16c0 12 16 28 16 28s16-16 16-28C34 7.16 26.84 0 18 0z" 
+            fill="${color}" filter="url(#fshadow)" />
+      <circle cx="18" cy="12" r="5" fill="white" />
+      <path d="M10 22c0-4.4 3.6-6 8-6s8 1.6 8 6" fill="white" opacity="0.8" />
+    </svg>
+  `;
+  return L.divIcon({
+    html: svg,
+    className: "family-pin-icon",
+    iconSize: [36, 44],
+    iconAnchor: [18, 44],
+    popupAnchor: [0, -44],
+  });
+}
+
+// "Me" location icon (pulsing blue dot)
+function createMyLocationIcon() {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+      <circle cx="20" cy="20" r="18" fill="#3b82f6" opacity="0.15">
+        <animate attributeName="r" values="12;18;12" dur="2s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0.3;0.1;0.3" dur="2s" repeatCount="indefinite" />
+      </circle>
+      <circle cx="20" cy="20" r="8" fill="#3b82f6" stroke="white" stroke-width="3" />
+    </svg>
+  `;
+  return L.divIcon({
+    html: svg,
+    className: "my-location-icon",
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+    popupAnchor: [0, -20],
+  });
+}
+
+const myLocationIcon = createMyLocationIcon();
+
 /**
  * Parse Firestore location → { lat, lng }
  */
@@ -82,6 +139,7 @@ function parseLocation(location) {
 }
 
 export default function FloodMap() {
+  const { token } = useAuth();
   const [markers, setMarkers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -89,6 +147,15 @@ export default function FloodMap() {
   const [windyOverlay, setWindyOverlay] = useState("rain");
   const [weatherPanelOpen, setWeatherPanelOpen] = useState(false);
   const windyIframeRef = useRef(null);
+  const [familyMembers, setFamilyMembers] = useState([]);
+  const [showFamily, setShowFamily] = useState(true);
+  const [myLocation, setMyLocation] = useState(null);
+  const [locating, setLocating] = useState(false);
+  const [flyTo, setFlyTo] = useState(null);
+  const [routeTo, setRouteTo] = useState(null); // { lat, lng, name }
+  const [routeCoords, setRouteCoords] = useState([]); // [[lat,lng], ...]
+  const [routeInfo, setRouteInfo] = useState(null); // { distance, duration }
+  const [showFloodZones, setShowFloodZones] = useState(true);
 
   // Change Windy overlay via postMessage
   const changeWindyOverlay = (overlay) => {
@@ -137,12 +204,112 @@ export default function FloodMap() {
     fetchFloodZones();
   }, []);
 
+  // Fetch family members locations
+  const fetchFamilyMembers = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/family/members`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFamilyMembers(data.data.filter((m) => m.latitude && m.longitude));
+      }
+    } catch (err) {
+      console.warn("[FloodMap] Could not fetch family:", err);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    fetchFamilyMembers();
+    const interval = setInterval(fetchFamilyMembers, 60 * 1000);
+    return () => clearInterval(interval);
+  }, [fetchFamilyMembers]);
+
+  // Manual locate button handler — starts tracking after first success
+  const handleLocateMe = () => {
+    if (!navigator.geolocation) {
+      return alert("Trình duyệt không hỗ trợ GPS.");
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setMyLocation(loc);
+        setFlyTo(loc);
+        setLocating(false);
+        // Save to DB
+        if (token) {
+          fetch(`${API_BASE}/family/location`, {
+            method: "PUT",
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ latitude: loc.lat, longitude: loc.lng }),
+          }).catch(() => {});
+        }
+      },
+      (err) => {
+        setLocating(false);
+        if (err.code === 1) {
+          alert("Bạn cần cho phép truy cập vị trí:\n\n" +
+            "1. Nhấn biểu tượng ổ khóa trên thanh địa chỉ\n" +
+            "2. Chọn 'Cài đặt trang web'\n" +
+            "3. Bật 'Vị trí' thành 'Cho phép'\n" +
+            "4. Tải lại trang");
+        } else {
+          alert("Không thể lấy vị trí. Vui lòng thử lại.");
+        }
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  };
+
+  // Helper component to fly map to location
+  function FlyToLocation({ position }) {
+    const map = useMap();
+    useEffect(() => {
+      if (position) {
+        map.flyTo([position.lat, position.lng], 15, { duration: 1.5 });
+        setFlyTo(null);
+      }
+    }, [position, map]);
+    return null;
+  }
+
+  // Fetch real driving route from OSRM (free, no API key)
+  const fetchRoute = async (from, to, memberName) => {
+    setRouteTo({ lat: to.lat, lng: to.lng, name: memberName });
+    setRouteCoords([]);
+    setRouteInfo(null);
+    try {
+      const url = `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.routes && data.routes.length > 0) {
+        const route = data.routes[0];
+        const coords = route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+        setRouteCoords(coords);
+        setRouteInfo({
+          distance: (route.distance / 1000).toFixed(1),
+          duration: Math.round(route.duration / 60),
+        });
+      }
+    } catch (err) {
+      console.warn("Route fetch error:", err);
+    }
+  };
+
+  const clearRoute = () => {
+    setRouteTo(null);
+    setRouteCoords([]);
+    setRouteInfo(null);
+  };
+
   const windyUrl = `/windy.html?key=${WINDY_API_KEY}&lat=16.054&lon=108.202&zoom=7&overlay=${windyOverlay}`;
 
   return (
     <div className="flex-1 relative">
       <style>{`
-        .custom-pin-icon { background: none !important; border: none !important; }
+        .custom-pin-icon, .family-pin-icon, .my-location-icon { background: none !important; border: none !important; }
         .leaflet-popup-content-wrapper {
           border-radius: 16px !important; 
           padding: 0 !important;
@@ -245,6 +412,71 @@ export default function FloodMap() {
         )}
       </div>
 
+      {/* Family Toggle Button */}
+      {!showWindy && (
+        <div className="absolute top-16 right-4 z-[1000] flex flex-col gap-2">
+          <button
+            onClick={() => setShowFamily(!showFamily)}
+            className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${
+              showFamily
+                ? "bg-emerald-500 text-white shadow-emerald-500/30"
+                : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+            } hover:scale-105`}
+            title={showFamily ? "Ẩn người thân" : "Hiện người thân"}
+          >
+            <span className="material-symbols-outlined text-xl">group</span>
+          </button>
+
+          {/* GPS Location Button */}
+          <button
+            onClick={handleLocateMe}
+            disabled={locating}
+            className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${
+              myLocation
+                ? "bg-blue-500 text-white shadow-blue-500/30"
+                : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+            } hover:scale-105 disabled:opacity-50`}
+            title="Vị trí của tôi"
+          >
+            <span className={`material-symbols-outlined text-xl ${locating ? 'animate-spin' : ''}`}>
+              {locating ? "progress_activity" : "my_location"}
+            </span>
+          </button>
+
+          {/* Flood Zones Toggle */}
+          <button
+            onClick={() => setShowFloodZones(!showFloodZones)}
+            className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${
+              showFloodZones
+                ? "bg-amber-500 text-white shadow-amber-500/30"
+                : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+            } hover:scale-105`}
+            title={showFloodZones ? "Ẩn vùng ngập" : "Hiện vùng ngập"}
+          >
+            <span className="material-symbols-outlined text-xl">flood</span>
+          </button>
+        </div>
+      )}
+
+      {/* Route info banner */}
+      {routeTo && myLocation && (
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[1000] bg-blue-500 text-white px-5 py-2.5 rounded-2xl shadow-xl flex items-center gap-3 text-sm font-bold">
+          <span className="material-symbols-outlined text-lg">directions</span>
+          <span>Đường đến {routeTo.name}</span>
+          {routeInfo && (
+            <span className="bg-white/20 px-2 py-0.5 rounded-lg text-xs">
+              {routeInfo.distance} km • ~{routeInfo.duration} phút
+            </span>
+          )}
+          <button
+            onClick={clearRoute}
+            className="size-7 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+          >
+            <span className="material-symbols-outlined text-sm">close</span>
+          </button>
+        </div>
+      )}
+
       {/* Windy Weather Map (iframe overlay) */}
       {showWindy && WINDY_API_KEY && (
         <div className="absolute inset-0 z-[500]">
@@ -267,14 +499,15 @@ export default function FloodMap() {
           zoomControl={true}
           scrollWheelZoom={true}
         >
-          {/* Google Maps roadmap tiles */}
+          {/* Fly to user location when triggered */}
+          <FlyToLocation position={flyTo} />
           <TileLayer
             attribution='&copy; <a href="https://www.google.com/maps">Google Maps</a>'
             url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
             maxZoom={20}
           />
 
-          {markers.map((marker) => (
+          {showFloodZones && markers.map((marker) => (
             <Marker
               key={marker.id}
               position={[marker.lat, marker.lng]}
@@ -302,6 +535,85 @@ export default function FloodMap() {
                       <span>{marker.name}</span>
                     </div>
                   )}
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+
+          {/* Route polyline (real road) */}
+          {routeCoords.length > 0 && (
+            <Polyline
+              positions={routeCoords}
+              pathOptions={{
+                color: "#3b82f6",
+                weight: 5,
+                opacity: 0.8,
+              }}
+            />
+          )}
+
+          {/* My Location marker */}
+          {myLocation && (
+            <Marker position={[myLocation.lat, myLocation.lng]} icon={myLocationIcon}>
+              <Popup>
+                <div className="p-3">
+                  <p className="font-black text-sm text-blue-600 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-base">my_location</span>
+                    Vị trí của tôi
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    {myLocation.lat.toFixed(5)}, {myLocation.lng.toFixed(5)}
+                  </p>
+                </div>
+              </Popup>
+            </Marker>
+          )}
+
+          {/* Family member markers */}
+          {showFamily && familyMembers.map((member) => (
+            <Marker
+              key={`family-${member.id}`}
+              position={[member.latitude, member.longitude]}
+              icon={createFamilyIcon(member.safetyStatus)}
+            >
+              <Popup>
+                <div className="p-4 min-w-[200px]">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="size-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: familySafetyColors[member.safetyStatus]?.bg || '#94a3b8' }}>
+                      {(member.displayName || '?').split(' ').map(w => w[0]).join('').slice(0, 2)}
+                    </div>
+                    <div>
+                      <p className="font-black text-sm text-slate-900">{member.displayName}</p>
+                      <p className="text-[10px] text-slate-500">{member.relation || 'Người thân'}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: familySafetyColors[member.safetyStatus]?.bg || '#94a3b8' }}>
+                      {familySafetyColors[member.safetyStatus]?.label || 'Chưa rõ'}
+                    </span>
+                    {member.healthNote && (
+                      <p className="text-[11px] text-slate-500 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-xs">medical_information</span>
+                        {member.healthNote}
+                      </p>
+                    )}
+                    {member.phoneNumber && (
+                      <p className="text-[11px] text-slate-500 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-xs">call</span>
+                        {member.phoneNumber}
+                      </p>
+                    )}
+                    {/* Directions button */}
+                    {myLocation && (
+                      <button
+                        onClick={() => fetchRoute(myLocation, { lat: member.latitude, lng: member.longitude }, member.displayName)}
+                        className="mt-2 w-full flex items-center justify-center gap-1 px-3 py-1.5 bg-blue-500 text-white text-[11px] font-bold rounded-lg hover:bg-blue-600 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-sm">directions</span>
+                        Chỉ đường
+                      </button>
+                    )}
+                  </div>
                 </div>
               </Popup>
             </Marker>

@@ -4,6 +4,7 @@ require("dotenv").config();
 
 const authRoutes = require("./routes/auth");
 const sosRoutes = require("./routes/sos");
+const familyRoutes = require("./routes/family");
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -29,6 +30,7 @@ app.use(express.json());
 // ── Routes ──
 app.use("/api/auth", authRoutes);
 app.use("/api/sos", sosRoutes);
+app.use("/api/family", familyRoutes);
 
 // ── Health check ──
 app.get("/api/health", (req, res) => {

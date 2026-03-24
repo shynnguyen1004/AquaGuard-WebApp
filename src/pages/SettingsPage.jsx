@@ -1,22 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import { getRoleBadgeClasses } from "../config/rbac";
 
-const familyMembers = [
-  { id: 1, name: "Nguyen Van A", relation: "Father", phone: "0901 234 567", status: "safe", avatar: "NVA" },
-  { id: 2, name: "Nguyen Thi B", relation: "Mother", phone: "0901 234 568", status: "safe", avatar: "NTB" },
-  { id: 3, name: "Nguyen Van C", relation: "Brother", phone: "0901 234 569", status: "unknown", avatar: "NVC" },
-];
-
-const statusColors = {
-  safe: "bg-safe text-white",
-  danger: "bg-danger text-white",
-  unknown: "bg-slate-400 text-white",
-};
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { t, language, setLanguage } = useLanguage();
   const [activeTab, setActiveTab] = useState("profile");
   const [profile, setProfile] = useState({
@@ -26,10 +16,135 @@ export default function SettingsPage() {
     address: "Da Nang, Vietnam",
     emergencyContact: "",
   });
-  const [family, setFamily] = useState(familyMembers);
-  const [showAddFamily, setShowAddFamily] = useState(false);
-  const [newMember, setNewMember] = useState({ name: "", relation: "", phone: "" });
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
+
+  // ── Family state ──
+  const [family, setFamily] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [familyLoading, setFamilyLoading] = useState(false);
+  const [showAddFamily, setShowAddFamily] = useState(false);
+  const [searchPhone, setSearchPhone] = useState("");
+  const [searchResult, setSearchResult] = useState(null);
+  const [searchError, setSearchError] = useState("");
+  const [relation, setRelation] = useState("");
+  const [mySafetyStatus, setMySafetyStatus] = useState("unknown");
+  const [myHealthNote, setMyHealthNote] = useState("");
+
+  const authHeaders = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+
+  // ── Fetch family members ──
+  const fetchFamily = useCallback(async () => {
+    if (!token) return;
+    setFamilyLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/family/members`, { headers: authHeaders });
+      const data = await res.json();
+      if (data.success) setFamily(data.data);
+    } catch (err) {
+      console.error("Fetch family error:", err);
+    } finally {
+      setFamilyLoading(false);
+    }
+  }, [token]);
+
+  // ── Fetch pending requests ──
+  const fetchRequests = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/family/requests`, { headers: authHeaders });
+      const data = await res.json();
+      if (data.success) setPendingRequests(data.data);
+    } catch (err) {
+      console.error("Fetch requests error:", err);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (activeTab === "family") {
+      fetchFamily();
+      fetchRequests();
+    }
+  }, [activeTab, fetchFamily, fetchRequests]);
+
+  // ── Search user by phone ──
+  const handleSearch = async () => {
+    if (!searchPhone.trim()) return;
+    setSearchError("");
+    setSearchResult(null);
+    try {
+      const phone = searchPhone.startsWith("+84") ? searchPhone : `+84${searchPhone.replace(/^0/, "")}`;
+      const res = await fetch(`${API_BASE}/family/search?phone=${encodeURIComponent(phone)}`, { headers: authHeaders });
+      const data = await res.json();
+      if (data.success && data.data) {
+        setSearchResult(data.data);
+      } else {
+        setSearchError("Không tìm thấy người dùng với SĐT này");
+      }
+    } catch (err) {
+      setSearchError("Lỗi tìm kiếm");
+    }
+  };
+
+  // ── Send connection request ──
+  const handleSendRequest = async () => {
+    if (!searchResult) return;
+    try {
+      const res = await fetch(`${API_BASE}/family/request`, {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({ receiver_id: searchResult.id, relation }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("Đã gửi lời mời kết nối!");
+        setShowAddFamily(false);
+        setSearchResult(null);
+        setSearchPhone("");
+        setRelation("");
+      } else {
+        alert(data.message || "Lỗi gửi lời mời");
+      }
+    } catch (err) {
+      alert("Lỗi server");
+    }
+  };
+
+  // ── Accept / Reject request ──
+  const handleAcceptRequest = async (id) => {
+    try {
+      await fetch(`${API_BASE}/family/requests/${id}/accept`, { method: "PUT", headers: authHeaders });
+      fetchFamily();
+      fetchRequests();
+    } catch (err) { console.error(err); }
+  };
+
+  const handleRejectRequest = async (id) => {
+    try {
+      await fetch(`${API_BASE}/family/requests/${id}/reject`, { method: "PUT", headers: authHeaders });
+      fetchRequests();
+    } catch (err) { console.error(err); }
+  };
+
+  // ── Remove family member ──
+  const handleRemoveFamily = async (connectionId) => {
+    if (!confirm("Xóa kết nối với người thân này?")) return;
+    try {
+      await fetch(`${API_BASE}/family/members/${connectionId}`, { method: "DELETE", headers: authHeaders });
+      fetchFamily();
+    } catch (err) { console.error(err); }
+  };
+
+  // ── Update safety status ──
+  const handleUpdateStatus = async (status) => {
+    try {
+      await fetch(`${API_BASE}/family/status`, {
+        method: "PUT",
+        headers: authHeaders,
+        body: JSON.stringify({ safety_status: status, health_note: myHealthNote }),
+      });
+      setMySafetyStatus(status);
+    } catch (err) { console.error(err); }
+  };
 
   useEffect(() => {
     const root = document.documentElement;
@@ -53,28 +168,21 @@ export default function SettingsPage() {
     alert(t("settings.profile.profileUpdated"));
   };
 
-  const handleAddFamily = () => {
-    if (!newMember.name || !newMember.relation) return;
-    setFamily((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        ...newMember,
-        status: "unknown",
-        avatar: newMember.name.split(" ").map((w) => w[0]).join("").slice(0, 3).toUpperCase(),
-      },
-    ]);
-    setNewMember({ name: "", relation: "", phone: "" });
-    setShowAddFamily(false);
+  const statusColors = {
+    safe: "bg-emerald-500 text-white",
+    danger: "bg-red-500 text-white",
+    injured: "bg-orange-500 text-white",
+    unknown: "bg-slate-400 text-white",
   };
 
-  const handleRemoveFamily = (id) => {
-    setFamily((prev) => prev.filter((m) => m.id !== id));
+  const statusLabels = {
+    safe: "An toàn",
+    danger: "Nguy hiểm",
+    injured: "Bị thương",
+    unknown: "Chưa rõ",
   };
 
-  const getStatusLabel = (status) => {
-    return t(`settings.family.${status}`) || status;
-  };
+  const getAvatar = (name) => (name || "?").split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 
   return (
     <div className="flex-1 overflow-y-auto p-4 lg:p-8">
@@ -192,112 +300,183 @@ export default function SettingsPage() {
       {/* Family Tab */}
       {activeTab === "family" && (
         <div className="max-w-2xl space-y-6">
+          {/* My Safety Status */}
+          <div className="bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 p-5">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-3">
+              <span className="material-symbols-outlined text-primary text-lg">health_and_safety</span>
+              Trạng thái của tôi
+            </h3>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {["safe", "danger", "injured", "unknown"].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => handleUpdateStatus(s)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                    mySafetyStatus === s
+                      ? statusColors[s] + " shadow-lg ring-2 ring-offset-2 ring-current"
+                      : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
+                  }`}
+                >
+                  {statusLabels[s]}
+                </button>
+              ))}
+            </div>
+            <input
+              type="text"
+              placeholder="Ghi chú sức khỏe (tuỳ chọn)..."
+              value={myHealthNote}
+              onChange={(e) => setMyHealthNote(e.target.value)}
+              onBlur={() => handleUpdateStatus(mySafetyStatus)}
+              className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+
           {/* Family header */}
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">{t("settings.family.title")}</h3>
-              <p className="text-xs text-slate-500 mt-0.5">{t("settings.family.subtitle")}</p>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Người thân</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Theo dõi tình trạng an toàn của gia đình</p>
             </div>
             <button
               onClick={() => setShowAddFamily(true)}
               className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
             >
               <span className="material-symbols-outlined text-sm">person_add</span>
-              {t("settings.family.addMember")}
+              Thêm người thân
             </button>
           </div>
 
-          {/* Add Family Modal */}
+          {/* Pending Requests */}
+          {pendingRequests.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-bold text-orange-500 uppercase tracking-wider flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm">notifications</span>
+                Lời mời kết nối ({pendingRequests.length})
+              </p>
+              {pendingRequests.map((req) => (
+                <div key={req.id} className="bg-orange-50 dark:bg-orange-500/10 rounded-2xl border border-orange-200 dark:border-orange-500/30 p-4 flex items-center gap-4">
+                  <div className="size-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-xs font-bold">
+                    {getAvatar(req.from.displayName)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">{req.from.displayName}</p>
+                    <p className="text-[11px] text-slate-500">{req.from.phoneNumber} • {req.relation || "Người thân"}</p>
+                  </div>
+                  <button onClick={() => handleAcceptRequest(req.id)} className="px-3 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-600">
+                    Chấp nhận
+                  </button>
+                  <button onClick={() => handleRejectRequest(req.id)} className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-lg hover:bg-slate-300">
+                    Từ chối
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add Family — Search by Phone */}
           {showAddFamily && (
             <div className="bg-white dark:bg-slate-800/50 rounded-2xl border border-primary/30 p-5 space-y-4">
               <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary text-lg">person_add</span>
-                {t("settings.family.addNewMember")}
+                <span className="material-symbols-outlined text-primary text-lg">person_search</span>
+                Tìm người thân bằng số điện thoại
               </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <input
-                  type="text"
-                  placeholder={t("settings.family.fullName")}
-                  value={newMember.name}
-                  onChange={(e) => setNewMember((p) => ({ ...p, name: e.target.value }))}
-                  className="px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-                />
-                <input
-                  type="text"
-                  placeholder={t("settings.family.relation")}
-                  value={newMember.relation}
-                  onChange={(e) => setNewMember((p) => ({ ...p, relation: e.target.value }))}
-                  className="px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-                />
+              <div className="flex gap-2">
                 <input
                   type="tel"
-                  placeholder={t("settings.family.phone")}
-                  value={newMember.phone}
-                  onChange={(e) => setNewMember((p) => ({ ...p, phone: e.target.value }))}
-                  className="px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                  placeholder="Nhập SĐT (VD: 0901234567 hoặc +84901234567)"
+                  value={searchPhone}
+                  onChange={(e) => setSearchPhone(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:ring-2 focus:ring-primary/30"
                 />
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleAddFamily}
-                  className="px-5 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/90 transition-colors"
-                >
-                  {t("settings.family.add")}
-                </button>
-                <button
-                  onClick={() => { setShowAddFamily(false); setNewMember({ name: "", relation: "", phone: "" }); }}
-                  className="px-5 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-                >
-                  {t("settings.family.cancel")}
+                <button onClick={handleSearch} className="px-5 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90">
+                  <span className="material-symbols-outlined text-sm">search</span>
                 </button>
               </div>
+              {searchError && <p className="text-xs text-red-500">{searchError}</p>}
+              {searchResult && (
+                <div className="bg-primary/5 rounded-xl p-4 flex items-center gap-4">
+                  <div className="size-12 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-white text-sm font-bold">
+                    {getAvatar(searchResult.displayName)}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-slate-900 dark:text-white">{searchResult.displayName}</p>
+                    <p className="text-xs text-slate-500">{searchResult.phoneNumber}</p>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Quan hệ (VD: Bố, Mẹ...)"
+                    value={relation}
+                    onChange={(e) => setRelation(e.target.value)}
+                    className="px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs w-32 outline-none"
+                  />
+                  <button onClick={handleSendRequest} className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/90">
+                    Gửi lời mời
+                  </button>
+                </div>
+              )}
+              <button
+                onClick={() => { setShowAddFamily(false); setSearchResult(null); setSearchPhone(""); setSearchError(""); }}
+                className="px-5 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600"
+              >
+                Đóng
+              </button>
             </div>
           )}
 
           {/* Family List */}
-          <div className="space-y-3">
-            {family.map((member) => (
-              <div
-                key={member.id}
-                className="bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 flex items-center gap-4 hover:border-primary/30 transition-colors"
-              >
-                {/* Avatar */}
-                <div className="size-12 rounded-full bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                  {member.avatar}
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{member.name}</p>
-                  <p className="text-xs text-slate-500">{member.relation}</p>
-                  {member.phone && (
+          {familyLoading ? (
+            <div className="text-center py-8">
+              <div className="size-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {family.map((member) => (
+                <div
+                  key={member.connectionId}
+                  className="bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 flex items-center gap-4 hover:border-primary/30 transition-colors"
+                >
+                  <div className="size-12 rounded-full bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                    {getAvatar(member.displayName)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{member.displayName}</p>
+                    <p className="text-xs text-slate-500">{member.relation || "Người thân"}</p>
                     <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
                       <span className="material-symbols-outlined text-xs">call</span>
-                      {member.phone}
+                      {member.phoneNumber}
                     </p>
-                  )}
+                    {member.healthNote && (
+                      <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-xs">medical_information</span>
+                        {member.healthNote}
+                      </p>
+                    )}
+                    {member.address && (
+                      <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-xs">location_on</span>
+                        {member.address}
+                      </p>
+                    )}
+                  </div>
+                  <span className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wide ${statusColors[member.safetyStatus] || statusColors.unknown}`}>
+                    {statusLabels[member.safetyStatus] || "Chưa rõ"}
+                  </span>
+                  <button
+                    onClick={() => handleRemoveFamily(member.connectionId)}
+                    className="size-8 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-red-100 hover:text-red-500 flex items-center justify-center text-slate-400 transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-sm">delete</span>
+                  </button>
                 </div>
+              ))}
+            </div>
+          )}
 
-                {/* Status */}
-                <span className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wide ${statusColors[member.status]}`}>
-                  {getStatusLabel(member.status)}
-                </span>
-
-                {/* Actions */}
-                <button
-                  onClick={() => handleRemoveFamily(member.id)}
-                  className="size-8 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-danger/10 hover:text-danger flex items-center justify-center text-slate-400 transition-colors"
-                >
-                  <span className="material-symbols-outlined text-sm">delete</span>
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {family.length === 0 && (
+          {!familyLoading && family.length === 0 && (
             <div className="text-center py-12 text-slate-400">
               <span className="material-symbols-outlined text-4xl mb-2">group_off</span>
-              <p className="text-sm">{t("settings.family.noMembers")}</p>
+              <p className="text-sm">Chưa có người thân nào. Nhấn "Thêm người thân" để bắt đầu.</p>
             </div>
           )}
         </div>
