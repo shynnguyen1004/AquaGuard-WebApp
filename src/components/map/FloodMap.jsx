@@ -263,10 +263,11 @@ export default function FloodMap() {
         zoomControl={true}
         scrollWheelZoom={true}
       >
-        {/* VNDMS Vietnam map — includes Hoàng Sa & Trường Sa */}
+        {/* Google Maps roadmap tiles */}
         <TileLayer
-          attribution='&copy; <a href="https://vndms.dmc.gov.vn/">VNDMS</a>'
-          url="https://tiles.vndms.gov.vn/styles/vndms-basic/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.google.com/maps">Google Maps</a>'
+          url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+          maxZoom={20}
         />
 
         {/* RainViewer precipitation radar (FREE, no API key) */}

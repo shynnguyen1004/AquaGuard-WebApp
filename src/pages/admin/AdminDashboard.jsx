@@ -116,13 +116,18 @@ export default function AdminDashboard({ activePage = "admin" }) {
     }
   };
 
-  // Fetch rescue requests
+  // Fetch rescue requests from API
   const fetchRequests = async () => {
+    const token = localStorage.getItem("aquaguard_token");
+    if (!token) return;
     try {
-      const db = getFirebaseDb();
-      const snapshot = await getDocs(collection(db, "rescue_requests"));
-      const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setRescueRequests(list);
+      const res = await fetch(`${API_BASE}/sos/all`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (json.success) {
+        setRescueRequests(json.data);
+      }
     } catch (err) {
       console.error("Failed to fetch rescue requests:", err);
     }
@@ -339,7 +344,33 @@ export default function AdminDashboard({ activePage = "admin" }) {
 
         {activeTab === "requests" && (
           <div className="space-y-4">
-            <h2 className="text-lg font-bold">SOS Requests ({rescueRequests.length})</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold">SOS Requests ({rescueRequests.length})</h2>
+              <button
+                onClick={fetchRequests}
+                className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80"
+              >
+                <span className="material-symbols-outlined text-base">refresh</span>
+                Refresh
+              </button>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-warning/10 rounded-2xl p-4 border border-slate-100 dark:border-slate-700/30">
+                <p className="text-2xl font-black">{stats.pendingRequests}</p>
+                <p className="text-xs text-slate-500 font-medium">Pending</p>
+              </div>
+              <div className="bg-primary/10 rounded-2xl p-4 border border-slate-100 dark:border-slate-700/30">
+                <p className="text-2xl font-black">{stats.activeRequests}</p>
+                <p className="text-xs text-slate-500 font-medium">In Progress</p>
+              </div>
+              <div className="bg-safe/10 rounded-2xl p-4 border border-slate-100 dark:border-slate-700/30">
+                <p className="text-2xl font-black">{stats.resolvedRequests}</p>
+                <p className="text-xs text-slate-500 font-medium">Resolved</p>
+              </div>
+            </div>
+
             {rescueRequests.length === 0 ? (
               <div className="text-center py-12">
                 <span className="material-symbols-outlined text-5xl text-slate-300 dark:text-slate-600">emergency</span>
@@ -359,9 +390,26 @@ export default function AdminDashboard({ activePage = "admin" }) {
                       </span>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold truncate">{req.description || "No description"}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">{req.location || "Unknown location"}</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold truncate">{req.user_name || "Anonymous"}</p>
+                        <span className="text-[10px] text-slate-400">
+                          {req.created_at ? new Date(req.created_at).toLocaleString("vi-VN") : ""}
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 line-clamp-2">{req.description || "No description"}</p>
+                      <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">location_on</span>
+                        {req.location || "Unknown location"}
+                      </p>
                       <div className="flex items-center gap-2 mt-2">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                          req.urgency === "critical" ? "bg-danger text-white border-danger"
+                            : req.urgency === "high" ? "bg-danger/10 text-danger border-danger/20"
+                            : req.urgency === "medium" ? "bg-warning/10 text-warning border-warning/20"
+                            : "bg-slate-100 text-slate-500 border-slate-200"
+                        }`}>
+                          {req.urgency || "medium"}
+                        </span>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                           req.status === "pending"
                             ? "bg-warning/10 text-warning border-warning/20"
@@ -371,9 +419,9 @@ export default function AdminDashboard({ activePage = "admin" }) {
                         }`}>
                           {req.status || "unknown"}
                         </span>
-                        {req.assignedTo && (
+                        {req.assigned_name && (
                           <span className="text-[10px] text-slate-400">
-                            Assigned to: {req.assignedTo}
+                            Assigned to: {req.assigned_name}
                           </span>
                         )}
                       </div>

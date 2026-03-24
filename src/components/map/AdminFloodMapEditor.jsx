@@ -294,10 +294,11 @@ export default function AdminFloodMapEditor() {
           zoom={6}
           className="w-full h-full z-0"
         >
-          {/* VNDMS Vietnam map (dark) — includes Hoàng Sa & Trường Sa */}
+          {/* Google Maps roadmap tiles */}
           <TileLayer
-            attribution='&copy; <a href="https://vndms.dmc.gov.vn/">VNDMS</a>'
-            url="https://tiles.vndms.gov.vn/styles/vndms-dark/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.google.com/maps">Google Maps</a>'
+            url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+            maxZoom={20}
           />
 
           {/* RainViewer precipitation radar (FREE) */}
