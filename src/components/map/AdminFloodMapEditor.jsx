@@ -1,18 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from "firebase/firestore";
 import { getFirebaseDb } from "../../config/firebase";
 
-const OWM_KEY = import.meta.env.VITE_OWM_API_KEY || "";
+const WINDY_API_KEY = import.meta.env.VITE_WINDY_API_KEY || "";
 
-const WEATHER_LAYERS = [
-  { key: "rain_radar", label: "Radar mưa", icon: "rainy", color: "#3b82f6", free: true },
-  { key: "wind_new", label: "Gió", icon: "air", color: "#38bdf8", free: false },
-  { key: "clouds_new", label: "Mây", icon: "cloud", color: "#94a3b8", free: false },
-  { key: "temp_new", label: "Nhiệt độ", icon: "thermostat", color: "#f97316", free: false },
-  { key: "pressure_new", label: "Áp suất", icon: "speed", color: "#a78bfa", free: false },
+const WINDY_OVERLAYS = [
+  { key: "rain", label: "Mưa", icon: "rainy", color: "#3b82f6" },
+  { key: "wind", label: "Gió", icon: "air", color: "#38bdf8" },
+  { key: "clouds", label: "Mây", icon: "cloud", color: "#94a3b8" },
+  { key: "temp", label: "Nhiệt độ", icon: "thermostat", color: "#f97316" },
+  { key: "pressure", label: "Áp suất", icon: "speed", color: "#a78bfa" },
 ];
 
 // Custom colored pin icon
@@ -56,36 +56,22 @@ export default function AdminFloodMapEditor() {
     severity: "low",
     water_level: 0,
   });
-  const [activeWeatherLayers, setActiveWeatherLayers] = useState([]);
+  const [showWindy, setShowWindy] = useState(false);
+  const [windyOverlay, setWindyOverlay] = useState("rain");
   const [weatherPanelOpen, setWeatherPanelOpen] = useState(false);
-  const [rainRadarUrl, setRainRadarUrl] = useState(null);
+  const windyIframeRef = useRef(null);
 
-  const toggleWeatherLayer = (layerKey) => {
-    setActiveWeatherLayers((prev) =>
-      prev.includes(layerKey)
-        ? prev.filter((k) => k !== layerKey)
-        : [...prev, layerKey]
-    );
+  const changeWindyOverlay = (overlay) => {
+    setWindyOverlay(overlay);
+    if (windyIframeRef.current?.contentWindow) {
+      windyIframeRef.current.contentWindow.postMessage(
+        { type: "changeOverlay", overlay },
+        "*"
+      );
+    }
   };
 
-  // Fetch RainViewer radar timestamp (free, no API key)
-  useEffect(() => {
-    async function fetchRainRadar() {
-      try {
-        const res = await fetch("https://api.rainviewer.com/public/weather-maps.json");
-        const data = await res.json();
-        const lastFrame = data.radar?.past?.slice(-1)[0];
-        if (lastFrame) {
-          setRainRadarUrl(`${data.host}${lastFrame.path}/256/{z}/{x}/{y}/6/1_1.png`);
-        }
-      } catch (err) {
-        console.warn("[AdminMap] Could not fetch RainViewer data:", err);
-      }
-    }
-    fetchRainRadar();
-    const interval = setInterval(fetchRainRadar, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
+  const windyUrl = `/windy.html?key=${WINDY_API_KEY}&lat=16.054&lon=108.202&zoom=7&overlay=${windyOverlay}`;
 
   useEffect(() => {
     const db = getFirebaseDb();
@@ -261,26 +247,31 @@ export default function AdminFloodMapEditor() {
         <div className="absolute top-3 right-3 z-[1000]">
           <button
             onClick={() => setWeatherPanelOpen(!weatherPanelOpen)}
-            className={`size-9 rounded-lg flex items-center justify-center shadow-lg transition-all ${activeWeatherLayers.length > 0 ? "bg-primary text-white" : "bg-white/90 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600"} hover:scale-105`}
-            title="Lớp thời tiết"
+            className={`size-9 rounded-lg flex items-center justify-center shadow-lg transition-all ${showWindy ? "bg-primary text-white" : "bg-white/90 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600"} hover:scale-105`}
+            title="Windy Weather"
           >
             <span className="material-symbols-outlined text-lg">layers</span>
           </button>
           {weatherPanelOpen && (
-            <div className="mt-1.5 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-2 min-w-[170px]">
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 px-1">Thời tiết</p>
-              {WEATHER_LAYERS.map((layer) => {
-                const isActive = activeWeatherLayers.includes(layer.key);
-                const isDisabled = !layer.free && !OWM_KEY;
+            <div className="mt-1.5 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-2 min-w-[180px]">
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 px-1">🌦️ Windy</p>
+              <button
+                onClick={() => setShowWindy(!showWindy)}
+                className={`flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-xs font-bold transition-all mb-1 ${showWindy ? "bg-primary text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300"}`}
+              >
+                <span className="material-symbols-outlined text-sm">{showWindy ? "visibility" : "visibility_off"}</span>
+                {showWindy ? "Ẩn thời tiết" : "Hiện thời tiết"}
+              </button>
+              {showWindy && WINDY_OVERLAYS.map((layer) => {
+                const isActive = windyOverlay === layer.key;
                 return (
                   <button
                     key={layer.key}
-                    onClick={() => !isDisabled && toggleWeatherLayer(layer.key)}
-                    className={`flex items-center gap-2 w-full px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${isDisabled ? "text-slate-300 dark:text-slate-600 cursor-not-allowed" : isActive ? "bg-primary/10 text-primary" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50"}`}
+                    onClick={() => changeWindyOverlay(layer.key)}
+                    className={`flex items-center gap-2 w-full px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${isActive ? "bg-primary/10 text-primary" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50"}`}
                   >
                     <span className="material-symbols-outlined text-sm" style={isActive ? { color: layer.color } : {}}>{layer.icon}</span>
                     <span className="flex-1 text-left">{layer.label}</span>
-                    {layer.free && <span className="text-[7px] font-bold bg-green-100 text-green-600 px-1 py-0.5 rounded">FREE</span>}
                     {isActive && <span className="material-symbols-outlined text-xs text-primary">check</span>}
                   </button>
                 );
@@ -288,6 +279,13 @@ export default function AdminFloodMapEditor() {
             </div>
           )}
         </div>
+
+        {/* Windy Weather iframe */}
+        {showWindy && WINDY_API_KEY && (
+          <div className="absolute inset-0 z-[400]">
+            <iframe ref={windyIframeRef} src={windyUrl} className="w-full h-full border-0" title="Windy Weather" allow="geolocation" />
+          </div>
+        )}
 
         <MapContainer
           center={[16.054, 108.202]}
@@ -300,21 +298,6 @@ export default function AdminFloodMapEditor() {
             url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
             maxZoom={20}
           />
-
-          {/* RainViewer precipitation radar (FREE) */}
-          {activeWeatherLayers.includes("rain_radar") && rainRadarUrl && (
-            <TileLayer url={rainRadarUrl} opacity={0.7} zIndex={10} />
-          )}
-
-          {/* OpenWeatherMap weather overlay layers (requires active API key) */}
-          {OWM_KEY && activeWeatherLayers.filter(k => k !== "rain_radar").map((layerKey) => (
-            <TileLayer
-              key={layerKey}
-              url={`https://tile.openweathermap.org/map/${layerKey}/{z}/{x}/{y}.png?appid=${OWM_KEY}`}
-              opacity={0.6}
-              zIndex={10}
-            />
-          ))}
 
           <MapEvents />
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -6,7 +6,17 @@ import { collection, getDocs } from "firebase/firestore";
 import { getFirebaseDb } from "../../config/firebase";
 import MapLegend from "./MapLegend";
 
-const OWM_KEY = import.meta.env.VITE_OWM_API_KEY || "";
+const WINDY_API_KEY = import.meta.env.VITE_WINDY_API_KEY || "";
+
+// Windy overlay options
+const WINDY_OVERLAYS = [
+  { key: "rain", label: "Mưa", icon: "rainy", color: "#3b82f6" },
+  { key: "wind", label: "Gió", icon: "air", color: "#38bdf8" },
+  { key: "clouds", label: "Mây", icon: "cloud", color: "#94a3b8" },
+  { key: "temp", label: "Nhiệt độ", icon: "thermostat", color: "#f97316" },
+  { key: "pressure", label: "Áp suất", icon: "speed", color: "#a78bfa" },
+  { key: "waves", label: "Sóng biển", icon: "waves", color: "#06b6d4" },
+];
 
 // Custom colored pin icon using inline SVG
 function createPinIcon(color) {
@@ -39,15 +49,6 @@ const severityMap = {
   low:      { color: "#10b981", label: "Low" },
   safe:     { color: "#10b981", label: "Safe" },
 };
-
-// Weather overlay layers
-const WEATHER_LAYERS = [
-  { key: "rain_radar", label: "Radar mưa", icon: "rainy", color: "#3b82f6", free: true },
-  { key: "wind_new", label: "Gió", icon: "air", color: "#38bdf8", free: false },
-  { key: "clouds_new", label: "Mây", icon: "cloud", color: "#94a3b8", free: false },
-  { key: "temp_new", label: "Nhiệt độ", icon: "thermostat", color: "#f97316", free: false },
-  { key: "pressure_new", label: "Áp suất", icon: "speed", color: "#a78bfa", free: false },
-];
 
 /**
  * Parse Firestore location → { lat, lng }
@@ -84,38 +85,21 @@ export default function FloodMap() {
   const [markers, setMarkers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeWeatherLayers, setActiveWeatherLayers] = useState([]);
+  const [showWindy, setShowWindy] = useState(false);
+  const [windyOverlay, setWindyOverlay] = useState("rain");
   const [weatherPanelOpen, setWeatherPanelOpen] = useState(false);
-  const [rainRadarUrl, setRainRadarUrl] = useState(null);
+  const windyIframeRef = useRef(null);
 
-  const toggleWeatherLayer = (layerKey) => {
-    setActiveWeatherLayers((prev) =>
-      prev.includes(layerKey)
-        ? prev.filter((k) => k !== layerKey)
-        : [...prev, layerKey]
-    );
-  };
-
-  // Fetch RainViewer radar timestamp (free, no API key)
-  useEffect(() => {
-    async function fetchRainRadar() {
-      try {
-        const res = await fetch("https://api.rainviewer.com/public/weather-maps.json");
-        const data = await res.json();
-        const lastFrame = data.radar?.past?.slice(-1)[0];
-        if (lastFrame) {
-          // Format: {host}{path}/{size}/{z}/{x}/{y}/{color}/{options}.png
-          setRainRadarUrl(`${data.host}${lastFrame.path}/256/{z}/{x}/{y}/6/1_1.png`);
-        }
-      } catch (err) {
-        console.warn("[FloodMap] Could not fetch RainViewer data:", err);
-      }
+  // Change Windy overlay via postMessage
+  const changeWindyOverlay = (overlay) => {
+    setWindyOverlay(overlay);
+    if (windyIframeRef.current?.contentWindow) {
+      windyIframeRef.current.contentWindow.postMessage(
+        { type: "changeOverlay", overlay },
+        "*"
+      );
     }
-    fetchRainRadar();
-    // Refresh every 5 minutes
-    const interval = setInterval(fetchRainRadar, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
+  };
 
   useEffect(() => {
     async function fetchFloodZones() {
@@ -153,9 +137,7 @@ export default function FloodMap() {
     fetchFloodZones();
   }, []);
 
-  // Determine which OWM layers are active (excluding rain_radar which uses RainViewer)
-  const activeOWMLayers = activeWeatherLayers.filter((k) => k !== "rain_radar");
-  const isRainRadarActive = activeWeatherLayers.includes("rain_radar");
+  const windyUrl = `/windy.html?key=${WINDY_API_KEY}&lat=16.054&lon=108.202&zoom=7&overlay=${windyOverlay}`;
 
   return (
     <div className="flex-1 relative">
@@ -194,138 +176,146 @@ export default function FloodMap() {
         <button
           onClick={() => setWeatherPanelOpen(!weatherPanelOpen)}
           className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${
-            activeWeatherLayers.length > 0
+            showWindy
               ? "bg-primary text-white shadow-primary/30"
               : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
           } hover:scale-105`}
-          title="Lớp thời tiết"
+          title="Lớp thời tiết Windy"
         >
           <span className="material-symbols-outlined text-xl">layers</span>
         </button>
 
         {weatherPanelOpen && (
-          <div className="mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-3 min-w-[200px]">
+          <div className="mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-3 min-w-[220px]">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">
-              Lớp thời tiết
+              🌦️ Windy Weather
             </p>
-            {WEATHER_LAYERS.map((layer) => {
-              const isActive = activeWeatherLayers.includes(layer.key);
-              const isDisabled = !layer.free && !OWM_KEY;
-              return (
-                <button
-                  key={layer.key}
-                  onClick={() => !isDisabled && toggleWeatherLayer(layer.key)}
-                  className={`flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium transition-all ${
-                    isDisabled
-                      ? "text-slate-300 dark:text-slate-600 cursor-not-allowed"
-                      : isActive
-                        ? "bg-primary/10 text-primary"
-                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50"
-                  }`}
-                  title={isDisabled ? "Cần API key OpenWeatherMap" : ""}
-                >
-                  <span
-                    className="material-symbols-outlined text-base"
-                    style={isActive ? { color: layer.color } : {}}
-                  >
-                    {layer.icon}
-                  </span>
-                  <span className="flex-1 text-left">{layer.label}</span>
-                  {layer.free && (
-                    <span className="text-[8px] font-bold bg-safe/20 text-safe px-1.5 py-0.5 rounded-full">
-                      FREE
-                    </span>
-                  )}
-                  {isActive && (
-                    <span className="material-symbols-outlined text-sm text-primary">
-                      check_circle
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-            {activeWeatherLayers.length > 0 && (
-              <button
-                onClick={() => setActiveWeatherLayers([])}
-                className="w-full mt-1 px-3 py-1.5 text-[11px] font-medium text-slate-400 hover:text-danger transition-colors"
-              >
-                Tắt tất cả
-              </button>
+
+            {/* Toggle Windy Map */}
+            <button
+              onClick={() => setShowWindy(!showWindy)}
+              className={`flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-sm font-bold transition-all mb-2 ${
+                showWindy
+                  ? "bg-primary text-white shadow-md shadow-primary/20"
+                  : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
+              }`}
+            >
+              <span className="material-symbols-outlined text-base">
+                {showWindy ? "visibility" : "visibility_off"}
+              </span>
+              <span>{showWindy ? "Ẩn bản đồ thời tiết" : "Hiện bản đồ thời tiết"}</span>
+            </button>
+
+            {/* Overlay options (only show when Windy is active) */}
+            {showWindy && (
+              <>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 px-1 mt-1">
+                  Chọn lớp hiển thị
+                </p>
+                {WINDY_OVERLAYS.map((layer) => {
+                  const isActive = windyOverlay === layer.key;
+                  return (
+                    <button
+                      key={layer.key}
+                      onClick={() => changeWindyOverlay(layer.key)}
+                      className={`flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+                        isActive
+                          ? "bg-primary/10 text-primary"
+                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50"
+                      }`}
+                    >
+                      <span
+                        className="material-symbols-outlined text-base"
+                        style={isActive ? { color: layer.color } : {}}
+                      >
+                        {layer.icon}
+                      </span>
+                      <span className="flex-1 text-left">{layer.label}</span>
+                      {isActive && (
+                        <span className="material-symbols-outlined text-sm text-primary">
+                          check_circle
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </>
             )}
           </div>
         )}
       </div>
 
-      <MapContainer
-        center={[16.054, 108.202]}
-        zoom={6}
-        className="w-full h-full z-0"
-        zoomControl={true}
-        scrollWheelZoom={true}
-      >
-        {/* Google Maps roadmap tiles */}
-        <TileLayer
-          attribution='&copy; <a href="https://www.google.com/maps">Google Maps</a>'
-          url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
-          maxZoom={20}
-        />
-
-        {/* RainViewer precipitation radar (FREE, no API key) */}
-        {isRainRadarActive && rainRadarUrl && (
-          <TileLayer
-            url={rainRadarUrl}
-            opacity={0.7}
-            zIndex={10}
+      {/* Windy Weather Map (iframe overlay) */}
+      {showWindy && WINDY_API_KEY && (
+        <div className="absolute inset-0 z-[500]">
+          <iframe
+            ref={windyIframeRef}
+            src={windyUrl}
+            className="w-full h-full border-0"
+            title="Windy Weather Map"
+            allow="geolocation"
           />
-        )}
+          {/* Semi-transparent badge */}
+          <div className="absolute bottom-4 left-4 z-[501] bg-black/50 backdrop-blur-sm text-white text-[10px] font-medium px-3 py-1.5 rounded-full flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-xs">cloud</span>
+            Powered by Windy.com
+          </div>
+        </div>
+      )}
 
-        {/* OpenWeatherMap weather overlay layers (requires active API key) */}
-        {OWM_KEY &&
-          activeOWMLayers.map((layerKey) => (
-            <TileLayer
-              key={layerKey}
-              url={`https://tile.openweathermap.org/map/${layerKey}/{z}/{x}/{y}.png?appid=${OWM_KEY}`}
-              opacity={0.6}
-              zIndex={10}
-            />
-          ))}
+      {/* Main Flood Map (hidden when Windy is shown, but still rendered) */}
+      <div className={showWindy ? "invisible" : ""}>
+        <MapContainer
+          center={[16.054, 108.202]}
+          zoom={6}
+          className="w-full h-full z-0"
+          zoomControl={true}
+          scrollWheelZoom={true}
+        >
+          {/* Google Maps roadmap tiles */}
+          <TileLayer
+            attribution='&copy; <a href="https://www.google.com/maps">Google Maps</a>'
+            url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+            maxZoom={20}
+          />
 
-        {markers.map((marker) => (
-          <Marker
-            key={marker.id}
-            position={[marker.lat, marker.lng]}
-            icon={createPinIcon(marker.color)}
-          >
-            <Popup>
-              <div className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <span
-                    className="inline-block size-3 rounded-full"
-                    style={{ backgroundColor: marker.color }}
-                  />
-                  <span className="font-black text-sm" style={{ color: marker.color }}>
-                    {marker.label}
-                  </span>
-                  {marker.waterLevel != null && (
-                    <span className="text-[10px] font-bold text-slate-500 ml-auto bg-slate-100 px-2 py-0.5 rounded-full">
-                      Water +{marker.waterLevel}m
+          {markers.map((marker) => (
+            <Marker
+              key={marker.id}
+              position={[marker.lat, marker.lng]}
+              icon={createPinIcon(marker.color)}
+            >
+              <Popup>
+                <div className="p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span
+                      className="inline-block size-3 rounded-full"
+                      style={{ backgroundColor: marker.color }}
+                    />
+                    <span className="font-black text-sm" style={{ color: marker.color }}>
+                      {marker.label}
                     </span>
+                    {marker.waterLevel != null && (
+                      <span className="text-[10px] font-bold text-slate-500 ml-auto bg-slate-100 px-2 py-0.5 rounded-full">
+                        Water +{marker.waterLevel}m
+                      </span>
+                    )}
+                  </div>
+                  {marker.name && (
+                    <div className="flex items-start gap-1.5 text-[11px] text-slate-500">
+                      <span className="material-symbols-outlined text-sm mt-px">location_on</span>
+                      <span>{marker.name}</span>
+                    </div>
                   )}
                 </div>
-                {marker.name && (
-                  <div className="flex items-start gap-1.5 text-[11px] text-slate-500">
-                    <span className="material-symbols-outlined text-sm mt-px">location_on</span>
-                    <span>{marker.name}</span>
-                  </div>
-                )}
-              </div>
-            </Popup>
-          </Marker>
-        ))}
-      </MapContainer>
+              </Popup>
+            </Marker>
+          ))}
+        </MapContainer>
+      </div>
 
       {/* Legend overlay */}
-      <MapLegend />
+      {!showWindy && <MapLegend />}
     </div>
   );
 }
