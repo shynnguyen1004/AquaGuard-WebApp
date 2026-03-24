@@ -263,8 +263,8 @@ export default function FloodMap() {
         </div>
       )}
 
-      {/* Main Flood Map (hidden when Windy is shown, but still rendered) */}
-      <div className={showWindy ? "invisible" : ""}>
+      {/* Main Flood Map */}
+      <div className={`absolute inset-0 ${showWindy ? "invisible" : ""}`}>
         <MapContainer
           center={[16.054, 108.202]}
           zoom={6}
