@@ -244,7 +244,7 @@ export default function AdminFloodMapEditor() {
       {/* Map Content */}
       <div className="flex-1 relative min-h-[400px]">
         {/* Weather Layer Toggle */}
-        <div className="absolute top-3 right-3 z-[1000]">
+        <div className="absolute top-3 left-3 z-[1000]">
           <button
             onClick={() => setWeatherPanelOpen(!weatherPanelOpen)}
             className={`size-9 rounded-lg flex items-center justify-center shadow-lg transition-all ${showWindy ? "bg-primary text-white" : "bg-white/90 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600"} hover:scale-105`}

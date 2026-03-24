@@ -172,7 +172,7 @@ export default function FloodMap() {
       )}
 
       {/* Weather Layer Toggle Panel */}
-      <div className="absolute top-4 right-4 z-[1000]">
+      <div className={`absolute top-4 z-[1000] ${showWindy ? "left-4" : "right-4"}`}>
         <button
           onClick={() => setWeatherPanelOpen(!weatherPanelOpen)}
           className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${
@@ -255,11 +255,6 @@ export default function FloodMap() {
             title="Windy Weather Map"
             allow="geolocation"
           />
-          {/* Semi-transparent badge */}
-          <div className="absolute bottom-4 left-4 z-[501] bg-black/50 backdrop-blur-sm text-white text-[10px] font-medium px-3 py-1.5 rounded-full flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-xs">cloud</span>
-            Powered by Windy.com
-          </div>
         </div>
       )}
 
