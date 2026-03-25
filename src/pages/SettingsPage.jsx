@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import { getRoleBadgeClasses } from "../config/rbac";
+import { normalizePhone, formatPhoneDisplay } from "../utils/phone";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
@@ -72,7 +73,7 @@ export default function SettingsPage() {
     setSearchError("");
     setSearchResult(null);
     try {
-      const phone = searchPhone.startsWith("+84") ? searchPhone : `+84${searchPhone.replace(/^0/, "")}`;
+      const phone = normalizePhone(searchPhone);
       const res = await fetch(`${API_BASE}/family/search?phone=${encodeURIComponent(phone)}`, { headers: authHeaders });
       const data = await res.json();
       if (data.success && data.data) {

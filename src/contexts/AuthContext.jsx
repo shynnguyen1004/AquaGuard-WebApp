@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, signOut, signInWithPopup } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { getFirebaseAuth, getGoogleProvider, getFirebaseDb } from "../config/firebase";
+import { normalizePhone } from "../utils/phone";
 import { ROLES } from "../config/rbac";
 
 const AuthContext = createContext(null);
@@ -217,10 +218,11 @@ export function AuthProvider({ children }) {
     setError(null);
     setLoading(true);
     try {
+      const normalized = normalizePhone(phone_number);
       const res = await fetch(`${API_BASE}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone_number, password, display_name, role: selectedRole || "citizen" }),
+        body: JSON.stringify({ phone_number: normalized, password, display_name, role: selectedRole || "citizen" }),
       });
 
       const data = await res.json();
@@ -256,10 +258,11 @@ export function AuthProvider({ children }) {
     setError(null);
     setLoading(true);
     try {
+      const normalized = normalizePhone(phone_number);
       const res = await fetch(`${API_BASE}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone_number, password }),
+        body: JSON.stringify({ phone_number: normalized, password }),
       });
 
       const data = await res.json();

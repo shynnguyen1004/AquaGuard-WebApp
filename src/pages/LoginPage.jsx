@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { normalizePhone, isValidVNPhone } from "../utils/phone";
 
 export default function LoginPage() {
   const { loginWithGoogle, loginWithPhonePassword, registerWithPhone, error, clearError, loading } = useAuth();
@@ -36,11 +37,12 @@ export default function LoginPage() {
 
   const handlePhoneLogin = async (e) => {
     e.preventDefault();
-    if (!phoneNumber || phoneNumber.length < 10 || !password) return;
+    const normalized = normalizePhone(phoneNumber);
+    if (!isValidVNPhone(normalized) || !password) return;
     setIsSigningIn(true);
     clearError();
     try {
-      await loginWithPhonePassword(phoneNumber, password);
+      await loginWithPhonePassword(normalized, password);
       navigate("/", { replace: true });
     } catch {
       // Error handled by AuthContext
@@ -51,7 +53,8 @@ export default function LoginPage() {
 
   const handlePhoneRegister = async (e) => {
     e.preventDefault();
-    if (!phoneNumber || phoneNumber.length < 10 || !password) return;
+    const normalized = normalizePhone(phoneNumber);
+    if (!isValidVNPhone(normalized) || !password) return;
 
     // Validate role password for admin and rescuer
     if ((selectedRole === "admin" || selectedRole === "rescuer") && rolePassword !== "123456") {
@@ -63,7 +66,7 @@ export default function LoginPage() {
     setIsSigningIn(true);
     clearError();
     try {
-      await registerWithPhone(phoneNumber, password, displayName, selectedRole);
+      await registerWithPhone(normalized, password, displayName, selectedRole);
       navigate("/", { replace: true });
     } catch {
       // Error handled by AuthContext
