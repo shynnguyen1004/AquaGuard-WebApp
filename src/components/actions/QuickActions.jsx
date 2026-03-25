@@ -1,6 +1,6 @@
 import { useLanguage } from "../../contexts/LanguageContext";
 
-export default function QuickActions({ hideTitle = false }) {
+export default function QuickActions({ hideTitle = false, onNavigate }) {
   const { t } = useLanguage();
 
   const actions = [
@@ -24,8 +24,15 @@ export default function QuickActions({ hideTitle = false }) {
       subtitle: t("rightPanel.familyCheckSubtitle"),
       bg: "bg-warning",
       shadow: "shadow-warning/20",
+      action: "settings:family",
     },
   ];
+
+  const handleClick = (action) => {
+    if (action.action && onNavigate) {
+      onNavigate(action.action);
+    }
+  };
 
   return (
     <div className={hideTitle ? "px-6 pb-4" : "p-6"}>
@@ -34,6 +41,7 @@ export default function QuickActions({ hideTitle = false }) {
         {actions.map((action) => (
           <button
             key={action.icon}
+            onClick={() => handleClick(action)}
             className={`flex items-center gap-3 w-full ${action.bg} text-white p-4 rounded-xl hover:opacity-90 transition-all shadow-lg ${action.shadow} group`}
           >
             <span className="material-symbols-outlined filled-icon p-2 bg-white/20 rounded-lg group-hover:scale-110 transition-transform">

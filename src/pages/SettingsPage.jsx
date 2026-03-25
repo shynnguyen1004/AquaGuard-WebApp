@@ -6,10 +6,10 @@ import { normalizePhone, formatPhoneDisplay } from "../utils/phone";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
-export default function SettingsPage() {
+export default function SettingsPage({ defaultTab = "profile" }) {
   const { user, token } = useAuth();
   const { t, language, setLanguage } = useLanguage();
-  const [activeTab, setActiveTab] = useState("profile");
+  const [activeTab, setActiveTab] = useState(defaultTab);
   const [profile, setProfile] = useState({
     displayName: user?.displayName || "User",
     email: user?.email || "",

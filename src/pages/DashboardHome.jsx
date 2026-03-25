@@ -5,7 +5,7 @@ import StatsOverview from "../components/dashboard/StatsOverview";
 import DashboardQuickActions from "../components/dashboard/DashboardQuickActions";
 import DashboardAlerts from "../components/dashboard/DashboardAlerts";
 
-export default function DashboardHome() {
+export default function DashboardHome({ onNavigate }) {
   const { user } = useAuth();
   const { t, language } = useLanguage();
 
@@ -56,7 +56,7 @@ export default function DashboardHome() {
 
         {/* Two-column layout for Quick Actions + Alerts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <DashboardQuickActions />
+          <DashboardQuickActions onNavigate={onNavigate} />
           <DashboardAlerts />
         </div>
       </div>

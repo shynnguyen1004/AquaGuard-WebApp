@@ -23,10 +23,25 @@ export default function Dashboard() {
   const [activePage, setActivePage] = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState("profile");
   const { user, role, needsRoleSelection, selectRole } = useAuth();
 
   // Guard navigation — redirect to dashboard if the user can't access the page
+  // Supports "settings:family" format to open Settings with a specific tab
   const handleNavigate = (page) => {
+    if (page.startsWith("settings:")) {
+      const tab = page.split(":")[1];
+      setSettingsTab(tab);
+      if (canAccessPage(role, "settings")) {
+        setActivePage("settings");
+      } else {
+        setActivePage("dashboard");
+      }
+      return;
+    }
+    if (page === "settings") {
+      setSettingsTab("profile");
+    }
     if (canAccessPage(role, page)) {
       setActivePage(page);
     } else {
@@ -39,7 +54,7 @@ export default function Dashboard() {
       case "dashboard":
         return (
           <main className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900/50 relative overflow-hidden">
-            <DashboardHome />
+            <DashboardHome onNavigate={handleNavigate} />
           </main>
         );
       case "sos":
@@ -69,7 +84,7 @@ export default function Dashboard() {
       case "settings":
         return (
           <main className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900/50 relative overflow-hidden">
-            <SettingsPage />
+            <SettingsPage key={settingsTab} defaultTab={settingsTab} />
           </main>
         );
       case "about":
@@ -106,7 +121,7 @@ export default function Dashboard() {
               <Header />
               <FloodMap />
             </main>
-            <RightPanel />
+            <RightPanel onNavigate={handleNavigate} />
           </div>
         );
     }

@@ -1,6 +1,6 @@
 import { useLanguage } from "../../contexts/LanguageContext";
 
-export default function DashboardQuickActions() {
+export default function DashboardQuickActions({ onNavigate }) {
   const { t } = useLanguage();
 
   const actions = [
@@ -35,8 +35,15 @@ export default function DashboardQuickActions() {
       iconColor: "text-primary",
       hoverBg: "hover:bg-primary/5 dark:hover:bg-primary/10",
       ring: "hover:ring-primary/30",
+      action: "settings:family",
     },
   ];
+
+  const handleClick = (action) => {
+    if (action.action && onNavigate) {
+      onNavigate(action.action);
+    }
+  };
 
   return (
     <div>
@@ -45,6 +52,7 @@ export default function DashboardQuickActions() {
         {actions.map((action) => (
           <button
             key={action.icon}
+            onClick={() => handleClick(action)}
             className={`flex flex-col items-center gap-3 p-5 rounded-2xl transition-all duration-200 ${action.bg} ${action.hoverBg} hover:ring-2 ${action.ring} hover:shadow-lg group`}
           >
             <div

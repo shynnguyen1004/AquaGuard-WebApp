@@ -4,7 +4,7 @@ import QuickActions from "../actions/QuickActions";
 import ActiveAlerts from "../alerts/ActiveAlerts";
 import EmergencySupport from "../actions/EmergencySupport";
 
-export default function RightPanel() {
+export default function RightPanel({ onNavigate }) {
   const [quickActionsOpen, setQuickActionsOpen] = useState(true);
   const { t } = useLanguage();
 
@@ -23,7 +23,7 @@ export default function RightPanel() {
         </button>
         <div className={`grid transition-all duration-300 ease-in-out ${quickActionsOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
           <div className="overflow-hidden">
-            <QuickActions hideTitle />
+            <QuickActions hideTitle onNavigate={onNavigate} />
           </div>
         </div>
       </div>
