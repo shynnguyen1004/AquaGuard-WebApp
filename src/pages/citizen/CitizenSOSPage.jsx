@@ -68,20 +68,26 @@ export default function CitizenSOSPage() {
     if (!token) return;
     setSubmitting(true);
     try {
+      const formBody = new FormData();
+      formBody.append("location", formData.location);
+      formBody.append("description", formData.description);
+      formBody.append("urgency", formData.urgency || "medium");
+      if (formData.latitude) formBody.append("latitude", formData.latitude);
+      if (formData.longitude) formBody.append("longitude", formData.longitude);
+
+      // Append actual image files
+      if (formData.imageFiles?.length > 0) {
+        formData.imageFiles.forEach((file) => {
+          formBody.append("images", file);
+        });
+      }
+
       const res = await fetch(`${API_BASE}/sos`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          location: formData.location,
-          description: formData.description,
-          urgency: formData.urgency || "medium",
-          latitude: formData.latitude || null,
-          longitude: formData.longitude || null,
-          images: [],
-        }),
+        body: formBody,
       });
       const json = await res.json();
       if (json.success) {
@@ -175,7 +181,13 @@ export default function CitizenSOSPage() {
                       <span className="text-xs text-slate-400">{formatTime(req.created_at)}</span>
                     </div>
 
-                    {/* Location */}
+                    {/* User name */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="material-symbols-outlined text-primary text-base filled-icon">person</span>
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                        You <span className="text-slate-400 font-normal">({req.user_name || "User"})</span>
+                      </p>
+                    </div>                    {/* Location */}
                     <div className="flex items-start gap-2 mb-2">
                       <span className="material-symbols-outlined text-danger text-base mt-0.5 filled-icon">location_on</span>
                       <p className="text-sm font-semibold">{req.location || t("sosPage.unknownLocation")}</p>
@@ -186,7 +198,20 @@ export default function CitizenSOSPage() {
                       {req.description}
                     </p>
 
-                    {/* Bottom: urgency + assigned + tracking button */}
+                    {/* Images */}
+                    {req.images && req.images.length > 0 && (
+                      <div className="flex gap-2 ml-6 mb-3 overflow-x-auto">
+                        {req.images.map((img, i) => (
+                          <img
+                            key={i}
+                            src={img}
+                            alt={`SOS ${i + 1}`}
+                            className="h-20 w-28 rounded-xl object-cover border border-slate-200 dark:border-slate-600 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => window.open(img, "_blank")}
+                          />
+                        ))}
+                      </div>
+                    )}                    {/* Bottom: urgency + assigned + tracking button */}
                     <div className="flex items-center justify-between ml-6">
                       <div className="flex items-center gap-3">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${urgency.bg} ${urgency.color}`}>

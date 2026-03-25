@@ -56,20 +56,26 @@ export default function RescueRequestPage() {
     if (!token) return;
 
     try {
+      const formBody = new FormData();
+      formBody.append("location", data.location);
+      formBody.append("description", data.description);
+      formBody.append("urgency", data.urgency || "medium");
+      if (data.latitude) formBody.append("latitude", data.latitude);
+      if (data.longitude) formBody.append("longitude", data.longitude);
+
+      // Append actual image files
+      if (data.imageFiles?.length > 0) {
+        data.imageFiles.forEach((file) => {
+          formBody.append("images", file);
+        });
+      }
+
       const res = await fetch(`${API_BASE}/sos`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          location: data.location,
-          description: data.description,
-          urgency: data.urgency || "medium",
-          latitude: data.latitude || null,
-          longitude: data.longitude || null,
-          images: [],
-        }),
+        body: formBody,
       });
       const json = await res.json();
       if (json.success) {

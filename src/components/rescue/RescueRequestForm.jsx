@@ -92,7 +92,7 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
       ...formData,
       latitude: gpsCoords?.lat || null,
       longitude: gpsCoords?.lng || null,
-      images: images.map((img) => img.preview),
+      imageFiles: images.map((img) => img.file), // actual File objects for upload
       userName: user?.displayName || "User",
       userAvatar: user?.avatarUrl || "",
       timeAgo: t("sosPage.justNow"),

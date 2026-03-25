@@ -1,6 +1,7 @@
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const pool = require("../db");
+const { upload, uploadToCloudinary } = require("../utils/upload");
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "aquaguard_jwt_secret_2026";
@@ -38,17 +39,28 @@ function broadcastToRoom(req, requestId, message) {
 
 /**
  * POST /api/sos
- * Tạo SOS request mới (Citizen) — now with GPS coordinates
+ * Tạo SOS request mới (Citizen) — with GPS + image uploads
+ * Accepts: multipart/form-data with fields + files
  */
-router.post("/", authMiddleware, async (req, res) => {
+router.post("/", authMiddleware, upload.array("images", 5), async (req, res) => {
   try {
-    const { location, description, urgency, images, latitude, longitude } = req.body;
+    const { location, description, urgency, latitude, longitude } = req.body;
 
     if (!location || !description) {
       return res.status(400).json({
         success: false,
         message: "Vị trí và mô tả là bắt buộc",
       });
+    }
+
+    // Upload images to Cloudinary (if any)
+    let imageUrls = [];
+    if (req.files && req.files.length > 0) {
+      const uploadPromises = req.files.map((file) =>
+        uploadToCloudinary(file.buffer)
+      );
+      imageUrls = await Promise.all(uploadPromises);
+      console.log(`[SOS] Uploaded ${imageUrls.length} images to Cloudinary`);
     }
 
     // Lấy tên user từ database
@@ -65,7 +77,7 @@ router.post("/", authMiddleware, async (req, res) => {
         location,
         description,
         urgency || "medium",
-        images || [],
+        imageUrls,
         latitude || null,
         longitude || null,
       ]

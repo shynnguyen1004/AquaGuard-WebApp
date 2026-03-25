@@ -36,6 +36,7 @@ const urgencyConfig = {
 
 export default function RescueRequestCard({ request, onAccept, onComplete, onViewTracking }) {
   const [processing, setProcessing] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(null); // null = closed
   const status = statusConfig[request.status] || statusConfig.pending;
   const urgency = urgencyConfig[request.urgency] || urgencyConfig.medium;
 
@@ -48,7 +49,7 @@ export default function RescueRequestCard({ request, onAccept, onComplete, onVie
     }
   };
 
-  return (
+  const card = (
     <div className="bg-white dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-700/50 p-5 hover:shadow-lg transition-all duration-300 group flex flex-col h-full">
       {/* Top row: user info + status */}
       <div className="flex items-start justify-between mb-4">
@@ -109,8 +110,9 @@ export default function RescueRequestCard({ request, onAccept, onComplete, onVie
               <img
                 key={i}
                 alt={`Scene ${i + 1}`}
-                className="h-full w-28 rounded-lg object-cover border border-slate-200 dark:border-slate-600 flex-shrink-0"
+                className="h-full w-28 rounded-lg object-cover border border-slate-200 dark:border-slate-600 flex-shrink-0 cursor-pointer hover:opacity-75 hover:ring-2 hover:ring-primary transition-all"
                 src={img}
+                onClick={() => setLightboxIndex(i)}
               />
             ))}
           </div>
@@ -172,5 +174,66 @@ export default function RescueRequestCard({ request, onAccept, onComplete, onVie
         </div>
       </div>
     </div>
+  );
+
+  const lightboxModal = lightboxIndex !== null && request.images?.length > 0 && (
+    <div
+      className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center backdrop-blur-sm"
+      onClick={() => setLightboxIndex(null)}
+    >
+      {/* Close button */}
+      <button
+        onClick={() => setLightboxIndex(null)}
+        className="absolute top-4 right-4 z-10 size-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+      >
+        <span className="material-symbols-outlined text-white text-xl">close</span>
+      </button>
+
+      {/* Image counter */}
+      <div className="absolute top-4 left-4 bg-white/10 px-3 py-1.5 rounded-full text-white text-xs font-bold">
+        {lightboxIndex + 1} / {request.images.length}
+      </div>
+
+      {/* Prev button */}
+      {request.images.length > 1 && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setLightboxIndex((prev) => (prev - 1 + request.images.length) % request.images.length);
+          }}
+          className="absolute left-4 size-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+        >
+          <span className="material-symbols-outlined text-white text-2xl">chevron_left</span>
+        </button>
+      )}
+
+      {/* Full image */}
+      <img
+        src={request.images[lightboxIndex]}
+        alt={`Full view ${lightboxIndex + 1}`}
+        className="max-h-[85vh] max-w-[90vw] rounded-2xl object-contain shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      />
+
+      {/* Next button */}
+      {request.images.length > 1 && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setLightboxIndex((prev) => (prev + 1) % request.images.length);
+          }}
+          className="absolute right-4 size-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+        >
+          <span className="material-symbols-outlined text-white text-2xl">chevron_right</span>
+        </button>
+      )}
+    </div>
+  );
+
+  return (
+    <>
+      {card}
+      {lightboxModal}
+    </>
   );
 }
