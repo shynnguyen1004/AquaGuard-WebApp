@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
 
@@ -14,6 +14,28 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
   const [images, setImages] = useState([]);
   const [dragActive, setDragActive] = useState(false);
   const [errors, setErrors] = useState({});
+
+  // ── GPS auto-capture ──
+  const [gpsStatus, setGpsStatus] = useState("loading"); // loading | success | error
+  const [gpsCoords, setGpsCoords] = useState(null);
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setGpsStatus("error");
+      return;
+    }
+    setGpsStatus("loading");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGpsCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setGpsStatus("success");
+      },
+      () => {
+        setGpsStatus("error");
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  }, []);
 
   const urgencyOptions = [
     { value: "low", label: t("rescueForm.low"), color: "peer-checked:bg-slate-200 peer-checked:text-slate-700 peer-checked:border-slate-400" },
@@ -68,6 +90,8 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
     if (!validate()) return;
     onSubmit?.({
       ...formData,
+      latitude: gpsCoords?.lat || null,
+      longitude: gpsCoords?.lng || null,
       images: images.map((img) => img.preview),
       userName: user?.displayName || "User",
       userAvatar: user?.avatarUrl || "",
@@ -109,6 +133,24 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* GPS Status Indicator */}
+          <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium ${
+            gpsStatus === "success"
+              ? "bg-safe/10 border-safe/20 text-safe"
+              : gpsStatus === "loading"
+                ? "bg-primary/10 border-primary/20 text-primary"
+                : "bg-warning/10 border-warning/20 text-warning"
+          }`}>
+            <span className={`material-symbols-outlined text-base ${gpsStatus === "loading" ? "animate-spin" : "filled-icon"}`}>
+              {gpsStatus === "success" ? "my_location" : gpsStatus === "loading" ? "progress_activity" : "location_off"}
+            </span>
+            {gpsStatus === "success" && (
+              <span>📍 GPS đã lấy: {gpsCoords.lat.toFixed(5)}, {gpsCoords.lng.toFixed(5)}</span>
+            )}
+            {gpsStatus === "loading" && <span>⏳ Đang lấy vị trí GPS...</span>}
+            {gpsStatus === "error" && <span>⚠️ Không lấy được GPS (vẫn gửi được)</span>}
+          </div>
+
           {/* Location */}
           <div>
             <label className="block text-sm font-bold mb-2">

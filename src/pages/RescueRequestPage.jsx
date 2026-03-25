@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import RescueRequestCard from "../components/rescue/RescueRequestCard";
 import RescueRequestForm from "../components/rescue/RescueRequestForm";
+import RescueTrackingMap from "../components/rescue/RescueTrackingMap";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
@@ -16,6 +17,7 @@ export default function RescueRequestPage() {
   const [showForm, setShowForm] = useState(false);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [trackingRequest, setTrackingRequest] = useState(null);
 
   const fetchRequests = async () => {
     const token = localStorage.getItem("aquaguard_token");
@@ -43,6 +45,12 @@ export default function RescueRequestPage() {
     fetchRequests();
   }, []);
 
+  // Auto-refresh every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(fetchRequests, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleNewRequest = async (data) => {
     const token = localStorage.getItem("aquaguard_token");
     if (!token) return;
@@ -58,6 +66,8 @@ export default function RescueRequestPage() {
           location: data.location,
           description: data.description,
           urgency: data.urgency || "medium",
+          latitude: data.latitude || null,
+          longitude: data.longitude || null,
           images: [],
         }),
       });
@@ -72,6 +82,25 @@ export default function RescueRequestPage() {
 
   const handleAccept = async (requestId) => {
     const token = localStorage.getItem("aquaguard_token");
+
+    // Get rescuer's current GPS
+    let latitude = null;
+    let longitude = null;
+    if (navigator.geolocation) {
+      try {
+        const pos = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+          });
+        });
+        latitude = pos.coords.latitude;
+        longitude = pos.coords.longitude;
+      } catch {
+        console.warn("Could not get rescuer GPS");
+      }
+    }
+
     try {
       const res = await fetch(`${API_BASE}/sos/${requestId}/accept`, {
         method: "PUT",
@@ -79,9 +108,17 @@ export default function RescueRequestPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        body: JSON.stringify({ latitude, longitude }),
       });
       const json = await res.json();
-      if (json.success) fetchRequests();
+      if (json.success) {
+        fetchRequests();
+        // Auto-open tracking map
+        const acceptedRequest = json.data;
+        if (acceptedRequest.latitude && acceptedRequest.longitude) {
+          setTrackingRequest(acceptedRequest);
+        }
+      }
     } catch (err) {
       console.error("Failed to accept:", err);
     }
@@ -98,10 +135,17 @@ export default function RescueRequestPage() {
         },
       });
       const json = await res.json();
-      if (json.success) fetchRequests();
+      if (json.success) {
+        setTrackingRequest(null);
+        fetchRequests();
+      }
     } catch (err) {
       console.error("Failed to complete:", err);
     }
+  };
+
+  const handleViewTracking = (request) => {
+    setTrackingRequest(request);
   };
 
   const filtered =
@@ -247,6 +291,7 @@ export default function RescueRequestPage() {
                 request={request}
                 onAccept={handleAccept}
                 onComplete={handleComplete}
+                onViewTracking={handleViewTracking}
               />
             ))}
           </div>
@@ -261,6 +306,32 @@ export default function RescueRequestPage() {
             handleNewRequest(data);
             setShowForm(false);
           }}
+        />
+      )}
+
+      {/* Tracking Map Overlay */}
+      {trackingRequest && (
+        <RescueTrackingMap
+          requestId={trackingRequest.id}
+          userRole="rescuer"
+          citizenName={trackingRequest.user_name}
+          citizenPhone={trackingRequest.user_phone}
+          rescuerName={trackingRequest.assigned_name}
+          citizenPos={
+            trackingRequest.latitude && trackingRequest.longitude
+              ? { lat: Number(trackingRequest.latitude), lng: Number(trackingRequest.longitude) }
+              : null
+          }
+          rescuerPos={
+            trackingRequest.rescuer_latitude && trackingRequest.rescuer_longitude
+              ? { lat: Number(trackingRequest.rescuer_latitude), lng: Number(trackingRequest.rescuer_longitude) }
+              : null
+          }
+          onClose={() => {
+            setTrackingRequest(null);
+            fetchRequests();
+          }}
+          onComplete={() => handleComplete(trackingRequest.id)}
         />
       )}
     </div>

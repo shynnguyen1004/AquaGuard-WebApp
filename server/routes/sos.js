@@ -22,13 +22,27 @@ function authMiddleware(req, res, next) {
   }
 }
 
+// ── Helper: broadcast to a tracking room ──
+function broadcastToRoom(req, requestId, message) {
+  const trackingRooms = req.app.get("trackingRooms");
+  if (!trackingRooms || !trackingRooms.has(requestId)) return;
+
+  const payload = JSON.stringify(message);
+  const room = trackingRooms.get(requestId);
+  room.forEach((client) => {
+    if (client.readyState === 1) {
+      client.send(payload);
+    }
+  });
+}
+
 /**
  * POST /api/sos
- * Tạo SOS request mới (Citizen)
+ * Tạo SOS request mới (Citizen) — now with GPS coordinates
  */
 router.post("/", authMiddleware, async (req, res) => {
   try {
-    const { location, description, urgency, images } = req.body;
+    const { location, description, urgency, images, latitude, longitude } = req.body;
 
     if (!location || !description) {
       return res.status(400).json({
@@ -42,8 +56,8 @@ router.post("/", authMiddleware, async (req, res) => {
     const userName = userResult.rows[0]?.display_name || "User";
 
     const result = await pool.query(
-      `INSERT INTO rescue_requests (user_id, user_name, location, description, urgency, images)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO rescue_requests (user_id, user_name, location, description, urgency, images, latitude, longitude)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
       [
         req.user.id,
@@ -52,6 +66,8 @@ router.post("/", authMiddleware, async (req, res) => {
         description,
         urgency || "medium",
         images || [],
+        latitude || null,
+        longitude || null,
       ]
     );
 
@@ -69,7 +85,10 @@ router.post("/", authMiddleware, async (req, res) => {
 router.get("/my", authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT * FROM rescue_requests WHERE user_id = $1 ORDER BY created_at DESC`,
+      `SELECT r.*, u.phone_number as user_phone
+       FROM rescue_requests r
+       LEFT JOIN users u ON r.user_id = u.id
+       WHERE r.user_id = $1 ORDER BY r.created_at DESC`,
       [req.user.id]
     );
 
@@ -87,7 +106,10 @@ router.get("/my", authMiddleware, async (req, res) => {
 router.get("/all", authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT * FROM rescue_requests ORDER BY created_at DESC`
+      `SELECT r.*, u.phone_number as user_phone
+       FROM rescue_requests r
+       LEFT JOIN users u ON r.user_id = u.id
+       ORDER BY r.created_at DESC`
     );
 
     return res.json({ success: true, data: result.rows });
@@ -122,11 +144,12 @@ router.get("/stats", authMiddleware, async (req, res) => {
 
 /**
  * PUT /api/sos/:id/accept
- * Rescuer chấp nhận request (pending → in_progress)
+ * Rescuer chấp nhận request (pending → in_progress) — now with rescuer GPS
  */
 router.put("/:id/accept", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
+    const { latitude, longitude } = req.body;
 
     // Lấy tên rescuer
     const userResult = await pool.query("SELECT display_name FROM users WHERE id = $1", [req.user.id]);
@@ -134,17 +157,33 @@ router.put("/:id/accept", authMiddleware, async (req, res) => {
 
     const result = await pool.query(
       `UPDATE rescue_requests
-       SET status = 'in_progress', assigned_to = $1, assigned_name = $2, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $3 AND status = 'pending'
+       SET status = 'in_progress', assigned_to = $1, assigned_name = $2,
+           rescuer_latitude = $3, rescuer_longitude = $4,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $5 AND status = 'pending'
        RETURNING *`,
-      [req.user.id, rescuerName, id]
+      [req.user.id, rescuerName, latitude || null, longitude || null, id]
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: "Request không tồn tại hoặc đã được nhận" });
     }
 
-    return res.json({ success: true, data: result.rows[0] });
+    const request = result.rows[0];
+
+    // Broadcast tracking_started to the tracking room
+    broadcastToRoom(req, parseInt(id), {
+      type: "tracking_started",
+      requestId: parseInt(id),
+      rescuerId: req.user.id,
+      rescuerName: rescuerName,
+      rescuerLatitude: latitude,
+      rescuerLongitude: longitude,
+      citizenLatitude: request.latitude,
+      citizenLongitude: request.longitude,
+    });
+
+    return res.json({ success: true, data: request });
   } catch (err) {
     console.error("Accept SOS error:", err);
     return res.status(500).json({ success: false, message: "Lỗi server" });
@@ -170,6 +209,12 @@ router.put("/:id/complete", authMiddleware, async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: "Không thể hoàn thành request này" });
     }
+
+    // Broadcast tracking_ended to the tracking room
+    broadcastToRoom(req, parseInt(id), {
+      type: "tracking_ended",
+      requestId: parseInt(id),
+    });
 
     return res.json({ success: true, data: result.rows[0] });
   } catch (err) {

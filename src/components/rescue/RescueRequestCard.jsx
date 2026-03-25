@@ -34,7 +34,7 @@ const urgencyConfig = {
   low: { label: "Low", bg: "bg-slate-100 dark:bg-slate-700", text: "text-slate-500" },
 };
 
-export default function RescueRequestCard({ request, onAccept, onComplete }) {
+export default function RescueRequestCard({ request, onAccept, onComplete, onViewTracking }) {
   const [processing, setProcessing] = useState(false);
   const status = statusConfig[request.status] || statusConfig.pending;
   const urgency = urgencyConfig[request.urgency] || urgencyConfig.medium;
@@ -88,10 +88,18 @@ export default function RescueRequestCard({ request, onAccept, onComplete }) {
       </p>
 
       {/* Location */}
-      <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-3">
+      <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
         <span className="material-symbols-outlined text-base">location_on</span>
         <span className="text-xs font-medium">{request.location}</span>
       </div>
+
+      {/* GPS indicator */}
+      {request.latitude && request.longitude && (
+        <div className="flex items-center gap-1.5 text-[10px] text-safe font-medium mb-3 ml-6">
+          <span className="material-symbols-outlined text-[12px]">my_location</span>
+          GPS: {Number(request.latitude).toFixed(4)}, {Number(request.longitude).toFixed(4)}
+        </div>
+      )}
 
       {/* Images preview */}
       <div className="h-20 mb-3">
@@ -139,6 +147,16 @@ export default function RescueRequestCard({ request, onAccept, onComplete }) {
             >
               <span className="material-symbols-outlined text-sm">check</span>
               Accept
+            </button>
+          )}
+          {/* Tracking button for in_progress requests with GPS */}
+          {request.status === "in_progress" && request.latitude && onViewTracking && (
+            <button
+              onClick={() => onViewTracking(request)}
+              className="inline-flex items-center gap-1.5 bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-600 transition-all shadow-md shadow-blue-500/20 animate-pulse"
+            >
+              <span className="material-symbols-outlined text-sm">map</span>
+              Tracking
             </button>
           )}
           {request.status === "in_progress" && onComplete && (

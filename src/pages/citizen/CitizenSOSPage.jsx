@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
 import RescueRequestForm from "../../components/rescue/RescueRequestForm";
+import RescueTrackingMap from "../../components/rescue/RescueTrackingMap";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
@@ -12,6 +13,7 @@ export default function CitizenSOSPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [trackingRequest, setTrackingRequest] = useState(null); // request being tracked
 
   const STATUS_CONFIG = {
     pending:     { label: t("sosPage.pending"),     icon: "schedule",        color: "text-warning",  bg: "bg-warning/10", border: "border-warning/20" },
@@ -54,7 +56,13 @@ export default function CitizenSOSPage() {
     fetchMyRequests();
   }, []);
 
-  // Submit new SOS request to API
+  // Auto-refresh to catch status changes (e.g. rescuer accepted)
+  useEffect(() => {
+    const interval = setInterval(fetchMyRequests, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Submit new SOS request to API (now with GPS)
   const handleNewRequest = async (formData) => {
     const token = localStorage.getItem("aquaguard_token");
     if (!token) return;
@@ -70,12 +78,13 @@ export default function CitizenSOSPage() {
           location: formData.location,
           description: formData.description,
           urgency: formData.urgency || "medium",
+          latitude: formData.latitude || null,
+          longitude: formData.longitude || null,
           images: [],
         }),
       });
       const json = await res.json();
       if (json.success) {
-        // Refresh the list
         fetchMyRequests();
       }
     } catch (err) {
@@ -177,16 +186,29 @@ export default function CitizenSOSPage() {
                       {req.description}
                     </p>
 
-                    {/* Bottom: urgency + assigned */}
-                    <div className="flex items-center gap-3 ml-6">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${urgency.bg} ${urgency.color}`}>
-                        {urgency.label} {t("sosPage.urgency")}
-                      </span>
-                      {req.assigned_name && (
-                        <span className="text-xs text-slate-400 flex items-center gap-1">
-                          <span className="material-symbols-outlined text-xs">person</span>
-                          {t("sosPage.assignedTo")} {req.assigned_name}
+                    {/* Bottom: urgency + assigned + tracking button */}
+                    <div className="flex items-center justify-between ml-6">
+                      <div className="flex items-center gap-3">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${urgency.bg} ${urgency.color}`}>
+                          {urgency.label} {t("sosPage.urgency")}
                         </span>
+                        {req.assigned_name && (
+                          <span className="text-xs text-slate-400 flex items-center gap-1">
+                            <span className="material-symbols-outlined text-xs">person</span>
+                            {t("sosPage.assignedTo")} {req.assigned_name}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* View Tracking button — only for in_progress requests with GPS */}
+                      {req.status === "in_progress" && req.latitude && req.longitude && (
+                        <button
+                          onClick={() => setTrackingRequest(req)}
+                          className="inline-flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-primary/90 transition-all shadow-md shadow-primary/20 animate-pulse"
+                        >
+                          <span className="material-symbols-outlined text-sm">map</span>
+                          Xem Tracking
+                        </button>
                       )}
                     </div>
                   </div>
@@ -204,6 +226,31 @@ export default function CitizenSOSPage() {
           onSubmit={(data) => {
             handleNewRequest(data);
             setShowForm(false);
+          }}
+        />
+      )}
+
+      {/* Tracking Map Overlay */}
+      {trackingRequest && (
+        <RescueTrackingMap
+          requestId={trackingRequest.id}
+          userRole="citizen"
+          citizenName={trackingRequest.user_name}
+          citizenPhone={trackingRequest.user_phone}
+          rescuerName={trackingRequest.assigned_name}
+          citizenPos={
+            trackingRequest.latitude && trackingRequest.longitude
+              ? { lat: trackingRequest.latitude, lng: trackingRequest.longitude }
+              : null
+          }
+          rescuerPos={
+            trackingRequest.rescuer_latitude && trackingRequest.rescuer_longitude
+              ? { lat: trackingRequest.rescuer_latitude, lng: trackingRequest.rescuer_longitude }
+              : null
+          }
+          onClose={() => {
+            setTrackingRequest(null);
+            fetchMyRequests();
           }}
         />
       )}

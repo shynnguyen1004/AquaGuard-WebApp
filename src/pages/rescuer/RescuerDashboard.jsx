@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
+import RescueTrackingMap from "../../components/rescue/RescueTrackingMap";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
@@ -9,7 +10,7 @@ const TABS = [
   { key: "completed", label: "Completed", icon: "check_circle" },
 ];
 
-function SOSCard({ request, onAccept, onComplete, isOwn }) {
+function SOSCard({ request, onAccept, onComplete, onViewTracking, isOwn }) {
   const [processing, setProcessing] = useState(false);
 
   const handleAction = async (action) => {
@@ -50,6 +51,13 @@ function SOSCard({ request, onAccept, onComplete, isOwn }) {
             <span className="material-symbols-outlined text-[14px]">location_on</span>
             {request.location || "Unknown location"}
           </p>
+          {/* Show GPS indicator if request has GPS */}
+          {request.latitude && request.longitude && (
+            <p className="text-[10px] text-safe flex items-center gap-1 mt-0.5 font-medium">
+              <span className="material-symbols-outlined text-[12px]">my_location</span>
+              GPS: {Number(request.latitude).toFixed(4)}, {Number(request.longitude).toFixed(4)}
+            </p>
+          )}
         </div>
         <div className="flex gap-1.5 flex-shrink-0">
           {request.urgency && (
@@ -98,6 +106,17 @@ function SOSCard({ request, onAccept, onComplete, isOwn }) {
             </button>
           )}
 
+          {/* View Tracking button — for own in_progress missions with GPS */}
+          {isOwn && request.status === "in_progress" && request.latitude && onViewTracking && (
+            <button
+              onClick={() => onViewTracking(request)}
+              className="inline-flex items-center gap-1.5 bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-600 transition-all shadow-md shadow-blue-500/20 animate-pulse"
+            >
+              <span className="material-symbols-outlined text-sm">map</span>
+              Tracking
+            </button>
+          )}
+
           {/* Complete button — shown for own in_progress missions */}
           {isOwn && request.status === "in_progress" && onComplete && (
             <button
@@ -120,6 +139,7 @@ export default function RescuerDashboard() {
   const [activeTab, setActiveTab] = useState("active");
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [trackingRequest, setTrackingRequest] = useState(null);
 
   const fetchRequests = async () => {
     const token = localStorage.getItem("aquaguard_token");
@@ -147,11 +167,36 @@ export default function RescuerDashboard() {
     fetchRequests();
   }, []);
 
+  // Auto-refresh every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(fetchRequests, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
   const rescuerUid = user?.id || "";
 
-  // Accept a rescue request
+  // Accept a rescue request — capture rescuer's GPS first
   const handleAccept = async (requestId) => {
     const token = localStorage.getItem("aquaguard_token");
+
+    // Get rescuer's current GPS
+    let latitude = null;
+    let longitude = null;
+    if (navigator.geolocation) {
+      try {
+        const pos = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+          });
+        });
+        latitude = pos.coords.latitude;
+        longitude = pos.coords.longitude;
+      } catch {
+        console.warn("Could not get rescuer GPS, continuing without it");
+      }
+    }
+
     try {
       const res = await fetch(`${API_BASE}/sos/${requestId}/accept`, {
         method: "PUT",
@@ -159,10 +204,16 @@ export default function RescuerDashboard() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        body: JSON.stringify({ latitude, longitude }),
       });
       const json = await res.json();
       if (json.success) {
-        fetchRequests(); // Refresh
+        fetchRequests();
+        // Auto-open tracking map if GPS was available
+        const acceptedRequest = json.data;
+        if (acceptedRequest.latitude && acceptedRequest.longitude) {
+          setTrackingRequest(acceptedRequest);
+        }
       }
     } catch (err) {
       console.error("Failed to accept request:", err);
@@ -182,11 +233,17 @@ export default function RescuerDashboard() {
       });
       const json = await res.json();
       if (json.success) {
-        fetchRequests(); // Refresh
+        setTrackingRequest(null);
+        fetchRequests();
       }
     } catch (err) {
       console.error("Failed to complete request:", err);
     }
+  };
+
+  // View tracking map for an in-progress request
+  const handleViewTracking = (request) => {
+    setTrackingRequest(request);
   };
 
   // Filter requests by tab
@@ -293,12 +350,39 @@ export default function RescuerDashboard() {
                 request={req}
                 onAccept={activeTab === "active" ? handleAccept : undefined}
                 onComplete={activeTab === "my-missions" ? handleComplete : undefined}
+                onViewTracking={activeTab === "my-missions" ? handleViewTracking : undefined}
                 isOwn={req.assigned_to === rescuerUid}
               />
             ))}
           </div>
         )}
       </div>
+
+      {/* Tracking Map Overlay */}
+      {trackingRequest && (
+        <RescueTrackingMap
+          requestId={trackingRequest.id}
+          userRole="rescuer"
+          citizenName={trackingRequest.user_name}
+          citizenPhone={trackingRequest.user_phone}
+          rescuerName={trackingRequest.assigned_name}
+          citizenPos={
+            trackingRequest.latitude && trackingRequest.longitude
+              ? { lat: Number(trackingRequest.latitude), lng: Number(trackingRequest.longitude) }
+              : null
+          }
+          rescuerPos={
+            trackingRequest.rescuer_latitude && trackingRequest.rescuer_longitude
+              ? { lat: Number(trackingRequest.rescuer_latitude), lng: Number(trackingRequest.rescuer_longitude) }
+              : null
+          }
+          onClose={() => {
+            setTrackingRequest(null);
+            fetchRequests();
+          }}
+          onComplete={() => handleComplete(trackingRequest.id)}
+        />
+      )}
     </div>
   );
 }
