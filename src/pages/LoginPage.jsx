@@ -408,15 +408,6 @@ export default function LoginPage() {
               <span>Sign in with Google</span>
             </button>
 
-            {/* Info */}
-            <div className="text-center">
-              <p className="text-xs text-slate-500 leading-relaxed">
-                By signing in, you agree to AquaGuard's{" "}
-                <a href="#" className="text-primary hover:underline">Terms of Service</a>{" "}
-                and{" "}
-                <a href="#" className="text-primary hover:underline">Privacy Policy</a>.
-              </p>
-            </div>
           </div>
 
           {/* Footer */}
