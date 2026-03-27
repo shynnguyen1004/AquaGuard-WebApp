@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { ROLES, getRoleLabel, getRoleBadgeClasses } from "../../config/rbac";
 import { useAuth } from "../../contexts/AuthContext";
 import AdminFloodMapEditor from "../../components/map/AdminFloodMapEditor";
+import SystemAnalytics from "./SystemAnalytics";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
@@ -10,6 +11,7 @@ const TABS = [
   { key: "rescuers", label: "Rescue Teams", icon: "local_fire_department" },
   { key: "requests", label: "SOS Requests", icon: "emergency" },
   { key: "map", label: "Flood Map", icon: "map" },
+  { key: "analytics", label: "Analytics", icon: "analytics" },
 ];
 
 // Map sidebar page names to internal tab keys
@@ -17,7 +19,7 @@ const SIDEBAR_TO_TAB = {
   "admin-users": "users",
   "admin-teams": "rescuers",
   "admin-sensors": "overview",
-  "admin-analytics": "overview",
+  "admin-analytics": "analytics",
   "admin": "overview",
 };
 
@@ -443,6 +445,10 @@ export default function AdminDashboard({ activePage = "admin" }) {
             </div>
             <AdminFloodMapEditor />
           </div>
+        )}
+
+        {activeTab === "analytics" && (
+          <SystemAnalytics />
         )}
       </div>
     </div>
