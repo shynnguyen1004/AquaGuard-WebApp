@@ -1,11 +1,23 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 const pool = require("../db");
+
+// ── Twilio Verify SDK ──
+const twilio = require("twilio");
+const twilioClient = twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
+);
+const VERIFY_SERVICE_SID = process.env.TWILIO_VERIFY_SERVICE_SID;
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "aquaguard_jwt_secret_2026";
 const SALT_ROUNDS = 10;
+
+// Rate limit store for OTP requests (in-memory, resets on server restart)
+const otpRateLimits = new Map();
 
 /**
  * POST /api/auth/register
@@ -243,6 +255,213 @@ router.put("/users/:id/role", async (req, res) => {
   } catch (err) {
     console.error("Update role error:", err);
     return res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+});
+
+/**
+ * POST /api/auth/forgot-password
+ * Body: { phone_number }
+ * Send OTP via Twilio Verify API
+ */
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { phone_number } = req.body;
+
+    if (!phone_number) {
+      return res.status(400).json({
+        success: false,
+        message: "Số điện thoại là bắt buộc",
+      });
+    }
+
+    // Rate limit: 60 seconds between OTP requests per phone
+    const lastSent = otpRateLimits.get(phone_number);
+    if (lastSent && Date.now() - lastSent < 60000) {
+      const remaining = Math.ceil((60000 - (Date.now() - lastSent)) / 1000);
+      return res.status(429).json({
+        success: false,
+        message: `Vui lòng chờ ${remaining} giây trước khi gửi lại OTP`,
+      });
+    }
+
+    // Check if phone exists in DB
+    const userResult = await pool.query(
+      "SELECT id, phone_number FROM users WHERE phone_number = $1",
+      [phone_number]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Số điện thoại không tồn tại trong hệ thống",
+      });
+    }
+
+    // Send OTP via Twilio Verify
+    await twilioClient.verify.v2
+      .services(VERIFY_SERVICE_SID)
+      .verifications.create({ to: phone_number, channel: "sms" });
+
+    // Update rate limit
+    otpRateLimits.set(phone_number, Date.now());
+
+    console.log(`📱 [Twilio] OTP sent to ${phone_number}`);
+
+    return res.json({
+      success: true,
+      message: "Mã OTP đã được gửi đến số điện thoại của bạn",
+    });
+  } catch (err) {
+    console.error("Forgot password error:", err);
+
+    // Handle Twilio-specific errors
+    if (err.code === 60203) {
+      return res.status(429).json({
+        success: false,
+        message: "Đã gửi quá nhiều OTP. Vui lòng thử lại sau",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi gửi SMS, vui lòng thử lại",
+    });
+  }
+});
+
+/**
+ * POST /api/auth/verify-otp
+ * Body: { phone_number, otp }
+ * Verify OTP via Twilio Verify, return session token for password reset
+ */
+router.post("/verify-otp", async (req, res) => {
+  try {
+    const { phone_number, otp } = req.body;
+
+    if (!phone_number || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Số điện thoại và mã OTP là bắt buộc",
+      });
+    }
+
+    // Verify OTP via Twilio Verify
+    const verificationCheck = await twilioClient.verify.v2
+      .services(VERIFY_SERVICE_SID)
+      .verificationChecks.create({ to: phone_number, code: otp });
+
+    if (verificationCheck.status !== "approved") {
+      return res.status(400).json({
+        success: false,
+        message: "Mã OTP không đúng hoặc đã hết hạn",
+      });
+    }
+
+    // OTP is valid — generate session token for password reset
+    const sessionToken = crypto.randomBytes(32).toString("hex");
+    const sessionExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Store session token in DB
+    await pool.query(
+      "UPDATE users SET reset_token = $1, reset_token_expiry = $2 WHERE phone_number = $3",
+      [sessionToken, sessionExpiry, phone_number]
+    );
+
+    return res.json({
+      success: true,
+      message: "Xác thực OTP thành công",
+      data: { sessionToken },
+    });
+  } catch (err) {
+    console.error("Verify OTP error:", err);
+
+    // Twilio returns 404 if verification not found/expired
+    if (err.status === 404) {
+      return res.status(400).json({
+        success: false,
+        message: "Mã OTP đã hết hạn. Vui lòng gửi lại",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi server, vui lòng thử lại",
+    });
+  }
+});
+
+/**
+ * POST /api/auth/reset-password
+ * Body: { phone_number, sessionToken, newPassword }
+ * Verify session token and reset password
+ */
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { phone_number, sessionToken, newPassword } = req.body;
+
+    if (!phone_number || !sessionToken || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu thông tin bắt buộc",
+      });
+    }
+
+    // Validate new password
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Mật khẩu mới phải có ít nhất 6 ký tự",
+      });
+    }
+
+    // Verify session token
+    const result = await pool.query(
+      "SELECT reset_token, reset_token_expiry FROM users WHERE phone_number = $1",
+      [phone_number]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Số điện thoại không tồn tại",
+      });
+    }
+
+    const { reset_token, reset_token_expiry } = result.rows[0];
+
+    if (!reset_token || reset_token !== sessionToken) {
+      return res.status(400).json({
+        success: false,
+        message: "Phiên đã hết hạn. Vui lòng thực hiện lại",
+      });
+    }
+
+    if (new Date() > new Date(reset_token_expiry)) {
+      return res.status(400).json({
+        success: false,
+        message: "Phiên đã hết hạn. Vui lòng thực hiện lại",
+      });
+    }
+
+    // Hash new password
+    const password_hash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+
+    // Update password and clear reset token
+    await pool.query(
+      "UPDATE users SET password_hash = $1, reset_token = NULL, reset_token_expiry = NULL, updated_at = CURRENT_TIMESTAMP WHERE phone_number = $2",
+      [password_hash, phone_number]
+    );
+
+    return res.json({
+      success: true,
+      message: "Đổi mật khẩu thành công! Vui lòng đăng nhập lại",
+    });
+  } catch (err) {
+    console.error("Reset password error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi server, vui lòng thử lại",
+    });
   }
 });
 

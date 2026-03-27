@@ -340,6 +340,18 @@ export default function LoginPage() {
                     </div>
                   </div>
 
+                  {/* Forgot Password link (login only) */}
+                  {phoneMode === "login" && (
+                    <div className="flex justify-end -mt-1">
+                      <a
+                        href="/forgot-password"
+                        className="text-xs text-primary hover:underline font-medium"
+                      >
+                        Quên mật khẩu?
+                      </a>
+                    </div>
+                  )}
+
                   {/* Role Selection (register only) */}
                   {phoneMode === "register" && (
                     <div>
