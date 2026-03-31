@@ -148,8 +148,8 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           <div className="bg-white/[0.03] backdrop-blur-2xl border border-white/10 rounded-3xl p-10 shadow-2xl">
             {/* Mobile logo */}
-            <div className="lg:hidden flex justify-center mb-8">
-              <img alt="AquaGuard" src="/images/dark_mode_logo.png" className="h-30" />
+            <div className="lg:hidden flex items-center justify-center mb-8">
+              <img src="/images/dark_mode_logo.png" alt="AquaGuard" className="h-12 w-auto" />
             </div>
 
             <div className="text-center mb-8">
