@@ -148,11 +148,8 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           <div className="bg-white/[0.03] backdrop-blur-2xl border border-white/10 rounded-3xl p-10 shadow-2xl">
             {/* Mobile logo */}
-            <div className="lg:hidden flex items-center gap-3 mb-8 justify-center">
-              <div className="size-10 rounded-xl bg-primary flex items-center justify-center text-white">
-                <span className="material-symbols-outlined filled-icon text-2xl">water_drop</span>
-              </div>
-              <h1 className="text-2xl font-bold text-white tracking-tight">AquaGuard</h1>
+            <div className="lg:hidden flex justify-center mb-8">
+              <img alt="AquaGuard" src="/images/dark_mode_logo.png" className="h-30" />
             </div>
 
             <div className="text-center mb-8">
@@ -185,21 +182,19 @@ export default function LoginPage() {
               <div className="flex gap-1 mb-5">
                 <button
                   onClick={() => switchPhoneMode("login")}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
-                    phoneMode === "login"
-                      ? "text-primary border-b-2 border-primary"
-                      : "text-slate-500 hover:text-slate-300"
-                  }`}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${phoneMode === "login"
+                    ? "text-primary border-b-2 border-primary"
+                    : "text-slate-500 hover:text-slate-300"
+                    }`}
                 >
                   Login
                 </button>
                 <button
                   onClick={() => switchPhoneMode("register")}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
-                    phoneMode === "register"
-                      ? "text-primary border-b-2 border-primary"
-                      : "text-slate-500 hover:text-slate-300"
-                  }`}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${phoneMode === "register"
+                    ? "text-primary border-b-2 border-primary"
+                    : "text-slate-500 hover:text-slate-300"
+                    }`}
                 >
                   Register
                 </button>
@@ -301,11 +296,10 @@ export default function LoginPage() {
                           key={r.key}
                           type="button"
                           onClick={() => { setSelectedRole(r.key); setRolePassword(""); setRolePasswordError(""); }}
-                          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-all ${
-                            selectedRole === r.key
-                              ? "border-primary bg-primary/10 text-primary"
-                              : "border-white/10 bg-white/5 text-slate-400 hover:text-slate-300 hover:border-white/20"
-                          }`}
+                          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-all ${selectedRole === r.key
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-white/10 bg-white/5 text-slate-400 hover:text-slate-300 hover:border-white/20"
+                            }`}
                         >
                           <span className="material-symbols-outlined text-base">{r.icon}</span>
                           {r.label}
