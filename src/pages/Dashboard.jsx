@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Sidebar from "../components/layout/Sidebar";
 import Header from "../components/layout/Header";
 import RightPanel from "../components/layout/RightPanel";
@@ -12,6 +12,7 @@ import ReportsPage from "./ReportsPage";
 import SettingsPage from "./SettingsPage";
 import AboutUsPage from "./AboutUsPage";
 import AdminDashboard from "./admin/AdminDashboard";
+import AdminSOSRequestsPage from "./admin/AdminSOSRequestsPage";
 import RescuerDashboard from "./rescuer/RescuerDashboard";
 import CitizenSOSPage from "./citizen/CitizenSOSPage";
 import ChatBot from "../components/chat/ChatBot";
@@ -26,6 +27,19 @@ export default function Dashboard() {
   const [settingsTab, setSettingsTab] = useState("profile");
   const { user, role, needsRoleSelection, selectRole } = useAuth();
 
+  const getDefaultPageByRole = (currentRole) => {
+    if (currentRole === "rescuer") return "rescuer-dashboard";
+    if (currentRole === "admin") return "admin";
+    return "dashboard";
+  };
+
+  useEffect(() => {
+    if (!role) return;
+    if (!canAccessPage(role, activePage)) {
+      setActivePage(getDefaultPageByRole(role));
+    }
+  }, [role, activePage]);
+
   // Guard navigation — redirect to dashboard if the user can't access the page
   // Supports "settings:family" format to open Settings with a specific tab
   const handleNavigate = (page) => {
@@ -35,7 +49,7 @@ export default function Dashboard() {
       if (canAccessPage(role, "settings")) {
         setActivePage("settings");
       } else {
-        setActivePage("dashboard");
+        setActivePage(getDefaultPageByRole(role));
       }
       return;
     }
@@ -45,7 +59,7 @@ export default function Dashboard() {
     if (canAccessPage(role, page)) {
       setActivePage(page);
     } else {
-      setActivePage("dashboard");
+      setActivePage(getDefaultPageByRole(role));
     }
   };
 
@@ -97,9 +111,17 @@ export default function Dashboard() {
       // ── Admin pages ──
       case "admin":
       case "admin-users":
+      case "admin-requests":
       case "admin-teams":
       case "admin-sensors":
       case "admin-analytics":
+        if (activePage === "admin-requests") {
+          return (
+            <main className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900/50 relative overflow-hidden">
+              <AdminSOSRequestsPage />
+            </main>
+          );
+        }
         return (
           <main className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900/50 relative overflow-hidden">
             <AdminDashboard activePage={activePage} />

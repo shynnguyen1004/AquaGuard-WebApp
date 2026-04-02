@@ -67,6 +67,7 @@ const en = {
     safety: "Safety Protocols",
     about: "About Us",
     admin: "Admin Dashboard",
+    "admin-requests": "SOS Requests",
     "admin-users": "User Management",
     "admin-teams": "Rescue Teams",
     "admin-sensors": "Flood Sensors",

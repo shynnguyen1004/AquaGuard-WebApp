@@ -16,7 +16,7 @@ export const ROLES = {
  */
 const ALL_NAV_ITEMS = [
   // ── Shared ──
-  { icon: "dashboard", label: "Dashboard", labelKey: "nav.dashboard", page: "dashboard", roles: [ROLES.CITIZEN, ROLES.RESCUER], mobileNav: true },
+  { icon: "dashboard", label: "Dashboard", labelKey: "nav.dashboard", page: "dashboard", roles: [ROLES.CITIZEN], mobileNav: true },
   { icon: "map", label: "Live Flood Map", labelKey: "nav.map", page: "map", filled: true, roles: [ROLES.CITIZEN, ROLES.RESCUER], mobileNav: true },
 
   // ── Citizen ──
@@ -33,6 +33,7 @@ const ALL_NAV_ITEMS = [
 
   // ── Admin ──
   { icon: "admin_panel_settings", label: "Admin Dashboard", labelKey: "nav.admin", page: "admin", roles: [ROLES.ADMIN], mobileNav: true },
+  { icon: "emergency", label: "SOS Requests", labelKey: "nav.admin-requests", page: "admin-requests", roles: [ROLES.ADMIN], mobileNav: true },
   { icon: "group", label: "User Management", labelKey: "nav.admin-users", page: "admin-users", roles: [ROLES.ADMIN], mobileNav: true },
   { icon: "local_fire_department", label: "Rescue Teams", labelKey: "nav.admin-teams", page: "admin-teams", roles: [ROLES.ADMIN], mobileNav: false },
   { icon: "sensors", label: "Flood Sensors", labelKey: "nav.admin-sensors", page: "admin-sensors", roles: [ROLES.ADMIN], mobileNav: false },

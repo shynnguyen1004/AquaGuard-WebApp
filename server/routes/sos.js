@@ -23,6 +23,13 @@ function authMiddleware(req, res, next) {
   }
 }
 
+function requireAdmin(req, res, next) {
+  if (req.user?.role !== "admin") {
+    return res.status(403).json({ success: false, message: "Chỉ admin mới được phép thực hiện" });
+  }
+  next();
+}
+
 // ── Helper: broadcast to a tracking room ──
 function broadcastToRoom(req, requestId, message) {
   const trackingRooms = req.app.get("trackingRooms");
@@ -155,8 +162,58 @@ router.get("/stats", authMiddleware, async (req, res) => {
 });
 
 /**
+ * PUT /api/sos/:id/assign
+ * Admin gán request pending cho một rescuer (pending -> assigned)
+ */
+router.put("/:id/assign", authMiddleware, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rescuerId } = req.body;
+
+    if (!rescuerId) {
+      return res.status(400).json({ success: false, message: "Thiếu rescuerId" });
+    }
+
+    const rescuerRes = await pool.query(
+      "SELECT id, display_name, role FROM users WHERE id = $1 LIMIT 1",
+      [rescuerId]
+    );
+
+    if (rescuerRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Không tìm thấy rescuer" });
+    }
+    const rescuer = rescuerRes.rows[0];
+    if (rescuer.role !== "rescuer") {
+      return res.status(400).json({ success: false, message: "User được chọn không phải rescuer" });
+    }
+
+    const result = await pool.query(
+      `UPDATE rescue_requests
+       SET status = 'assigned',
+           assigned_to = $1,
+           assigned_name = $2,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $3 AND status = 'pending'
+       RETURNING *`,
+      [rescuer.id, rescuer.display_name || "Rescuer", id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Request không tồn tại hoặc không còn ở trạng thái pending" });
+    }
+
+    return res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    console.error("Assign SOS error:", err);
+    return res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+});
+
+/**
  * PUT /api/sos/:id/accept
- * Rescuer chấp nhận request (pending → in_progress) — now with rescuer GPS
+ * Rescuer chấp nhận request:
+ * - pending (chưa ai nhận) -> in_progress
+ * - assigned (được admin gán đúng rescuer) -> in_progress
  */
 router.put("/:id/accept", authMiddleware, async (req, res) => {
   try {
@@ -172,13 +229,18 @@ router.put("/:id/accept", authMiddleware, async (req, res) => {
        SET status = 'in_progress', assigned_to = $1, assigned_name = $2,
            rescuer_latitude = $3, rescuer_longitude = $4,
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $5 AND status = 'pending'
+       WHERE id = $5
+         AND (
+           (status = 'pending' AND (assigned_to IS NULL OR assigned_to = $1))
+           OR
+           (status = 'assigned' AND assigned_to = $1)
+         )
        RETURNING *`,
       [req.user.id, rescuerName, latitude || null, longitude || null, id]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: "Request không tồn tại hoặc đã được nhận" });
+      return res.status(403).json({ success: false, message: "Request không tồn tại, đã được nhận, hoặc đã được assign cho rescuer khác" });
     }
 
     const request = result.rows[0];
@@ -209,17 +271,30 @@ router.put("/:id/accept", authMiddleware, async (req, res) => {
 router.put("/:id/complete", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
+    const isAdmin = req.user?.role === "admin";
+    const isRescuer = req.user?.role === "rescuer";
+    if (!isAdmin && !isRescuer) {
+      return res.status(403).json({ success: false, message: "Không có quyền hoàn thành request" });
+    }
 
-    const result = await pool.query(
-      `UPDATE rescue_requests
-       SET status = 'resolved', updated_at = CURRENT_TIMESTAMP
-       WHERE id = $1 AND assigned_to = $2 AND status = 'in_progress'
-       RETURNING *`,
-      [id, req.user.id]
-    );
+    const result = isAdmin
+      ? await pool.query(
+        `UPDATE rescue_requests
+         SET status = 'resolved', updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1 AND status = 'in_progress'
+         RETURNING *`,
+        [id]
+      )
+      : await pool.query(
+        `UPDATE rescue_requests
+         SET status = 'resolved', updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1 AND assigned_to = $2 AND status = 'in_progress'
+         RETURNING *`,
+        [id, req.user.id]
+      );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: "Không thể hoàn thành request này" });
+      return res.status(404).json({ success: false, message: "Không thể hoàn thành request này (không phải mission của bạn hoặc đã hoàn thành)" });
     }
 
     // Broadcast tracking_ended to the tracking room

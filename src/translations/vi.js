@@ -67,6 +67,7 @@ const vi = {
     safety: "Quy trình an toàn",
     about: "Giới thiệu",
     admin: "Quản trị viên",
+    "admin-requests": "Yêu cầu SOS",
     "admin-users": "Quản lý người dùng",
     "admin-teams": "Đội cứu hộ",
     "admin-sensors": "Cảm biến lũ",

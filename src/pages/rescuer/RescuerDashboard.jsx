@@ -19,6 +19,7 @@ const statusColors = {
 
 const statusLabels = {
   pending: "Pending",
+  assigned: "Assigned",
   in_progress: "In Progress",
   resolved: "Resolved",
 };
@@ -168,6 +169,16 @@ function SOSDetailPanel({ request, isOwn, onAccept, onComplete, onViewTracking, 
           >
             <span className="material-symbols-outlined text-sm">check</span>
             Accept
+          </button>
+        )}
+        {isOwn && request.status === "assigned" && onAccept && (
+          <button
+            onClick={() => handleAction(() => onAccept(request.id))}
+            disabled={processing}
+            className="inline-flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-primary/90 transition-all shadow-md shadow-primary/20 disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined text-sm">play_arrow</span>
+            Start Mission
           </button>
         )}
         {isOwn && request.status === "in_progress" && request.latitude && onViewTracking && (
@@ -332,7 +343,9 @@ export default function RescuerDashboard() {
   };
 
   const activeRequests = requests.filter((r) => r.status === "pending");
-  const myMissions = requests.filter((r) => r.assigned_to == rescuerUid && r.status === "in_progress");
+  const myMissions = requests.filter(
+    (r) => r.assigned_to == rescuerUid && (r.status === "assigned" || r.status === "in_progress")
+  );
   const completed = requests.filter((r) => r.assigned_to == rescuerUid && r.status === "resolved");
 
   const filteredRequests = activeTab === "active"
@@ -471,7 +484,7 @@ export default function RescuerDashboard() {
             <SOSDetailPanel
               request={selectedRequest}
               isOwn={selectedRequest?.assigned_to == rescuerUid}
-              onAccept={activeTab === "active" ? handleAccept : undefined}
+              onAccept={activeTab === "active" || activeTab === "my-missions" ? handleAccept : undefined}
               onComplete={activeTab === "my-missions" ? handleComplete : undefined}
               onViewTracking={activeTab === "my-missions" ? handleViewTracking : undefined}
               onMarkSeen={markAsSeen}

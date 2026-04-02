@@ -9,7 +9,6 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api
 const TABS = [
   { key: "overview", label: "Overview", icon: "dashboard" },
   { key: "rescuers", label: "Rescue Teams", icon: "local_fire_department" },
-  { key: "requests", label: "SOS Requests", icon: "emergency" },
   { key: "map", label: "Flood Map", icon: "map" },
   { key: "analytics", label: "Analytics", icon: "analytics" },
 ];
@@ -92,6 +91,9 @@ export default function AdminDashboard({ activePage = "admin" }) {
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [rescueRequests, setRescueRequests] = useState([]);
+  const [assigningRequestId, setAssigningRequestId] = useState(null);
+  const [selectedRescuerByRequest, setSelectedRescuerByRequest] = useState({});
+  const [completingRequestId, setCompletingRequestId] = useState(null);
 
   // Sync internal tab when sidebar page changes
   useEffect(() => {
@@ -154,6 +156,62 @@ export default function AdminDashboard({ activePage = "admin" }) {
       }
     } catch (err) {
       console.error("Failed to update role:", err);
+    }
+  };
+
+  const handleAssignRequest = async (requestId) => {
+    const token = localStorage.getItem("aquaguard_token");
+    const rescuerId = selectedRescuerByRequest[requestId];
+    if (!token || !rescuerId) return;
+
+    setAssigningRequestId(requestId);
+    try {
+      const res = await fetch(`${API_BASE}/sos/${requestId}/assign`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ rescuerId }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        fetchRequests();
+        window.dispatchEvent(new CustomEvent("sos_changed", { detail: { type: "assigned", requestId } }));
+      } else {
+        alert(json.message || "Assign thất bại");
+      }
+    } catch (err) {
+      console.error("Failed to assign request:", err);
+    } finally {
+      setAssigningRequestId(null);
+    }
+  };
+
+  const handleCompleteRequest = async (requestId) => {
+    const token = localStorage.getItem("aquaguard_token");
+    if (!token) return;
+
+    setCompletingRequestId(requestId);
+    try {
+      const res = await fetch(`${API_BASE}/sos/${requestId}/complete`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const json = await res.json();
+      if (json.success) {
+        fetchRequests();
+        window.dispatchEvent(new CustomEvent("sos_changed", { detail: { type: "completed", requestId } }));
+      } else {
+        alert(json.message || "Complete thất bại");
+      }
+    } catch (err) {
+      console.error("Failed to complete request:", err);
+    } finally {
+      setCompletingRequestId(null);
     }
   };
 
@@ -421,12 +479,57 @@ export default function AdminDashboard({ activePage = "admin" }) {
                         }`}>
                           {req.status || "unknown"}
                         </span>
-                        {req.assigned_name && (
-                          <span className="text-[10px] text-slate-400">
-                            Assigned to: {req.assigned_name}
-                          </span>
-                        )}
+                        <span className="text-[10px] text-slate-400">
+                          Assigned to: {req.assigned_name || "Unassigned"}
+                        </span>
                       </div>
+
+                      {req.status === "pending" && (
+                        <div className="mt-3 flex items-center gap-2">
+                          <select
+                            value={selectedRescuerByRequest[req.id] || ""}
+                            onChange={(e) =>
+                              setSelectedRescuerByRequest((prev) => ({
+                                ...prev,
+                                [req.id]: Number(e.target.value),
+                              }))
+                            }
+                            className="text-xs bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-2.5 py-1.5 outline-none focus:ring-2 focus:ring-primary/30 min-w-[180px]"
+                          >
+                            <option value="">Assign to rescuer...</option>
+                            {rescuers.map((r) => (
+                              <option key={r.id} value={r.id}>
+                                {r.displayName || `Rescuer #${r.id}`}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() => handleAssignRequest(req.id)}
+                            disabled={!selectedRescuerByRequest[req.id] || assigningRequestId === req.id}
+                            className="inline-flex items-center gap-1.5 bg-primary text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-primary/90 transition-all disabled:opacity-50"
+                          >
+                            <span className={`material-symbols-outlined text-sm ${assigningRequestId === req.id ? "animate-spin" : ""}`}>
+                              {assigningRequestId === req.id ? "progress_activity" : "assignment_ind"}
+                            </span>
+                            Assign
+                          </button>
+                        </div>
+                      )}
+
+                      {req.status === "in_progress" && (
+                        <div className="mt-3 flex items-center gap-2">
+                          <button
+                            onClick={() => handleCompleteRequest(req.id)}
+                            disabled={completingRequestId === req.id}
+                            className="inline-flex items-center gap-1.5 bg-safe text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-safe/90 transition-all disabled:opacity-50"
+                          >
+                            <span className={`material-symbols-outlined text-sm ${completingRequestId === req.id ? "animate-spin" : ""}`}>
+                              {completingRequestId === req.id ? "progress_activity" : "done_all"}
+                            </span>
+                            Complete (Admin)
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
