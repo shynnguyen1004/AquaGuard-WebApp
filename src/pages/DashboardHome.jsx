@@ -22,7 +22,7 @@ export default function DashboardHome({ onNavigate }) {
               {user?.displayName || "Responder Alpha"}
             </h1>
           </div>
-          <div className="hidden sm:flex items-center gap-3 flex-shrink-0">
+          <div className="hidden lg:flex items-center gap-3 flex-shrink-0">
             <div className="text-right">
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {new Date().toLocaleDateString(language === "vi" ? "vi-VN" : "en-US", {

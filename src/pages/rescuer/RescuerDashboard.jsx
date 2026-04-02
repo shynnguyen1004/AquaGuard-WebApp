@@ -173,7 +173,10 @@ export default function RescuerDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  const rescuerUid = user?.id || "";
+  // Extract numeric DB id from uid like "phone_5" → 5
+  const rescuerUid = user?.uid?.startsWith("phone_")
+    ? parseInt(user.uid.replace("phone_", ""), 10)
+    : user?.uid || "";
 
   // Accept a rescue request — capture rescuer's GPS first
   const handleAccept = async (requestId) => {
@@ -248,8 +251,8 @@ export default function RescuerDashboard() {
 
   // Filter requests by tab
   const activeRequests = requests.filter((r) => r.status === "pending");
-  const myMissions = requests.filter((r) => r.assigned_to === rescuerUid && r.status === "in_progress");
-  const completed = requests.filter((r) => r.assigned_to === rescuerUid && r.status === "resolved");
+  const myMissions = requests.filter((r) => r.assigned_to == rescuerUid && r.status === "in_progress");
+  const completed = requests.filter((r) => r.assigned_to == rescuerUid && r.status === "resolved");
 
   const filteredRequests = activeTab === "active"
     ? activeRequests
@@ -351,7 +354,7 @@ export default function RescuerDashboard() {
                 onAccept={activeTab === "active" ? handleAccept : undefined}
                 onComplete={activeTab === "my-missions" ? handleComplete : undefined}
                 onViewTracking={activeTab === "my-missions" ? handleViewTracking : undefined}
-                isOwn={req.assigned_to === rescuerUid}
+                isOwn={req.assigned_to == rescuerUid}
               />
             ))}
           </div>

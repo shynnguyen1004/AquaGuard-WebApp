@@ -15,11 +15,8 @@ export default function MobileHeader({ onMenuToggle }) {
         </button>
 
         {/* Logo */}
-        <div className="flex items-center gap-2">
-          <div className="size-8 rounded-lg bg-primary flex items-center justify-center text-white">
-            <span className="material-symbols-outlined filled-icon text-lg">water_drop</span>
-          </div>
-          <span className="text-lg font-black tracking-tight">AquaGuard</span>
+        <div className="lg:hidden flex items-center justify-center mb-8">
+          <img src="/images/light_mode_logo.png" alt="AquaGuard" className="h-30 w-auto" />
         </div>
 
         {/* Profile */}
