@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import RescueTrackingMap from "../../components/rescue/RescueTrackingMap";
 
@@ -10,8 +10,100 @@ const TABS = [
   { key: "completed", label: "Completed", icon: "check_circle" },
 ];
 
-function SOSCard({ request, onAccept, onComplete, onViewTracking, isOwn }) {
+const statusColors = {
+  pending: "bg-warning/10 text-warning border-warning/20",
+  assigned: "bg-primary/10 text-primary border-primary/20",
+  in_progress: "bg-primary/10 text-primary border-primary/20",
+  resolved: "bg-safe/10 text-safe border-safe/20",
+};
+
+const statusLabels = {
+  pending: "Pending",
+  in_progress: "In Progress",
+  resolved: "Resolved",
+};
+
+const urgencyColors = {
+  critical: "bg-danger/10 text-danger border-danger/20",
+  high: "bg-warning/10 text-warning border-warning/20",
+  medium: "bg-primary/10 text-primary border-primary/20",
+  low: "bg-safe/10 text-safe border-safe/20",
+};
+
+function formatTime(iso) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleString("vi-VN");
+}
+
+function formatTimeAgo(iso) {
+  if (!iso) return "";
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function SOSListItem({ request, selected, isNew, onClick }) {
+  const urgencyClass = urgencyColors[request.urgency] || urgencyColors.medium;
+  const statusClass = statusColors[request.status] || statusColors.pending;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full text-left rounded-xl border p-3 transition-all ${
+        selected
+          ? "border-primary bg-primary/5 shadow-sm"
+          : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-primary/40"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-bold text-sm truncate">{request.user_name || "Anonymous"}</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">{formatTimeAgo(request.created_at)}</p>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {isNew && (
+            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-danger text-white animate-pulse">
+              NEW
+            </span>
+          )}
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${urgencyClass}`}>
+            {request.urgency || "medium"}
+          </span>
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusClass}`}>
+            {statusLabels[request.status] || request.status}
+          </span>
+        </div>
+      </div>
+      <p className="mt-2 text-xs text-slate-500 flex items-center gap-1 truncate">
+        <span className="material-symbols-outlined text-[14px]">location_on</span>
+        {request.location || "Unknown location"}
+      </p>
+      <p className="mt-1 text-xs text-slate-600 dark:text-slate-400 line-clamp-1">
+        {request.description || "No description provided"}
+      </p>
+    </button>
+  );
+}
+
+function SOSDetailPanel({ request, isOwn, onAccept, onComplete, onViewTracking, onMarkSeen }) {
   const [processing, setProcessing] = useState(false);
+
+  useEffect(() => {
+    if (request?.id) onMarkSeen?.(request.id);
+  }, [request?.id, onMarkSeen]);
+
+  if (!request) {
+    return (
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 text-center text-slate-500">
+        Select a request to view details.
+      </div>
+    );
+  }
 
   const handleAction = async (action) => {
     setProcessing(true);
@@ -22,113 +114,81 @@ function SOSCard({ request, onAccept, onComplete, onViewTracking, isOwn }) {
     }
   };
 
-  const urgencyColors = {
-    critical: "bg-danger/10 text-danger border-danger/20",
-    high: "bg-warning/10 text-warning border-warning/20",
-    medium: "bg-primary/10 text-primary border-primary/20",
-    low: "bg-safe/10 text-safe border-safe/20",
-  };
-
-  const statusColors = {
-    pending: "bg-warning/10 text-warning border-warning/20",
-    assigned: "bg-primary/10 text-primary border-primary/20",
-    in_progress: "bg-primary/10 text-primary border-primary/20",
-    resolved: "bg-safe/10 text-safe border-safe/20",
-  };
-
-  const statusLabels = {
-    pending: "Pending",
-    in_progress: "In Progress",
-    resolved: "Resolved",
-  };
-
   return (
-    <div className="bg-white dark:bg-slate-800/50 rounded-2xl p-5 border border-slate-100 dark:border-slate-700/30 hover:shadow-lg transition-shadow">
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="min-w-0 flex-1">
-          <p className="font-bold text-sm truncate">{request.user_name || "Anonymous"}</p>
-          <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-            <span className="material-symbols-outlined text-[14px]">location_on</span>
-            {request.location || "Unknown location"}
-          </p>
-          {/* Show GPS indicator if request has GPS */}
-          {request.latitude && request.longitude && (
-            <p className="text-[10px] text-safe flex items-center gap-1 mt-0.5 font-medium">
-              <span className="material-symbols-outlined text-[12px]">my_location</span>
-              GPS: {Number(request.latitude).toFixed(4)}, {Number(request.longitude).toFixed(4)}
-            </p>
-          )}
+    <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-black text-base truncate">{request.user_name || "Anonymous"}</p>
+          <p className="text-xs text-slate-500 mt-1">{formatTime(request.created_at)}</p>
         </div>
-        <div className="flex gap-1.5 flex-shrink-0">
-          {request.urgency && (
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${urgencyColors[request.urgency] || urgencyColors.medium}`}>
-              {request.urgency}
-            </span>
-          )}
+        <div className="flex gap-2">
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${urgencyColors[request.urgency] || urgencyColors.medium}`}>
+            {request.urgency || "medium"}
+          </span>
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusColors[request.status] || statusColors.pending}`}>
             {statusLabels[request.status] || request.status}
           </span>
         </div>
       </div>
 
-      <p className="text-sm text-slate-600 dark:text-slate-400 mb-4 line-clamp-2">
-        {request.description || "No description provided"}
-      </p>
+      <div className="text-sm space-y-2">
+        <p className="flex items-start gap-1.5">
+          <span className="material-symbols-outlined text-base text-danger">location_on</span>
+          <span>{request.location || "Unknown location"}</span>
+        </p>
+        <p className="text-slate-600 dark:text-slate-300">{request.description || "No description provided"}</p>
+        {request.latitude && request.longitude && (
+          <p className="text-xs text-safe flex items-center gap-1 font-medium">
+            <span className="material-symbols-outlined text-[13px]">my_location</span>
+            GPS: {Number(request.latitude).toFixed(5)}, {Number(request.longitude).toFixed(5)}
+          </p>
+        )}
+      </div>
 
       {request.images && request.images.length > 0 && (
-        <div className="flex gap-2 mb-4 overflow-x-auto">
+        <div className="flex gap-2 overflow-x-auto pb-1">
           {request.images.map((img, i) => (
             <img
               key={i}
               src={img}
-              alt="SOS"
-              className="size-16 rounded-lg object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0"
+              alt={`SOS ${i + 1}`}
+              className="h-20 w-28 rounded-lg object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0 cursor-pointer"
+              onClick={() => window.open(img, "_blank")}
             />
           ))}
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] text-slate-400">
-          {request.created_at ? new Date(request.created_at).toLocaleString("vi-VN") : ""}
-        </span>
-
-        <div className="flex gap-2">
-          {/* Accept button — shown for pending requests */}
-          {(request.status === "pending") && onAccept && (
-            <button
-              onClick={() => handleAction(() => onAccept(request.id))}
-              disabled={processing}
-              className="inline-flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-primary/90 transition-all shadow-md shadow-primary/20 disabled:opacity-50"
-            >
-              <span className="material-symbols-outlined text-sm">check</span>
-              Accept
-            </button>
-          )}
-
-          {/* View Tracking button — for own in_progress missions with GPS */}
-          {isOwn && request.status === "in_progress" && request.latitude && onViewTracking && (
-            <button
-              onClick={() => onViewTracking(request)}
-              className="inline-flex items-center gap-1.5 bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-600 transition-all shadow-md shadow-blue-500/20 animate-pulse"
-            >
-              <span className="material-symbols-outlined text-sm">map</span>
-              Tracking
-            </button>
-          )}
-
-          {/* Complete button — shown for own in_progress missions */}
-          {isOwn && request.status === "in_progress" && onComplete && (
-            <button
-              onClick={() => handleAction(() => onComplete(request.id))}
-              disabled={processing}
-              className="inline-flex items-center gap-1.5 bg-safe text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-safe/90 transition-all shadow-md shadow-safe/20 disabled:opacity-50"
-            >
-              <span className="material-symbols-outlined text-sm">done_all</span>
-              Complete
-            </button>
-          )}
-        </div>
+      <div className="pt-3 border-t border-slate-100 dark:border-slate-700 flex flex-wrap gap-2 justify-end">
+        {request.status === "pending" && onAccept && (
+          <button
+            onClick={() => handleAction(() => onAccept(request.id))}
+            disabled={processing}
+            className="inline-flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-primary/90 transition-all shadow-md shadow-primary/20 disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined text-sm">check</span>
+            Accept
+          </button>
+        )}
+        {isOwn && request.status === "in_progress" && request.latitude && onViewTracking && (
+          <button
+            onClick={() => onViewTracking(request)}
+            className="inline-flex items-center gap-1.5 bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-600 transition-all shadow-md shadow-blue-500/20 animate-pulse"
+          >
+            <span className="material-symbols-outlined text-sm">map</span>
+            Tracking
+          </button>
+        )}
+        {isOwn && request.status === "in_progress" && onComplete && (
+          <button
+            onClick={() => handleAction(() => onComplete(request.id))}
+            disabled={processing}
+            className="inline-flex items-center gap-1.5 bg-safe text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-safe/90 transition-all shadow-md shadow-safe/20 disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined text-sm">done_all</span>
+            Complete
+          </button>
+        )}
       </div>
     </div>
   );
@@ -140,6 +200,8 @@ export default function RescuerDashboard() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [trackingRequest, setTrackingRequest] = useState(null);
+  const [selectedRequestId, setSelectedRequestId] = useState(null);
+  const [seenRequestIds, setSeenRequestIds] = useState([]);
 
   const fetchRequests = async () => {
     const token = localStorage.getItem("aquaguard_token");
@@ -167,22 +229,39 @@ export default function RescuerDashboard() {
     fetchRequests();
   }, []);
 
-  // Auto-refresh every 10 seconds
   useEffect(() => {
     const interval = setInterval(fetchRequests, 10000);
     return () => clearInterval(interval);
   }, []);
 
-  // Extract numeric DB id from uid like "phone_5" → 5
   const rescuerUid = user?.uid?.startsWith("phone_")
     ? parseInt(user.uid.replace("phone_", ""), 10)
     : user?.uid || "";
+  const seenStorageKey = `rescuer_seen_requests_${rescuerUid || "anon"}`;
 
-  // Accept a rescue request — capture rescuer's GPS first
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(seenStorageKey);
+      if (!saved) return;
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) setSeenRequestIds(parsed);
+    } catch {
+      // ignore invalid data
+    }
+  }, [seenStorageKey]);
+
+  const markAsSeen = (requestId) => {
+    if (!requestId) return;
+    setSeenRequestIds((prev) => {
+      if (prev.includes(requestId)) return prev;
+      const next = [...prev, requestId];
+      localStorage.setItem(seenStorageKey, JSON.stringify(next));
+      return next;
+    });
+  };
+
   const handleAccept = async (requestId) => {
     const token = localStorage.getItem("aquaguard_token");
-
-    // Get rescuer's current GPS
     let latitude = null;
     let longitude = null;
     if (navigator.geolocation) {
@@ -215,7 +294,6 @@ export default function RescuerDashboard() {
         window.dispatchEvent(
           new CustomEvent("sos_changed", { detail: { type: "accepted", requestId } })
         );
-        // Auto-open tracking map if GPS was available
         const acceptedRequest = json.data;
         if (acceptedRequest.latitude && acceptedRequest.longitude) {
           setTrackingRequest(acceptedRequest);
@@ -226,7 +304,6 @@ export default function RescuerDashboard() {
     }
   };
 
-  // Complete a rescue mission
   const handleComplete = async (requestId) => {
     const token = localStorage.getItem("aquaguard_token");
     try {
@@ -250,12 +327,10 @@ export default function RescuerDashboard() {
     }
   };
 
-  // View tracking map for an in-progress request
   const handleViewTracking = (request) => {
     setTrackingRequest(request);
   };
 
-  // Filter requests by tab
   const activeRequests = requests.filter((r) => r.status === "pending");
   const myMissions = requests.filter((r) => r.assigned_to == rescuerUid && r.status === "in_progress");
   const completed = requests.filter((r) => r.assigned_to == rescuerUid && r.status === "resolved");
@@ -266,6 +341,24 @@ export default function RescuerDashboard() {
       ? myMissions
       : completed;
 
+  const sortedRequests = useMemo(() => {
+    const arr = [...filteredRequests];
+    arr.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+    return arr;
+  }, [filteredRequests]);
+
+  const selectedRequest = sortedRequests.find((r) => r.id === selectedRequestId) || sortedRequests[0] || null;
+
+  useEffect(() => {
+    if (!sortedRequests.length) {
+      setSelectedRequestId(null);
+      return;
+    }
+    if (!selectedRequestId || !sortedRequests.some((r) => r.id === selectedRequestId)) {
+      setSelectedRequestId(sortedRequests[0].id);
+    }
+  }, [sortedRequests, selectedRequestId]);
+
   const stats = {
     activeSOS: activeRequests.length,
     myMissions: myMissions.length,
@@ -275,7 +368,6 @@ export default function RescuerDashboard() {
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-        {/* Header */}
         <div>
           <div className="flex items-center gap-3 mb-1">
             <span className="material-symbols-outlined filled-icon text-warning text-2xl">local_fire_department</span>
@@ -286,7 +378,6 @@ export default function RescuerDashboard() {
           </p>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-danger/10 rounded-2xl p-4 border border-slate-100 dark:border-slate-700/30">
             <div className="flex items-center gap-2 mb-2">
@@ -311,7 +402,6 @@ export default function RescuerDashboard() {
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-2 overflow-x-auto pb-1">
           {TABS.map((tab) => (
             <button
@@ -334,12 +424,11 @@ export default function RescuerDashboard() {
           ))}
         </div>
 
-        {/* Request List */}
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="size-10 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
           </div>
-        ) : filteredRequests.length === 0 ? (
+        ) : sortedRequests.length === 0 ? (
           <div className="text-center py-16">
             <span className="material-symbols-outlined text-6xl text-slate-300 dark:text-slate-600 mb-4">
               {activeTab === "active" ? "emergency" : activeTab === "my-missions" ? "assignment_ind" : "check_circle"}
@@ -352,22 +441,45 @@ export default function RescuerDashboard() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {filteredRequests.map((req) => (
-              <SOSCard
-                key={req.id}
-                request={req}
-                onAccept={activeTab === "active" ? handleAccept : undefined}
-                onComplete={activeTab === "my-missions" ? handleComplete : undefined}
-                onViewTracking={activeTab === "my-missions" ? handleViewTracking : undefined}
-                isOwn={req.assigned_to == rescuerUid}
-              />
-            ))}
+          <div className="grid grid-cols-1 lg:grid-cols-[380px_minmax(0,1fr)] gap-4 items-start">
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 p-3">
+              <div className="flex items-center justify-between px-1 pb-2">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Request Queue ({sortedRequests.length})
+                </p>
+                <p className="text-[11px] text-slate-400">Newest first</p>
+              </div>
+              <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
+                {sortedRequests.map((req) => {
+                  const isNew =
+                    req.status === "pending" &&
+                    !seenRequestIds.includes(req.id) &&
+                    Date.now() - new Date(req.created_at || 0).getTime() < 30 * 60 * 1000;
+                  return (
+                    <SOSListItem
+                      key={req.id}
+                      request={req}
+                      selected={selectedRequest?.id === req.id}
+                      isNew={isNew}
+                      onClick={() => setSelectedRequestId(req.id)}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+
+            <SOSDetailPanel
+              request={selectedRequest}
+              isOwn={selectedRequest?.assigned_to == rescuerUid}
+              onAccept={activeTab === "active" ? handleAccept : undefined}
+              onComplete={activeTab === "my-missions" ? handleComplete : undefined}
+              onViewTracking={activeTab === "my-missions" ? handleViewTracking : undefined}
+              onMarkSeen={markAsSeen}
+            />
           </div>
         )}
       </div>
 
-      {/* Tracking Map Overlay */}
       {trackingRequest && (
         <RescueTrackingMap
           requestId={trackingRequest.id}
