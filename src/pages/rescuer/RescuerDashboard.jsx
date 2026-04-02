@@ -212,6 +212,9 @@ export default function RescuerDashboard() {
       const json = await res.json();
       if (json.success) {
         fetchRequests();
+        window.dispatchEvent(
+          new CustomEvent("sos_changed", { detail: { type: "accepted", requestId } })
+        );
         // Auto-open tracking map if GPS was available
         const acceptedRequest = json.data;
         if (acceptedRequest.latitude && acceptedRequest.longitude) {
@@ -238,6 +241,9 @@ export default function RescuerDashboard() {
       if (json.success) {
         setTrackingRequest(null);
         fetchRequests();
+        window.dispatchEvent(
+          new CustomEvent("sos_changed", { detail: { type: "completed", requestId } })
+        );
       }
     } catch (err) {
       console.error("Failed to complete request:", err);

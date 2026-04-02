@@ -92,6 +92,7 @@ export default function CitizenSOSPage() {
       const json = await res.json();
       if (json.success) {
         fetchMyRequests();
+        window.dispatchEvent(new CustomEvent("sos_changed", { detail: { type: "created", requestId: json.data?.id } }));
       }
     } catch (err) {
       console.error("Failed to submit SOS request:", err);

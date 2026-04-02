@@ -180,8 +180,8 @@ export default function ReportIssueForm() {
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
               className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all ${dragActive
-                  ? "border-primary bg-primary/5"
-                  : "border-slate-200 dark:border-slate-700 hover:border-primary/50 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                ? "border-primary bg-primary/5"
+                : "border-slate-200 dark:border-slate-700 hover:border-primary/50 hover:bg-slate-50 dark:hover:bg-slate-800/50"
                 }`}
             >
               <span className="material-symbols-outlined text-3xl text-slate-400 mb-2">

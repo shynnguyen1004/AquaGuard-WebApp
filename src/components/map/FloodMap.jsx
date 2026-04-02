@@ -47,10 +47,10 @@ function createPinIcon(color) {
 // Map severity → color & label
 const severityMap = {
   critical: { color: "#a855f7", label: "Critical" },
-  severe:   { color: "#ef4444", label: "Severe" },
+  severe: { color: "#ef4444", label: "Severe" },
   moderate: { color: "#f59e0b", label: "Moderate" },
-  low:      { color: "#10b981", label: "Low" },
-  safe:     { color: "#10b981", label: "Safe" },
+  low: { color: "#10b981", label: "Low" },
+  safe: { color: "#10b981", label: "Safe" },
 };
 
 const familySafetyColors = {
@@ -107,6 +107,41 @@ function createMyLocationIcon() {
 
 const myLocationIcon = createMyLocationIcon();
 
+// ── SOS icon (avatar + colored ring) ──
+const SOS_STAGE_COLOR = {
+  pending: "#ef4444",
+  assigned: "#f59e0b",
+  resolved: "#10b981",
+};
+
+function createSOSAvatarIcon({ stage, avatarUrl }) {
+  const color = SOS_STAGE_COLOR[stage] || SOS_STAGE_COLOR.pending;
+  const colorNoHash = color.replace("#", "");
+
+  // A lightweight HTML icon so we can show avatar via <img>.
+  const html = `
+    <div class="sos-avatar-marker sos-avatar-marker--${stage}">
+      <div class="sos-avatar-marker__ring" style="border-color:#${colorNoHash};"></div>
+      <div class="sos-avatar-marker__avatar">
+        <img src="${avatarUrl}" alt="" referrerpolicy="no-referrer" />
+      </div>
+    </div>
+  `;
+
+  return L.divIcon({
+    html,
+    className: "sos-avatar-marker-icon",
+    iconSize: [38, 38],
+    iconAnchor: [19, 19],
+    popupAnchor: [0, -19],
+  });
+}
+
+function getAvatarUrlForName(name, stage) {
+  const bg = (SOS_STAGE_COLOR[stage] || SOS_STAGE_COLOR.pending).replace("#", "");
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || "User")}&background=${bg}&color=fff&size=40`;
+}
+
 /**
  * Parse Firestore location → { lat, lng }
  */
@@ -156,6 +191,97 @@ export default function FloodMap() {
   const [routeCoords, setRouteCoords] = useState([]); // [[lat,lng], ...]
   const [routeInfo, setRouteInfo] = useState(null); // { distance, duration }
   const [showFloodZones, setShowFloodZones] = useState(true);
+
+  const [sosPins, setSosPins] = useState([]);
+  const sosIconCacheRef = useRef(new Map()); // `${stage}|${avatarUrl}` -> Leaflet icon
+  const prevSosStatusByIdRef = useRef(new Map()); // requestId -> last raw status
+  const resolvedUntilByIdRef = useRef(new Map()); // requestId -> expireAt (ms)
+
+  const getSOSIcon = useCallback((stage, avatarUrl) => {
+    const key = `${stage}|${avatarUrl}`;
+    const cached = sosIconCacheRef.current.get(key);
+    if (cached) return cached;
+    const icon = createSOSAvatarIcon({ stage, avatarUrl });
+    sosIconCacheRef.current.set(key, icon);
+    return icon;
+  }, []);
+
+  const pollSosRequests = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/sos/all`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (!json?.success) return;
+
+      const now = Date.now();
+      const nextPins = [];
+
+      for (const req of json.data || []) {
+        const requestId = req.id;
+        const lat = Number(req.latitude);
+        const lng = Number(req.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+
+        const rawStatus = req.status;
+
+        // pending -> đỏ nhấp nháy; in_progress (accept) -> vàng; resolved (complete) -> xanh (tạm thời)
+        let stage = "pending";
+        if (rawStatus === "pending") stage = "pending";
+        else if (rawStatus === "in_progress") stage = "assigned";
+        else if (rawStatus === "resolved") stage = "resolved";
+
+        if (stage === "resolved") {
+          const prev = prevSosStatusByIdRef.current.get(requestId);
+
+          // Important:
+          // On first page load, `prev` is empty, but the DB may already contain
+          // `resolved` requests. We do NOT want to show green pins on refresh.
+          // Only show green when we detect a transition to `resolved` within this session.
+          if (prev === undefined) {
+            prevSosStatusByIdRef.current.set(requestId, rawStatus);
+            continue; // skip rendering resolved pins on initial load
+          }
+
+          if (prev !== "resolved") {
+            resolvedUntilByIdRef.current.set(requestId, now + 2500);
+          }
+          const expireAt = resolvedUntilByIdRef.current.get(requestId) || 0;
+          if (now > expireAt) {
+            prevSosStatusByIdRef.current.set(requestId, rawStatus);
+            resolvedUntilByIdRef.current.delete(requestId);
+            continue; // already expired
+          }
+        }
+
+        const userName = req.user_name || req.userName || "User";
+        const avatarUrl = getAvatarUrlForName(userName, stage);
+
+        nextPins.push({
+          id: requestId,
+          lat,
+          lng,
+          stage,
+          userName,
+          avatarUrl,
+          urgency: req.urgency,
+          description: req.description,
+          location: req.location,
+          assignedName: req.assigned_name,
+          createdAt: req.created_at,
+          rawStatus,
+        });
+
+        prevSosStatusByIdRef.current.set(requestId, rawStatus);
+      }
+
+      setSosPins(nextPins);
+    } catch (err) {
+      // Không phá map nếu server SOS bị lỗi.
+      console.warn("[FloodMap] SOS poll error:", err);
+    }
+  }, [token]);
 
   // Change Windy overlay via postMessage
   const changeWindyOverlay = (overlay) => {
@@ -226,6 +352,24 @@ export default function FloodMap() {
     return () => clearInterval(interval);
   }, [fetchFamilyMembers]);
 
+  // SOS realtime (polling)
+  useEffect(() => {
+    if (!token) return;
+
+    // Initial fetch + periodic updates
+    pollSosRequests();
+    const interval = setInterval(pollSosRequests, 5000);
+
+    // Hint-based refresh (for multi-tab users)
+    const onHint = () => pollSosRequests();
+    window.addEventListener("sos_changed", onHint);
+
+    return () => {
+      window.removeEventListener("sos_changed", onHint);
+      clearInterval(interval);
+    };
+  }, [token, pollSosRequests]);
+
   // Manual locate button handler — starts tracking after first success
   const handleLocateMe = () => {
     if (!navigator.geolocation) {
@@ -244,7 +388,7 @@ export default function FloodMap() {
             method: "PUT",
             headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
             body: JSON.stringify({ latitude: loc.lat, longitude: loc.lng }),
-          }).catch(() => {});
+          }).catch(() => { });
         }
       },
       (err) => {
@@ -310,6 +454,63 @@ export default function FloodMap() {
     <div className="flex-1 relative">
       <style>{`
         .custom-pin-icon, .family-pin-icon, .my-location-icon { background: none !important; border: none !important; }
+        .sos-avatar-marker-icon { background: none !important; border: none !important; }
+
+        .sos-avatar-marker {
+          position: relative;
+          width: 38px;
+          height: 38px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .sos-avatar-marker__ring {
+          position: absolute;
+          inset: 0;
+          border-radius: 9999px;
+          border: 3px solid transparent;
+          pointer-events: none;
+        }
+
+        .sos-avatar-marker--pending .sos-avatar-marker__ring {
+          animation: sosPulse 1.2s infinite;
+        }
+
+        @keyframes sosPulse {
+          0% { transform: scale(0.82); opacity: 0.95; }
+          70% { transform: scale(1.15); opacity: 0; }
+          100% { transform: scale(1.15); opacity: 0; }
+        }
+
+        .sos-avatar-marker__avatar {
+          width: 26px;
+          height: 26px;
+          border-radius: 9999px;
+          overflow: hidden;
+          border: 2px solid rgba(255,255,255,0.95);
+          box-shadow: 0 8px 22px rgba(0,0,0,0.20);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #ef4444;
+        }
+
+        .sos-avatar-marker--assigned .sos-avatar-marker__avatar {
+          background: #f59e0b;
+        }
+
+        .sos-avatar-marker--resolved .sos-avatar-marker__avatar {
+          background: #10b981;
+        }
+
+        .sos-avatar-marker__avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+
         .leaflet-popup-content-wrapper {
           border-radius: 16px !important; 
           padding: 0 !important;
@@ -342,11 +543,10 @@ export default function FloodMap() {
       <div className={`absolute top-4 z-[1000] ${showWindy ? "left-4" : "right-4"}`}>
         <button
           onClick={() => setWeatherPanelOpen(!weatherPanelOpen)}
-          className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${
-            showWindy
-              ? "bg-primary text-white shadow-primary/30"
-              : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-          } hover:scale-105`}
+          className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${showWindy
+            ? "bg-primary text-white shadow-primary/30"
+            : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+            } hover:scale-105`}
           title="Lớp thời tiết Windy"
         >
           <span className="material-symbols-outlined text-xl">layers</span>
@@ -361,11 +561,10 @@ export default function FloodMap() {
             {/* Toggle Windy Map */}
             <button
               onClick={() => setShowWindy(!showWindy)}
-              className={`flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-sm font-bold transition-all mb-2 ${
-                showWindy
-                  ? "bg-primary text-white shadow-md shadow-primary/20"
-                  : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
-              }`}
+              className={`flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-sm font-bold transition-all mb-2 ${showWindy
+                ? "bg-primary text-white shadow-md shadow-primary/20"
+                : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600"
+                }`}
             >
               <span className="material-symbols-outlined text-base">
                 {showWindy ? "visibility" : "visibility_off"}
@@ -385,11 +584,10 @@ export default function FloodMap() {
                     <button
                       key={layer.key}
                       onClick={() => changeWindyOverlay(layer.key)}
-                      className={`flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium transition-all ${
-                        isActive
-                          ? "bg-primary/10 text-primary"
-                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50"
-                      }`}
+                      className={`flex items-center gap-2.5 w-full px-3 py-2 rounded-xl text-sm font-medium transition-all ${isActive
+                        ? "bg-primary/10 text-primary"
+                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50"
+                        }`}
                     >
                       <span
                         className="material-symbols-outlined text-base"
@@ -417,11 +615,10 @@ export default function FloodMap() {
         <div className="absolute top-16 right-4 z-[1000] flex flex-col gap-2">
           <button
             onClick={() => setShowFamily(!showFamily)}
-            className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${
-              showFamily
-                ? "bg-emerald-500 text-white shadow-emerald-500/30"
-                : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-            } hover:scale-105`}
+            className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${showFamily
+              ? "bg-emerald-500 text-white shadow-emerald-500/30"
+              : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+              } hover:scale-105`}
             title={showFamily ? "Ẩn người thân" : "Hiện người thân"}
           >
             <span className="material-symbols-outlined text-xl">group</span>
@@ -431,11 +628,10 @@ export default function FloodMap() {
           <button
             onClick={handleLocateMe}
             disabled={locating}
-            className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${
-              myLocation
-                ? "bg-blue-500 text-white shadow-blue-500/30"
-                : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-            } hover:scale-105 disabled:opacity-50`}
+            className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${myLocation
+              ? "bg-blue-500 text-white shadow-blue-500/30"
+              : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+              } hover:scale-105 disabled:opacity-50`}
             title="Vị trí của tôi"
           >
             <span className={`material-symbols-outlined text-xl ${locating ? 'animate-spin' : ''}`}>
@@ -446,11 +642,10 @@ export default function FloodMap() {
           {/* Flood Zones Toggle */}
           <button
             onClick={() => setShowFloodZones(!showFloodZones)}
-            className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${
-              showFloodZones
-                ? "bg-amber-500 text-white shadow-amber-500/30"
-                : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-            } hover:scale-105`}
+            className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${showFloodZones
+              ? "bg-amber-500 text-white shadow-amber-500/30"
+              : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+              } hover:scale-105`}
             title={showFloodZones ? "Ẩn vùng ngập" : "Hiện vùng ngập"}
           >
             <span className="material-symbols-outlined text-xl">flood</span>
@@ -535,6 +730,54 @@ export default function FloodMap() {
                       <span>{marker.name}</span>
                     </div>
                   )}
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+
+          {/* SOS markers */}
+          {sosPins.map((p) => (
+            <Marker
+              key={`sos-${p.id}`}
+              position={[p.lat, p.lng]}
+              icon={getSOSIcon(p.stage, p.avatarUrl)}
+            >
+              <Popup>
+                <div className="p-3 max-w-[240px]">
+                  <div className="flex items-start gap-3">
+                    <img
+                      src={p.avatarUrl}
+                      alt={p.userName}
+                      className="size-10 rounded-full border-2 border-white/90 object-cover shadow-sm"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="min-w-0">
+                      <p className="font-black text-sm truncate">
+                        {p.userName}
+                      </p>
+                      <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[12px]">location_on</span>
+                        <span className="truncate">{p.location || "Unknown location"}</span>
+                      </div>
+                      {p.urgency && (
+                        <div className="mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                          Urgency: {p.urgency}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {p.description && (
+                    <p className="text-[11px] text-slate-600 mt-2 line-clamp-3">
+                      {p.description}
+                    </p>
+                  )}
+
+                  <div className="text-[10px] text-slate-400 mt-2">
+                    {p.rawStatus}
+                    {p.createdAt ? ` • ${new Date(p.createdAt).toLocaleTimeString("vi-VN")}` : ""}
+                    {p.assignedName ? ` • ${p.assignedName}` : ""}
+                  </div>
                 </div>
               </Popup>
             </Marker>

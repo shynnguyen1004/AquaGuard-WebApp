@@ -80,6 +80,7 @@ export default function RescueRequestPage() {
       const json = await res.json();
       if (json.success) {
         fetchRequests();
+        window.dispatchEvent(new CustomEvent("sos_changed", { detail: { type: "created", requestId: json.data?.id } }));
       }
     } catch (err) {
       console.error("Failed to create request:", err);
@@ -124,6 +125,7 @@ export default function RescueRequestPage() {
         if (acceptedRequest.latitude && acceptedRequest.longitude) {
           setTrackingRequest(acceptedRequest);
         }
+        window.dispatchEvent(new CustomEvent("sos_changed", { detail: { type: "accepted", requestId } }));
       }
     } catch (err) {
       console.error("Failed to accept:", err);
@@ -144,6 +146,7 @@ export default function RescueRequestPage() {
       if (json.success) {
         setTrackingRequest(null);
         fetchRequests();
+        window.dispatchEvent(new CustomEvent("sos_changed", { detail: { type: "completed", requestId } }));
       }
     } catch (err) {
       console.error("Failed to complete:", err);
