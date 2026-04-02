@@ -34,8 +34,8 @@ const ALL_NAV_ITEMS = [
   // ── Admin ──
   { icon: "admin_panel_settings", label: "Admin Dashboard", labelKey: "nav.admin", page: "admin", roles: [ROLES.ADMIN], mobileNav: true },
   { icon: "emergency", label: "SOS Requests", labelKey: "nav.admin-requests", page: "admin-requests", roles: [ROLES.ADMIN], mobileNav: true },
-  { icon: "group", label: "User Management", labelKey: "nav.admin-users", page: "admin-users", roles: [ROLES.ADMIN], mobileNav: true },
-  { icon: "local_fire_department", label: "Rescue Teams", labelKey: "nav.admin-teams", page: "admin-teams", roles: [ROLES.ADMIN], mobileNav: false },
+  { icon: "group", label: "User Management", labelKey: "nav.admin-users", page: "admin-users", roles: [ROLES.ADMIN], mobileNav: false, sidebar: false },
+  { icon: "local_fire_department", label: "Rescue Teams", labelKey: "nav.admin-teams", page: "admin-teams", roles: [ROLES.ADMIN], mobileNav: false, sidebar: false },
   { icon: "sensors", label: "Flood Sensors", labelKey: "nav.admin-sensors", page: "admin-sensors", roles: [ROLES.ADMIN], mobileNav: false },
   { icon: "analytics", label: "System Analytics", labelKey: "nav.admin-analytics", page: "admin-analytics", roles: [ROLES.ADMIN], mobileNav: false },
 ];
@@ -47,7 +47,7 @@ const ALL_NAV_ITEMS = [
  */
 export function getNavItemsForRole(role) {
   if (!role) return [];
-  return ALL_NAV_ITEMS.filter((item) => item.roles.includes(role));
+  return ALL_NAV_ITEMS.filter((item) => item.roles.includes(role) && item.sidebar !== false);
 }
 
 /**

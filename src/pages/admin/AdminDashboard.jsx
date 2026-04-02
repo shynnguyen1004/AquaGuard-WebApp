@@ -8,9 +8,9 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api
 
 const TABS = [
   { key: "overview", label: "Overview", icon: "dashboard" },
+  { key: "users", label: "User Management", icon: "group" },
   { key: "rescuers", label: "Rescue Teams", icon: "local_fire_department" },
   { key: "map", label: "Flood Map", icon: "map" },
-  { key: "analytics", label: "Analytics", icon: "analytics" },
 ];
 
 // Map sidebar page names to internal tab keys
@@ -36,7 +36,7 @@ function StatCard({ icon, label, value, color, bgColor }) {
   );
 }
 
-function UserRow({ userData, onRoleChange }) {
+function UserTableRow({ userData, onRoleChange }) {
   const [changingRole, setChangingRole] = useState(false);
 
   const handleRoleChange = async (newRole) => {
@@ -49,38 +49,89 @@ function UserRow({ userData, onRoleChange }) {
   };
 
   return (
-    <div className="flex items-center justify-between p-4 bg-white dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700/30">
-      <div className="flex items-center gap-3 min-w-0">
-        <img
-          alt={userData.displayName}
-          className="size-10 rounded-full border-2 border-primary/20 object-cover flex-shrink-0"
-          src={
-            userData.avatarUrl ||
-            `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.displayName || "User")}&background=11a0b6&color=fff`
-          }
-          referrerPolicy="no-referrer"
-        />
-        <div className="min-w-0">
-          <p className="text-sm font-semibold truncate">{userData.displayName || "Unknown"}</p>
-          <p className="text-xs text-slate-500 truncate">{userData.phoneNumber || userData.email || "No contact"}</p>
+    <tr className="border-b border-slate-100 dark:border-slate-700/30 last:border-0">
+      <td className="px-4 py-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <img
+            alt={userData.displayName}
+            className="size-10 rounded-full border-2 border-primary/20 object-cover flex-shrink-0"
+            src={
+              userData.avatarUrl ||
+              `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.displayName || "User")}&background=11a0b6&color=fff`
+            }
+            referrerPolicy="no-referrer"
+          />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold truncate">{userData.displayName || "Unknown"}</p>
+            <p className="text-xs text-slate-500 truncate">{userData.email || "No email"}</p>
+          </div>
         </div>
-      </div>
-
-      <div className="flex items-center gap-2 flex-shrink-0">
-        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${getRoleBadgeClasses(userData.role)}`}>
+      </td>
+      <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-400">
+        {userData.phoneNumber || "No contact"}
+      </td>
+      <td className="px-4 py-4">
+        <span className={`inline-flex text-[10px] font-bold px-2.5 py-1 rounded-full border ${getRoleBadgeClasses(userData.role)}`}>
           {getRoleLabel(userData.role)}
         </span>
+      </td>
+      <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
+        {userData.createdAt ? new Date(userData.createdAt).toLocaleDateString("vi-VN") : "-"}
+      </td>
+      <td className="px-4 py-4">
         <select
           disabled={changingRole}
           value={userData.role || ROLES.CITIZEN}
           onChange={(e) => handleRoleChange(e.target.value)}
-          className="text-xs bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer disabled:opacity-50"
+          className="w-full text-xs bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-2 outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer disabled:opacity-50"
         >
           <option value={ROLES.CITIZEN}>Citizen</option>
           <option value={ROLES.RESCUER}>Rescuer</option>
           <option value={ROLES.ADMIN}>Admin</option>
         </select>
+      </td>
+    </tr>
+  );
+}
+
+function RoleUserTable({ title, icon, colorClass, users, onRoleChange }) {
+  return (
+    <div className="bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700/30 overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-700/30 bg-slate-50/80 dark:bg-slate-900/30">
+        <div className="flex items-center gap-2">
+          <span className={`material-symbols-outlined ${colorClass}`}>{icon}</span>
+          <h3 className="text-base font-bold">{title}</h3>
+        </div>
+        <span className="inline-flex items-center justify-center min-w-8 h-8 px-2 rounded-full bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-xs font-bold">
+          {users.length}
+        </span>
       </div>
+
+      {users.length === 0 ? (
+        <div className="px-5 py-10 text-center">
+          <span className="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-600">group_off</span>
+          <p className="text-sm text-slate-400 mt-2">No users in this role</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead className="bg-slate-50 dark:bg-slate-900/40">
+              <tr className="text-left">
+                <th className="px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">User</th>
+                <th className="px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">Phone</th>
+                <th className="px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">Role</th>
+                <th className="px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">Created</th>
+                <th className="px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">Change Role</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((u) => (
+                <UserTableRow key={u.id} userData={u} onRoleChange={onRoleChange} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -225,7 +276,16 @@ export default function AdminDashboard({ activePage = "admin" }) {
     resolvedRequests: rescueRequests.filter((r) => r.status === "resolved").length,
   };
 
+  const adminUsers = users.filter((u) => u.role === ROLES.ADMIN);
+  const rescuerUsers = users.filter((u) => u.role === ROLES.RESCUER);
+  const citizenUsers = users.filter((u) => (u.role || ROLES.CITIZEN) === ROLES.CITIZEN);
   const rescuers = users.filter((u) => u.role === ROLES.RESCUER);
+
+  const userRoleSections = [
+    { key: "admins", title: "Admins", icon: "admin_panel_settings", colorClass: "text-danger", users: adminUsers },
+    { key: "rescuers", title: "Rescuers", icon: "local_fire_department", colorClass: "text-warning", users: rescuerUsers },
+    { key: "citizens", title: "Citizens", icon: "person", colorClass: "text-primary", users: citizenUsers },
+  ];
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -330,7 +390,10 @@ export default function AdminDashboard({ activePage = "admin" }) {
         {activeTab === "users" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold">All Users ({users.length})</h2>
+              <div>
+                <h2 className="text-lg font-bold">User Management</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Manage users by role: admin, rescuer, and citizen</p>
+              </div>
               <button
                 onClick={fetchUsers}
                 disabled={loadingUsers}
@@ -350,9 +413,29 @@ export default function AdminDashboard({ activePage = "admin" }) {
                 <p className="text-sm text-slate-400 mt-2">No users found</p>
               </div>
             ) : (
-              <div className="space-y-2">
-                {users.map((u) => (
-                  <UserRow key={u.id} userData={u} onRoleChange={handleRoleChange} />
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {userRoleSections.map((section) => (
+                    <div key={section.key} className="rounded-2xl border border-slate-100 dark:border-slate-700/30 bg-white dark:bg-slate-800/50 p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`material-symbols-outlined ${section.colorClass}`}>{section.icon}</span>
+                        <span className="text-sm font-bold">{section.title}</span>
+                      </div>
+                      <p className="text-3xl font-black">{section.users.length}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Users in this role</p>
+                    </div>
+                  ))}
+                </div>
+
+                {userRoleSections.map((section) => (
+                  <RoleUserTable
+                    key={section.key}
+                    title={section.title}
+                    icon={section.icon}
+                    colorClass={section.colorClass}
+                    users={section.users}
+                    onRoleChange={handleRoleChange}
+                  />
                 ))}
               </div>
             )}
