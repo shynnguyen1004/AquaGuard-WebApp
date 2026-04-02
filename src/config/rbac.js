@@ -28,7 +28,7 @@ const ALL_NAV_ITEMS = [
 
   // ── Shared (citizen + rescuer) ──
   { icon: "newspaper", label: "News & Alerts", labelKey: "nav.news", page: "news", roles: [], mobileNav: false },
-  { icon: "shield_with_heart", label: "Safety Protocols", labelKey: "nav.safety", page: "safety", roles: [ROLES.CITIZEN, ROLES.RESCUER], mobileNav: true },
+  { icon: "shield_with_heart", label: "Safety Protocols", labelKey: "nav.safety", page: "safety", roles: [ROLES.CITIZEN], mobileNav: true },
   { icon: "info", label: "About Us", labelKey: "nav.about", page: "about", roles: [], mobileNav: false },
 
   // ── Admin ──
