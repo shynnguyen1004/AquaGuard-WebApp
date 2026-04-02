@@ -63,7 +63,9 @@ function UserTableRow({ userData, onRoleChange }) {
           />
           <div className="min-w-0">
             <p className="text-sm font-semibold truncate">{userData.displayName || "Unknown"}</p>
-            <p className="text-xs text-slate-500 truncate">{userData.email || "No email"}</p>
+            {userData.email ? (
+              <p className="text-xs text-slate-500 truncate">{userData.email}</p>
+            ) : null}
           </div>
         </div>
       </td>
