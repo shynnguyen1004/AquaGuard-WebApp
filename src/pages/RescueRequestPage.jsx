@@ -71,6 +71,9 @@ function QueueItem({ request, selected, isNew, onSelect, onAccept }) {
       <p className="mt-1 text-xs text-slate-600 dark:text-slate-400 line-clamp-1">
         {request.description || "No description provided"}
       </p>
+      <p className="mt-1 text-[11px] text-slate-500 truncate">
+        Assigned to: <span className="font-semibold text-slate-600 dark:text-slate-300">{request.assigned_name || "Unassigned"}</span>
+      </p>
 
       {request.status === "pending" && onAccept && (
         <div className="mt-2 flex justify-end">
@@ -138,6 +141,10 @@ function RequestDetail({ request, onAccept, onComplete, onViewTracking, onMarkSe
         <p className="flex items-start gap-1.5">
           <span className="material-symbols-outlined text-base text-danger">location_on</span>
           <span>{request.location || "Unknown location"}</span>
+        </p>
+        <p className="flex items-start gap-1.5">
+          <span className="material-symbols-outlined text-base text-primary">local_fire_department</span>
+          <span>Assigned to: <span className="font-semibold">{request.assigned_name || "Unassigned"}</span></span>
         </p>
         <p className="text-slate-600 dark:text-slate-300">{request.description || "No description provided"}</p>
         {request.latitude && request.longitude && (
