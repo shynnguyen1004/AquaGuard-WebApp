@@ -3,6 +3,7 @@ import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
+import { getStoredToken } from "../../utils/authStorage";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
@@ -152,7 +153,7 @@ export default function SystemAnalytics() {
   const [error, setError] = useState(null);
 
   const fetchAll = useCallback(async () => {
-    const token = localStorage.getItem("aquaguard_token");
+    const token = getStoredToken();
     if (!token) {
       setLoading(false);
       setError("Authentication required");

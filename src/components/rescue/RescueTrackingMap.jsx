@@ -86,6 +86,8 @@ function FitBounds({ positions }) {
 export default function RescueTrackingMap({
   requestId,
   userRole,
+  trackingRole = null,
+  shareLocation = false,
   citizenPos,
   rescuerPos,
   citizenName,
@@ -93,9 +95,14 @@ export default function RescueTrackingMap({
   rescuerName,
   onClose,
   onComplete,
+  onCancel,
 }) {
-  const { myLocation, otherLocation, isConnected, trackingEnded } =
-    useRescueTracking(requestId, true);
+  const { citizenLocation, rescuerLocation, isConnected, trackingEnded, trackingEndReason } =
+    useRescueTracking(requestId, {
+      active: true,
+      participantRole: trackingRole,
+      shareLocation,
+    });
 
   const [routeCoords, setRouteCoords] = useState([]);
   const [routeInfo, setRouteInfo] = useState(null);
@@ -103,17 +110,9 @@ export default function RescueTrackingMap({
 
   // Determine who is who
   const isCitizen = userRole === "citizen";
-  const myLabel = isCitizen ? "Bạn (Citizen)" : "Bạn (Rescuer)";
-  const otherLabel = isCitizen ? "Rescuer" : "Citizen";
-
   // Current positions: prefer live location, fallback to initial
-  const currentCitizenPos = isCitizen
-    ? myLocation || citizenPos
-    : otherLocation || citizenPos;
-
-  const currentRescuerPos = isCitizen
-    ? otherLocation || rescuerPos
-    : myLocation || rescuerPos;
+  const currentCitizenPos = citizenLocation || citizenPos;
+  const currentRescuerPos = rescuerLocation || rescuerPos;
 
   // Fetch route from OSRM
   const fetchRoute = useCallback(async (from, to) => {
@@ -195,7 +194,7 @@ export default function RescueTrackingMap({
             </h3>
             <p className="text-[10px] text-slate-500 dark:text-slate-400">
               {isConnected ? "Live — Đang kết nối" : "Đang kết nối lại..."}
-              {trackingEnded && " • Đã hoàn thành!"}
+              {trackingEnded && ` • ${trackingEndReason === "cancelled" ? "Đã huỷ mission" : "Đã hoàn thành!"}`}
             </p>
           </div>
         </div>
@@ -293,12 +292,16 @@ export default function RescueTrackingMap({
         {trackingEnded && (
           <div className="absolute inset-0 z-[1001] bg-black/40 flex items-center justify-center backdrop-blur-sm">
             <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 text-center shadow-2xl max-w-sm mx-4">
-              <span className="material-symbols-outlined text-6xl text-safe filled-icon mb-3">check_circle</span>
+              <span className={`material-symbols-outlined text-6xl filled-icon mb-3 ${trackingEndReason === "cancelled" ? "text-warning" : "text-safe"}`}>
+                {trackingEndReason === "cancelled" ? "undo" : "check_circle"}
+              </span>
               <h3 className="text-xl font-black text-slate-900 dark:text-white mb-1">
-                Hoàn thành!
+                {trackingEndReason === "cancelled" ? "Đã huỷ mission" : "Hoàn thành!"}
               </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Nhiệm vụ cứu hộ đã kết thúc
+                {trackingEndReason === "cancelled"
+                  ? "Case cứu hộ đã được trả về hàng chờ"
+                  : "Nhiệm vụ cứu hộ đã kết thúc"}
               </p>
             </div>
           </div>
@@ -306,15 +309,28 @@ export default function RescueTrackingMap({
       </div>
 
       {/* Bottom bar — Complete button for rescuer */}
-      {!isCitizen && !trackingEnded && (
+      {!isCitizen && !trackingEnded && (onComplete || onCancel) && (
         <div className="bg-white dark:bg-slate-800 p-4 border-t border-slate-200 dark:border-slate-700 z-10">
-          <button
-            onClick={onComplete}
-            className="w-full py-3.5 rounded-2xl bg-safe text-white font-bold text-sm flex items-center justify-center gap-2 hover:bg-green-600 transition-colors shadow-lg shadow-safe/30"
-          >
-            <span className="material-symbols-outlined text-lg filled-icon">done_all</span>
-            Complete Mission
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {onCancel && (
+              <button
+                onClick={onCancel}
+                className="w-full py-3.5 rounded-2xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-100 font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+              >
+                <span className="material-symbols-outlined text-lg">undo</span>
+                Cancel Mission
+              </button>
+            )}
+            {onComplete && (
+              <button
+                onClick={onComplete}
+                className="w-full py-3.5 rounded-2xl bg-safe text-white font-bold text-sm flex items-center justify-center gap-2 hover:bg-green-600 transition-colors shadow-lg shadow-safe/30"
+              >
+                <span className="material-symbols-outlined text-lg filled-icon">done_all</span>
+                Complete Mission
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -191,6 +191,9 @@ export default function FloodMap() {
   const [routeCoords, setRouteCoords] = useState([]); // [[lat,lng], ...]
   const [routeInfo, setRouteInfo] = useState(null); // { distance, duration }
   const [showFloodZones, setShowFloodZones] = useState(true);
+  const locationWatchIdRef = useRef(null);
+  const lastLocationSyncRef = useRef({ lat: null, lng: null, at: 0 });
+  const hasCenteredOnUserRef = useRef(false);
 
   const [sosPins, setSosPins] = useState([]);
   const sosIconCacheRef = useRef(new Map()); // `${stage}|${avatarUrl}` -> Leaflet icon
@@ -283,6 +286,93 @@ export default function FloodMap() {
     }
   }, [token]);
 
+  const syncMyLocation = useCallback((loc, force = false) => {
+    if (!token || !loc) return;
+
+    const prev = lastLocationSyncRef.current;
+    const now = Date.now();
+    const movedEnough = prev.lat == null
+      || Math.abs(prev.lat - loc.lat) >= 0.00005
+      || Math.abs(prev.lng - loc.lng) >= 0.00005;
+    const shouldSync = force || movedEnough || now - prev.at >= 5000;
+
+    if (!shouldSync) return;
+
+    lastLocationSyncRef.current = { lat: loc.lat, lng: loc.lng, at: now };
+
+    fetch(`${API_BASE}/family/location`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ latitude: loc.lat, longitude: loc.lng }),
+    }).catch(() => {});
+  }, [token]);
+
+  const startLiveLocationTracking = useCallback(({
+    recenter = false,
+    showPermissionAlert = false,
+  } = {}) => {
+    if (!navigator.geolocation) {
+      if (showPermissionAlert) {
+        alert("Trình duyệt không hỗ trợ GPS.");
+      }
+      return;
+    }
+
+    setLocating(true);
+
+    if (locationWatchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(locationWatchIdRef.current);
+      locationWatchIdRef.current = null;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setMyLocation(loc);
+        if (recenter || !hasCenteredOnUserRef.current) {
+          setFlyTo(loc);
+          hasCenteredOnUserRef.current = true;
+        }
+        setLocating(false);
+        syncMyLocation(loc, true);
+
+        locationWatchIdRef.current = navigator.geolocation.watchPosition(
+          (watchPos) => {
+            const nextLoc = {
+              lat: watchPos.coords.latitude,
+              lng: watchPos.coords.longitude,
+            };
+            setMyLocation(nextLoc);
+            syncMyLocation(nextLoc);
+          },
+          (watchErr) => {
+            console.warn("[FloodMap] GPS watch error:", watchErr.message);
+          },
+          {
+            enableHighAccuracy: true,
+            maximumAge: 3000,
+            timeout: 10000,
+          }
+        );
+      },
+      (err) => {
+        setLocating(false);
+        if (!showPermissionAlert) return;
+
+        if (err.code === 1) {
+          alert("Bạn cần cho phép truy cập vị trí:\n\n" +
+            "1. Nhấn biểu tượng ổ khóa trên thanh địa chỉ\n" +
+            "2. Chọn 'Cài đặt trang web'\n" +
+            "3. Bật 'Vị trí' thành 'Cho phép'\n" +
+            "4. Tải lại trang");
+        } else {
+          alert("Không thể lấy vị trí. Vui lòng thử lại.");
+        }
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  }, [syncMyLocation]);
+
   // Change Windy overlay via postMessage
   const changeWindyOverlay = (overlay) => {
     setWindyOverlay(overlay);
@@ -370,42 +460,53 @@ export default function FloodMap() {
     };
   }, [token, pollSosRequests]);
 
-  // Manual locate button handler — starts tracking after first success
+  // Manual locate button handler — requests permission if needed and keeps tracking continuously
   const handleLocateMe = () => {
-    if (!navigator.geolocation) {
-      return alert("Trình duyệt không hỗ trợ GPS.");
-    }
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setMyLocation(loc);
-        setFlyTo(loc);
-        setLocating(false);
-        // Save to DB
-        if (token) {
-          fetch(`${API_BASE}/family/location`, {
-            method: "PUT",
-            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ latitude: loc.lat, longitude: loc.lng }),
-          }).catch(() => { });
-        }
-      },
-      (err) => {
-        setLocating(false);
-        if (err.code === 1) {
-          alert("Bạn cần cho phép truy cập vị trí:\n\n" +
-            "1. Nhấn biểu tượng ổ khóa trên thanh địa chỉ\n" +
-            "2. Chọn 'Cài đặt trang web'\n" +
-            "3. Bật 'Vị trí' thành 'Cho phép'\n" +
-            "4. Tải lại trang");
-        } else {
-          alert("Không thể lấy vị trí. Vui lòng thử lại.");
-        }
-      },
-      { enableHighAccuracy: true, timeout: 15000 }
-    );
+    startLiveLocationTracking({ recenter: true, showPermissionAlert: true });
   };
+
+  useEffect(() => {
+    if (!navigator.geolocation || !navigator.permissions?.query) return;
+
+    let permissionStatus;
+    let disposed = false;
+
+    navigator.permissions.query({ name: "geolocation" }).then((status) => {
+      if (disposed) return;
+      permissionStatus = status;
+
+      if (status.state === "granted") {
+        startLiveLocationTracking();
+      }
+
+      status.onchange = () => {
+        if (status.state === "granted") {
+          startLiveLocationTracking();
+        } else if (status.state === "denied" && locationWatchIdRef.current !== null) {
+          navigator.geolocation.clearWatch(locationWatchIdRef.current);
+          locationWatchIdRef.current = null;
+        }
+      };
+    }).catch(() => {
+      // Ignore unsupported permission queries.
+    });
+
+    return () => {
+      disposed = true;
+      if (permissionStatus) {
+        permissionStatus.onchange = null;
+      }
+    };
+  }, [startLiveLocationTracking]);
+
+  useEffect(() => {
+    return () => {
+      if (locationWatchIdRef.current !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(locationWatchIdRef.current);
+        locationWatchIdRef.current = null;
+      }
+    };
+  }, []);
 
   // Helper component to fly map to location
   function FlyToLocation({ position }) {

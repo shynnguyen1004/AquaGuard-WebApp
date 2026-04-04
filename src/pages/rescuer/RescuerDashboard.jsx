@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import RescueTrackingMap from "../../components/rescue/RescueTrackingMap";
+import { getStoredToken } from "../../utils/authStorage";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
@@ -30,6 +31,69 @@ const urgencyColors = {
   medium: "bg-primary/10 text-primary border-primary/20",
   low: "bg-safe/10 text-safe border-safe/20",
 };
+
+function AcceptModeModal({ request, activeGroup, processing, onClose, onConfirm }) {
+  if (!request) return null;
+
+  return (
+    <div className="fixed inset-0 z-[1000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-lg rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 space-y-5 shadow-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-xl font-black">Choose Assignment Mode</h3>
+            <p className="text-sm text-slate-500 mt-1">
+              Decide whether you want to receive this SOS as an individual rescuer or on behalf of your rescue group.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={processing}
+            className="size-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 hover:text-danger transition-colors"
+          >
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/40 p-4">
+          <p className="font-bold">{request.user_name || "Citizen"}</p>
+          <p className="text-sm text-slate-500 mt-1">{request.location || "Unknown location"}</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <button
+            onClick={() => onConfirm("individual")}
+            disabled={processing}
+            className="rounded-2xl border border-slate-200 dark:border-slate-700 p-5 text-left hover:border-primary hover:bg-primary/5 transition-all disabled:opacity-50"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <span className="material-symbols-outlined text-primary">person</span>
+              <p className="font-black">Individual</p>
+            </div>
+            <p className="text-sm text-slate-500">
+              The mission will be assigned directly to you as a single rescuer.
+            </p>
+          </button>
+
+          <button
+            onClick={() => onConfirm("group")}
+            disabled={processing || !activeGroup}
+            className="rounded-2xl border border-slate-200 dark:border-slate-700 p-5 text-left hover:border-warning hover:bg-warning/5 transition-all disabled:opacity-50"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <span className="material-symbols-outlined text-warning">groups</span>
+              <p className="font-black">Group</p>
+            </div>
+            <p className="text-sm text-slate-500">
+              {activeGroup
+                ? `Receive this mission under group "${activeGroup.name}".`
+                : "You need an active rescue group before you can accept a mission as a group."}
+            </p>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function formatTime(iso) {
   if (!iso) return "";
@@ -87,11 +151,21 @@ function SOSListItem({ request, selected, isNew, onClick }) {
       <p className="mt-1 text-xs text-slate-600 dark:text-slate-400 line-clamp-1">
         {request.description || "No description provided"}
       </p>
+      {request.assigned_group_name && (
+        <p className="mt-2 text-[11px] text-primary truncate">
+          Group: <span className="font-semibold">{request.assigned_group_name}</span>
+        </p>
+      )}
+      {request.status === "pending" && request.last_cancelled_by_name && (
+        <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-300 truncate">
+          Returned by: <span className="font-semibold">{request.last_cancelled_by_name}</span>
+        </p>
+      )}
     </button>
   );
 }
 
-function SOSDetailPanel({ request, isOwn, onAccept, onComplete, onViewTracking, onMarkSeen }) {
+function SOSDetailPanel({ request, isOwn, onAccept, onComplete, onCancel, onViewTracking, onMarkSeen }) {
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
@@ -138,10 +212,22 @@ function SOSDetailPanel({ request, isOwn, onAccept, onComplete, onViewTracking, 
           <span>{request.location || "Unknown location"}</span>
         </p>
         <p className="text-slate-600 dark:text-slate-300">{request.description || "No description provided"}</p>
+        {request.assigned_group_name && (
+          <p className="text-xs text-primary flex items-center gap-1 font-medium">
+            <span className="material-symbols-outlined text-[13px]">groups</span>
+            Group assignment: {request.assigned_group_name}
+          </p>
+        )}
         {request.latitude && request.longitude && (
           <p className="text-xs text-safe flex items-center gap-1 font-medium">
             <span className="material-symbols-outlined text-[13px]">my_location</span>
             GPS: {Number(request.latitude).toFixed(5)}, {Number(request.longitude).toFixed(5)}
+          </p>
+        )}
+        {request.status === "pending" && request.last_cancelled_by_name && (
+          <p className="text-xs text-amber-700 dark:text-amber-300 flex items-center gap-1 font-medium">
+            <span className="material-symbols-outlined text-[13px]">info</span>
+            Returned by {request.last_cancelled_by_name}
           </p>
         )}
       </div>
@@ -200,6 +286,16 @@ function SOSDetailPanel({ request, isOwn, onAccept, onComplete, onViewTracking, 
             Complete
           </button>
         )}
+        {isOwn && request.status === "in_progress" && onCancel && (
+          <button
+            onClick={() => handleAction(() => onCancel(request.id))}
+            disabled={processing}
+            className="inline-flex items-center gap-1.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-100 px-4 py-2 rounded-xl text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-600 transition-all disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined text-sm">undo</span>
+            Cancel Mission
+          </button>
+        )}
       </div>
     </div>
   );
@@ -210,12 +306,15 @@ export default function RescuerDashboard() {
   const [activeTab, setActiveTab] = useState("active");
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeGroup, setActiveGroup] = useState(null);
   const [trackingRequest, setTrackingRequest] = useState(null);
   const [selectedRequestId, setSelectedRequestId] = useState(null);
   const [seenRequestIds, setSeenRequestIds] = useState([]);
+  const [acceptModeRequest, setAcceptModeRequest] = useState(null);
+  const [acceptingWithMode, setAcceptingWithMode] = useState(false);
 
   const fetchRequests = async () => {
-    const token = localStorage.getItem("aquaguard_token");
+    const token = getStoredToken();
     if (!token) {
       setLoading(false);
       return;
@@ -236,8 +335,26 @@ export default function RescuerDashboard() {
     }
   };
 
+  const fetchGroupContext = async () => {
+    const token = getStoredToken();
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/auth/rescue-groups/my`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (json.success) {
+        setActiveGroup(json.data?.group || null);
+      }
+    } catch (err) {
+      console.error("Failed to fetch rescue group context:", err);
+    }
+  };
+
   useEffect(() => {
     fetchRequests();
+    fetchGroupContext();
   }, []);
 
   useEffect(() => {
@@ -271,8 +388,8 @@ export default function RescuerDashboard() {
     });
   };
 
-  const handleAccept = async (requestId) => {
-    const token = localStorage.getItem("aquaguard_token");
+  const performAccept = async (requestId, acceptMode = "individual") => {
+    const token = getStoredToken();
     let latitude = null;
     let longitude = null;
     if (navigator.geolocation) {
@@ -297,7 +414,7 @@ export default function RescuerDashboard() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ latitude, longitude }),
+        body: JSON.stringify({ latitude, longitude, acceptMode }),
       });
       const json = await res.json();
       if (json.success) {
@@ -309,14 +426,28 @@ export default function RescuerDashboard() {
         if (acceptedRequest.latitude && acceptedRequest.longitude) {
           setTrackingRequest(acceptedRequest);
         }
+      } else {
+        alert(json.message || "Failed to accept request");
       }
     } catch (err) {
       console.error("Failed to accept request:", err);
     }
   };
 
+  const handleAccept = (requestId) => {
+    const request = requests.find((item) => item.id === requestId);
+    if (!request) return;
+
+    if (!activeGroup) {
+      performAccept(requestId, "individual");
+      return;
+    }
+
+    setAcceptModeRequest(request);
+  };
+
   const handleComplete = async (requestId) => {
-    const token = localStorage.getItem("aquaguard_token");
+    const token = getStoredToken();
     try {
       const res = await fetch(`${API_BASE}/sos/${requestId}/complete`, {
         method: "PUT",
@@ -335,6 +466,40 @@ export default function RescuerDashboard() {
       }
     } catch (err) {
       console.error("Failed to complete request:", err);
+    }
+  };
+
+  const handleCancel = async (requestId) => {
+    const token = getStoredToken();
+    try {
+      const res = await fetch(`${API_BASE}/sos/${requestId}/cancel`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const json = await res.json();
+      if (json.success) {
+        setTrackingRequest(null);
+        fetchRequests();
+        window.dispatchEvent(
+          new CustomEvent("sos_changed", { detail: { type: "cancelled", requestId } })
+        );
+      }
+    } catch (err) {
+      console.error("Failed to cancel request:", err);
+    }
+  };
+
+  const handleConfirmAcceptMode = async (mode) => {
+    if (!acceptModeRequest) return;
+    setAcceptingWithMode(true);
+    try {
+      await performAccept(acceptModeRequest.id, mode);
+      setAcceptModeRequest(null);
+    } finally {
+      setAcceptingWithMode(false);
     }
   };
 
@@ -383,12 +548,17 @@ export default function RescuerDashboard() {
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <span className="material-symbols-outlined filled-icon text-warning text-2xl">local_fire_department</span>
-            <h1 className="text-2xl lg:text-3xl font-black tracking-tight">Rescuer Dashboard</h1>
+            <span className="material-symbols-outlined filled-icon text-warning text-2xl">assignment_ind</span>
+            <h1 className="text-2xl lg:text-3xl font-black tracking-tight">My Missions</h1>
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            View active SOS requests and manage your rescue missions
+            Manage requests assigned to you and track active rescue missions
           </p>
+          {activeGroup && (
+            <p className="text-xs text-primary mt-2 font-medium">
+              Active group: {activeGroup.name} • You can accept SOS as an individual or as a group.
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-3 gap-4">
@@ -486,6 +656,7 @@ export default function RescuerDashboard() {
               isOwn={selectedRequest?.assigned_to == rescuerUid}
               onAccept={activeTab === "active" || activeTab === "my-missions" ? handleAccept : undefined}
               onComplete={activeTab === "my-missions" ? handleComplete : undefined}
+              onCancel={activeTab === "my-missions" ? handleCancel : undefined}
               onViewTracking={activeTab === "my-missions" ? handleViewTracking : undefined}
               onMarkSeen={markAsSeen}
             />
@@ -497,6 +668,8 @@ export default function RescuerDashboard() {
         <RescueTrackingMap
           requestId={trackingRequest.id}
           userRole="rescuer"
+          trackingRole={trackingRequest?.assigned_to == rescuerUid ? "rescuer" : null}
+          shareLocation={trackingRequest?.assigned_to == rescuerUid}
           citizenName={trackingRequest.user_name}
           citizenPhone={trackingRequest.user_phone}
           rescuerName={trackingRequest.assigned_name}
@@ -515,6 +688,19 @@ export default function RescuerDashboard() {
             fetchRequests();
           }}
           onComplete={() => handleComplete(trackingRequest.id)}
+          onCancel={() => handleCancel(trackingRequest.id)}
+        />
+      )}
+
+      {acceptModeRequest && (
+        <AcceptModeModal
+          request={acceptModeRequest}
+          activeGroup={activeGroup}
+          processing={acceptingWithMode}
+          onClose={() => {
+            if (!acceptingWithMode) setAcceptModeRequest(null);
+          }}
+          onConfirm={handleConfirmAcceptMode}
         />
       )}
     </div>

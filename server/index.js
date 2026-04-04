@@ -4,6 +4,7 @@ const http = require("http");
 const { WebSocketServer } = require("ws");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
+const pool = require("./db");
 
 const authRoutes = require("./routes/auth");
 const sosRoutes = require("./routes/sos");
@@ -51,6 +52,54 @@ const wss = new WebSocketServer({ server });
 // Track connected clients: Map<requestId, Map<userId, ws>>
 const trackingRooms = new Map();
 
+async function persistTrackingLocation({ requestId, userId, role, latitude, longitude }) {
+  if (
+    !requestId ||
+    !userId ||
+    !role ||
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude)
+  ) {
+    return;
+  }
+
+  try {
+    await pool.query(
+      `UPDATE users
+       SET latitude = $1,
+           longitude = $2,
+           location_updated_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $3`,
+      [latitude, longitude, userId]
+    );
+
+    if (role === "citizen") {
+      await pool.query(
+        `UPDATE rescue_requests
+         SET latitude = $1,
+             longitude = $2,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $3
+           AND user_id = $4`,
+        [latitude, longitude, requestId, userId]
+      );
+    } else if (role === "rescuer") {
+      await pool.query(
+        `UPDATE rescue_requests
+         SET rescuer_latitude = $1,
+             rescuer_longitude = $2,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $3
+           AND assigned_to = $4`,
+        [latitude, longitude, requestId, userId]
+      );
+    }
+  } catch (err) {
+    console.warn("[WS] Failed to persist tracking location:", err.message);
+  }
+}
+
 wss.on("connection", (ws, req) => {
   // Parse token from query string: ws://host?token=xxx
   const url = new URL(req.url, `http://localhost:${PORT}`);
@@ -72,6 +121,8 @@ wss.on("connection", (ws, req) => {
   ws.userId = userData.id;
   ws.userRole = userData.role;
   ws.isAlive = true;
+  ws.lastPersistedLocation = null;
+  ws.lastPersistedAt = 0;
 
   ws.on("pong", () => { ws.isAlive = true; });
 
@@ -101,9 +152,11 @@ wss.on("connection", (ws, req) => {
 
       case "location_update": {
         // Broadcast location to other members of the same tracking room
-        const { latitude, longitude } = msg;
+        const latitude = Number(msg.latitude);
+        const longitude = Number(msg.longitude);
         const roomId = ws.trackingRequestId;
         if (!roomId || !trackingRooms.has(roomId)) return;
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
 
         const room = trackingRooms.get(roomId);
         const payload = JSON.stringify({
@@ -120,6 +173,25 @@ wss.on("connection", (ws, req) => {
             client.send(payload);
           }
         });
+
+        const now = Date.now();
+        const prev = ws.lastPersistedLocation;
+        const movedEnough = !prev
+          || Math.abs(prev.latitude - latitude) >= 0.00005
+          || Math.abs(prev.longitude - longitude) >= 0.00005;
+        const shouldPersist = movedEnough || now - ws.lastPersistedAt >= 5000;
+
+        if (shouldPersist) {
+          ws.lastPersistedLocation = { latitude, longitude };
+          ws.lastPersistedAt = now;
+          persistTrackingLocation({
+            requestId: roomId,
+            userId: ws.userId,
+            role: ws.userRole,
+            latitude,
+            longitude,
+          });
+        }
         break;
       }
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { getStoredToken } from "../utils/authStorage";
 
 const WS_BASE = import.meta.env.VITE_WS_URL || "ws://localhost:5001";
 
@@ -6,14 +7,26 @@ const WS_BASE = import.meta.env.VITE_WS_URL || "ws://localhost:5001";
  * Custom hook for WebSocket-based live rescue tracking.
  *
  * @param {number|null} requestId  — the rescue request ID to track
- * @param {boolean} active         — whether tracking should be active
- * @returns {{ myLocation, otherLocation, isConnected, routeCoords, routeInfo }}
+ * @param {{
+ *   active?: boolean,
+ *   participantRole?: "citizen" | "rescuer" | null,
+ *   shareLocation?: boolean,
+ * }} options
+ * @returns {{ citizenLocation, rescuerLocation, isConnected, trackingEnded, trackingEndReason }}
  */
-export default function useRescueTracking(requestId, active = false) {
-  const [myLocation, setMyLocation] = useState(null);
-  const [otherLocation, setOtherLocation] = useState(null);
+export default function useRescueTracking(
+  requestId,
+  {
+    active = false,
+    participantRole = null,
+    shareLocation = false,
+  } = {}
+) {
+  const [citizenLocation, setCitizenLocation] = useState(null);
+  const [rescuerLocation, setRescuerLocation] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [trackingEnded, setTrackingEnded] = useState(false);
+  const [trackingEndReason, setTrackingEndReason] = useState(null);
 
   const wsRef = useRef(null);
   const watchIdRef = useRef(null);
@@ -34,7 +47,7 @@ export default function useRescueTracking(requestId, active = false) {
   useEffect(() => {
     if (!active || !requestId) return;
 
-    const token = localStorage.getItem("aquaguard_token");
+    const token = getStoredToken();
     if (!token) return;
 
     let ws;
@@ -59,17 +72,42 @@ export default function useRescueTracking(requestId, active = false) {
           const msg = JSON.parse(event.data);
           switch (msg.type) {
             case "location_update":
-              setOtherLocation({
-                lat: msg.latitude,
-                lng: msg.longitude,
-                role: msg.role,
-                timestamp: msg.timestamp,
-              });
+              if (msg.role === "citizen") {
+                setCitizenLocation({
+                  lat: msg.latitude,
+                  lng: msg.longitude,
+                  timestamp: msg.timestamp,
+                });
+              } else if (msg.role === "rescuer") {
+                setRescuerLocation({
+                  lat: msg.latitude,
+                  lng: msg.longitude,
+                  timestamp: msg.timestamp,
+                });
+              }
               break;
             case "tracking_started":
-              // Could update UI to show tracking has begun
+              if (msg.citizenLatitude != null && msg.citizenLongitude != null) {
+                setCitizenLocation({
+                  lat: msg.citizenLatitude,
+                  lng: msg.citizenLongitude,
+                  timestamp: Date.now(),
+                });
+              }
+              if (msg.rescuerLatitude != null && msg.rescuerLongitude != null) {
+                setRescuerLocation({
+                  lat: msg.rescuerLatitude,
+                  lng: msg.rescuerLongitude,
+                  timestamp: Date.now(),
+                });
+              }
               break;
             case "tracking_ended":
+              setTrackingEndReason("completed");
+              setTrackingEnded(true);
+              break;
+            case "tracking_cancelled":
+              setTrackingEndReason("cancelled");
               setTrackingEnded(true);
               break;
             default:
@@ -111,7 +149,7 @@ export default function useRescueTracking(requestId, active = false) {
 
   // Start GPS tracking (watchPosition)
   useEffect(() => {
-    if (!active || !requestId) return;
+    if (!active || !requestId || !shareLocation || !participantRole) return;
 
     if (!navigator.geolocation) {
       console.warn("Geolocation not supported");
@@ -124,7 +162,11 @@ export default function useRescueTracking(requestId, active = false) {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         };
-        setMyLocation(loc);
+        if (participantRole === "citizen") {
+          setCitizenLocation(loc);
+        } else if (participantRole === "rescuer") {
+          setRescuerLocation(loc);
+        }
         sendLocation(loc.lat, loc.lng);
       },
       (err) => {
@@ -133,7 +175,11 @@ export default function useRescueTracking(requestId, active = false) {
         navigator.geolocation.getCurrentPosition(
           (pos) => {
             const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-            setMyLocation(loc);
+            if (participantRole === "citizen") {
+              setCitizenLocation(loc);
+            } else if (participantRole === "rescuer") {
+              setRescuerLocation(loc);
+            }
             sendLocation(loc.lat, loc.lng);
           },
           () => {}
@@ -154,7 +200,7 @@ export default function useRescueTracking(requestId, active = false) {
         watchIdRef.current = null;
       }
     };
-  }, [active, requestId, sendLocation]);
+  }, [active, requestId, participantRole, sendLocation, shareLocation]);
 
   // Cleanup on trackingEnded
   useEffect(() => {
@@ -171,9 +217,10 @@ export default function useRescueTracking(requestId, active = false) {
   }, [trackingEnded]);
 
   return {
-    myLocation,
-    otherLocation,
+    citizenLocation,
+    rescuerLocation,
     isConnected,
     trackingEnded,
+    trackingEndReason,
   };
 }

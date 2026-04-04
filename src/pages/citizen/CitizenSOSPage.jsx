@@ -3,6 +3,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
 import RescueRequestForm from "../../components/rescue/RescueRequestForm";
 import RescueTrackingMap from "../../components/rescue/RescueTrackingMap";
+import { getStoredToken } from "../../utils/authStorage";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
@@ -31,7 +32,7 @@ export default function CitizenSOSPage() {
 
   // Fetch current user's requests from API
   const fetchMyRequests = async () => {
-    const token = localStorage.getItem("aquaguard_token");
+    const token = getStoredToken();
     if (!token) {
       setLoading(false);
       return;
@@ -64,7 +65,7 @@ export default function CitizenSOSPage() {
 
   // Submit new SOS request to API (now with GPS)
   const handleNewRequest = async (formData) => {
-    const token = localStorage.getItem("aquaguard_token");
+    const token = getStoredToken();
     if (!token) return;
     setSubmitting(true);
     try {
@@ -199,6 +200,15 @@ export default function CitizenSOSPage() {
                       {req.description}
                     </p>
 
+                    {req.status === "pending" && req.last_cancelled_by_name && (
+                      <div className="ml-6 mb-3 inline-flex max-w-full items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300">
+                        <span className="material-symbols-outlined text-sm">info</span>
+                        <span>
+                          {t("sosPage.releasedBy")} <span className="font-bold">{req.last_cancelled_by_name}</span>
+                        </span>
+                      </div>
+                    )}
+
                     {/* Images */}
                     {req.images && req.images.length > 0 && (
                       <div className="flex gap-2 ml-6 mb-3 overflow-x-auto">
@@ -222,6 +232,12 @@ export default function CitizenSOSPage() {
                           <span className="text-xs text-slate-400 flex items-center gap-1">
                             <span className="material-symbols-outlined text-xs">person</span>
                             {t("sosPage.assignedTo")} {req.assigned_name}
+                          </span>
+                        )}
+                        {req.assigned_group_name && (
+                          <span className="text-xs text-primary flex items-center gap-1">
+                            <span className="material-symbols-outlined text-xs">groups</span>
+                            {t("sosPage.groupAssigned")} {req.assigned_group_name}
                           </span>
                         )}
                       </div>
@@ -261,6 +277,8 @@ export default function CitizenSOSPage() {
         <RescueTrackingMap
           requestId={trackingRequest.id}
           userRole="citizen"
+          trackingRole="citizen"
+          shareLocation={true}
           citizenName={trackingRequest.user_name}
           citizenPhone={trackingRequest.user_phone}
           rescuerName={trackingRequest.assigned_name}

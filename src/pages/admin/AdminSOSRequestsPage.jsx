@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import RescueTrackingMap from "../../components/rescue/RescueTrackingMap";
+import { getStoredToken } from "../../utils/authStorage";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
@@ -78,6 +79,16 @@ function QueueItem({ request, selected, isNew, onSelect }) {
           {request.assigned_name || "Unassigned"}
         </span>
       </p>
+      {request.assigned_group_name && (
+        <p className="mt-1 text-[11px] text-primary truncate">
+          Group: <span className="font-semibold">{request.assigned_group_name}</span>
+        </p>
+      )}
+      {request.status === "pending" && request.last_cancelled_by_name && (
+        <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-300 truncate">
+          Returned by: <span className="font-semibold">{request.last_cancelled_by_name}</span>
+        </p>
+      )}
     </button>
   );
 }
@@ -136,11 +147,25 @@ function RequestDetail({
             Assigned to: <span className="font-semibold">{request.assigned_name || "Unassigned"}</span>
           </span>
         </p>
+        {request.assigned_group_name && (
+          <p className="flex items-start gap-1.5">
+            <span className="material-symbols-outlined text-base text-primary">groups</span>
+            <span>
+              Group: <span className="font-semibold">{request.assigned_group_name}</span>
+            </span>
+          </p>
+        )}
         <p className="text-slate-600 dark:text-slate-300">{request.description || "No description provided"}</p>
         {request.latitude && request.longitude && (
           <p className="text-xs text-safe flex items-center gap-1 font-medium">
             <span className="material-symbols-outlined text-[13px]">my_location</span>
             GPS: {Number(request.latitude).toFixed(5)}, {Number(request.longitude).toFixed(5)}
+          </p>
+        )}
+        {request.status === "pending" && request.last_cancelled_by_name && (
+          <p className="text-xs text-amber-700 dark:text-amber-300 flex items-center gap-1 font-medium">
+            <span className="material-symbols-outlined text-[13px]">info</span>
+            Returned by {request.last_cancelled_by_name}
           </p>
         )}
       </div>
@@ -227,7 +252,7 @@ export default function AdminSOSRequestsPage() {
   const [completingRequestId, setCompletingRequestId] = useState(null);
 
   const fetchRequests = async () => {
-    const token = localStorage.getItem("aquaguard_token");
+    const token = getStoredToken();
     if (!token) {
       setLoading(false);
       return;
@@ -246,7 +271,7 @@ export default function AdminSOSRequestsPage() {
   };
 
   const fetchRescuers = async () => {
-    const token = localStorage.getItem("aquaguard_token");
+    const token = getStoredToken();
     if (!token) return;
     try {
       const res = await fetch(`${API_BASE}/auth/users`, {
@@ -293,7 +318,7 @@ export default function AdminSOSRequestsPage() {
   };
 
   const handleAssign = async (requestId) => {
-    const token = localStorage.getItem("aquaguard_token");
+    const token = getStoredToken();
     const rescuerId = selectedRescuerByRequest[requestId];
     if (!token || !rescuerId) return;
 
@@ -322,7 +347,7 @@ export default function AdminSOSRequestsPage() {
   };
 
   const handleComplete = async (requestId) => {
-    const token = localStorage.getItem("aquaguard_token");
+    const token = getStoredToken();
     if (!token) return;
 
     setCompletingRequestId(requestId);
@@ -511,6 +536,8 @@ export default function AdminSOSRequestsPage() {
         <RescueTrackingMap
           requestId={trackingRequest.id}
           userRole="rescuer"
+          trackingRole={null}
+          shareLocation={false}
           citizenName={trackingRequest.user_name}
           citizenPhone={trackingRequest.user_phone}
           rescuerName={trackingRequest.assigned_name}
@@ -528,7 +555,6 @@ export default function AdminSOSRequestsPage() {
             setTrackingRequest(null);
             fetchRequests();
           }}
-          onComplete={() => handleComplete(trackingRequest.id)}
         />
       )}
     </div>

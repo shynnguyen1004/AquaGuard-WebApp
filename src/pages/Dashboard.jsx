@@ -14,6 +14,7 @@ import AboutUsPage from "./AboutUsPage";
 import AdminDashboard from "./admin/AdminDashboard";
 import AdminSOSRequestsPage from "./admin/AdminSOSRequestsPage";
 import RescuerDashboard from "./rescuer/RescuerDashboard";
+import RescuerTeamPage from "./rescuer/RescuerTeamPage";
 import CitizenSOSPage from "./citizen/CitizenSOSPage";
 import ChatBot from "../components/chat/ChatBot";
 import RoleSelectionModal from "../components/auth/RoleSelectionModal";
@@ -28,7 +29,7 @@ export default function Dashboard() {
   const { user, role, needsRoleSelection, selectRole } = useAuth();
 
   const getDefaultPageByRole = (currentRole) => {
-    if (currentRole === "rescuer") return "rescuer-dashboard";
+    if (currentRole === "rescuer") return "rescuer-missions";
     if (currentRole === "admin") return "admin";
     return "dashboard";
   };
@@ -129,10 +130,16 @@ export default function Dashboard() {
         );
 
       // ── Rescuer pages ──
-      case "rescuer-dashboard":
+      case "rescuer-missions":
         return (
           <main className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900/50 relative overflow-hidden">
             <RescuerDashboard />
+          </main>
+        );
+      case "rescuer-team":
+        return (
+          <main className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900/50 relative overflow-hidden">
+            <RescuerTeamPage />
           </main>
         );
 
@@ -187,4 +194,3 @@ export default function Dashboard() {
     </div>
   );
 }
-

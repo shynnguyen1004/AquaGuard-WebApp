@@ -3,6 +3,7 @@ import { ROLES, getRoleLabel, getRoleBadgeClasses } from "../../config/rbac";
 import { useAuth } from "../../contexts/AuthContext";
 import AdminFloodMapEditor from "../../components/map/AdminFloodMapEditor";
 import SystemAnalytics from "./SystemAnalytics";
+import { getStoredToken } from "../../utils/authStorage";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
@@ -159,7 +160,7 @@ export default function AdminDashboard({ activePage = "admin" }) {
 
   // Fetch all users from PostgreSQL backend
   const fetchUsers = async () => {
-    const token = localStorage.getItem("aquaguard_token");
+    const token = getStoredToken();
     if (!token) {
       setLoadingUsers(false);
       return;
@@ -182,7 +183,7 @@ export default function AdminDashboard({ activePage = "admin" }) {
 
   // Fetch rescue requests from API
   const fetchRequests = async () => {
-    const token = localStorage.getItem("aquaguard_token");
+    const token = getStoredToken();
     if (!token) return;
     try {
       const res = await fetch(`${API_BASE}/sos/all`, {
@@ -203,7 +204,7 @@ export default function AdminDashboard({ activePage = "admin" }) {
   }, []);
 
   const handleRoleChange = async (userId, newRole) => {
-    const token = localStorage.getItem("aquaguard_token");
+    const token = getStoredToken();
     if (!token) return;
     try {
       const res = await fetch(`${API_BASE}/auth/users/${userId}/role`, {
@@ -225,7 +226,7 @@ export default function AdminDashboard({ activePage = "admin" }) {
   };
 
   const handleAssignRequest = async (requestId) => {
-    const token = localStorage.getItem("aquaguard_token");
+    const token = getStoredToken();
     const rescuerId = selectedRescuerByRequest[requestId];
     if (!token || !rescuerId) return;
 
@@ -254,7 +255,7 @@ export default function AdminDashboard({ activePage = "admin" }) {
   };
 
   const handleCompleteRequest = async (requestId) => {
-    const token = localStorage.getItem("aquaguard_token");
+    const token = getStoredToken();
     if (!token) return;
 
     setCompletingRequestId(requestId);

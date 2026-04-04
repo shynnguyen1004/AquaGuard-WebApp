@@ -34,7 +34,7 @@ const urgencyConfig = {
   low: { label: "Low", bg: "bg-slate-100 dark:bg-slate-700", text: "text-slate-500" },
 };
 
-export default function RescueRequestCard({ request, onAccept, onComplete, onViewTracking }) {
+export default function RescueRequestCard({ request, onAccept, onComplete, onViewTracking, onCancel }) {
   const [processing, setProcessing] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(null); // null = closed
   const status = statusConfig[request.status] || statusConfig.pending;
@@ -99,6 +99,15 @@ export default function RescueRequestCard({ request, onAccept, onComplete, onVie
         <div className="flex items-center gap-1.5 text-[10px] text-safe font-medium mb-3 ml-6">
           <span className="material-symbols-outlined text-[12px]">my_location</span>
           GPS: {Number(request.latitude).toFixed(4)}, {Number(request.longitude).toFixed(4)}
+        </div>
+      )}
+
+      {request.status === "pending" && request.last_cancelled_by_name && (
+        <div className="flex items-start gap-2 text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl px-3 py-2 mb-3">
+          <span className="material-symbols-outlined text-sm mt-0.5">info</span>
+          <span>
+            Returned to queue by <span className="font-bold">{request.last_cancelled_by_name}</span>
+          </span>
         </div>
       )}
 
@@ -169,6 +178,16 @@ export default function RescueRequestCard({ request, onAccept, onComplete, onVie
             >
               <span className="material-symbols-outlined text-sm">done_all</span>
               Complete
+            </button>
+          )}
+          {request.status === "in_progress" && onCancel && (
+            <button
+              onClick={() => handleAction(() => onCancel(request.id))}
+              disabled={processing}
+              className="inline-flex items-center gap-1.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-100 px-4 py-2 rounded-xl text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-600 transition-all disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-sm">undo</span>
+              Cancel
             </button>
           )}
         </div>

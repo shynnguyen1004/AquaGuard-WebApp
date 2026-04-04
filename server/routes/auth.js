@@ -42,6 +42,160 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+function requireRoles(roles) {
+  return (req, res, next) => {
+    if (!roles.includes(req.user?.role)) {
+      return res.status(403).json({ success: false, message: "You do not have permission to perform this action." });
+    }
+
+    next();
+  };
+}
+
+async function findActiveGroupMembership(userId) {
+  const result = await pool.query(
+    `SELECT
+        g.id,
+        g.name,
+        g.description,
+        g.created_by,
+        g.leader_id,
+        g.status,
+        g.created_at,
+        g.updated_at,
+        m.member_role,
+        m.joined_at
+     FROM rescue_group_members m
+     INNER JOIN rescue_groups g ON g.id = m.group_id
+     WHERE m.user_id = $1
+       AND m.join_status = 'active'
+       AND g.status = 'active'
+     ORDER BY m.joined_at DESC
+     LIMIT 1`,
+    [userId]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function buildMyRescueGroupPayload(userId) {
+  const activeGroup = await findActiveGroupMembership(userId);
+
+  let group = null;
+  if (activeGroup) {
+    const [membersRes, invitesRes] = await Promise.all([
+      pool.query(
+        `SELECT
+            m.id,
+            m.member_role,
+            m.join_status,
+            m.joined_at,
+            u.id AS user_id,
+            u.phone_number,
+            u.display_name,
+            u.avatar_url,
+            u.is_active
+         FROM rescue_group_members m
+         INNER JOIN users u ON u.id = m.user_id
+         WHERE m.group_id = $1
+           AND m.join_status = 'active'
+         ORDER BY
+           CASE m.member_role WHEN 'leader' THEN 0 WHEN 'co_leader' THEN 1 ELSE 2 END,
+           u.display_name ASC`,
+        [activeGroup.id]
+      ),
+      pool.query(
+        `SELECT
+            i.id,
+            i.invited_phone_number,
+            i.status,
+            i.created_at,
+            u.id AS user_id,
+            u.display_name,
+            u.avatar_url
+         FROM rescue_group_invites i
+         LEFT JOIN users u ON u.id = i.invited_user_id
+         WHERE i.group_id = $1
+           AND i.status = 'pending'
+         ORDER BY i.created_at DESC`,
+        [activeGroup.id]
+      ),
+    ]);
+
+    group = {
+      id: activeGroup.id,
+      name: activeGroup.name,
+      description: activeGroup.description || "",
+      createdBy: activeGroup.created_by,
+      leaderId: activeGroup.leader_id,
+      memberRole: activeGroup.member_role,
+      joinedAt: activeGroup.joined_at,
+      status: activeGroup.status,
+      createdAt: activeGroup.created_at,
+      updatedAt: activeGroup.updated_at,
+      members: membersRes.rows.map((row) => ({
+        id: row.user_id,
+        displayName: row.display_name,
+        phoneNumber: row.phone_number,
+        avatarUrl: row.avatar_url || "",
+        isActive: row.is_active,
+        memberRole: row.member_role,
+        joinStatus: row.join_status,
+        joinedAt: row.joined_at,
+      })),
+      pendingInvites: invitesRes.rows.map((row) => ({
+        id: row.id,
+        phoneNumber: row.invited_phone_number,
+        status: row.status,
+        createdAt: row.created_at,
+        userId: row.user_id,
+        displayName: row.display_name || "",
+        avatarUrl: row.avatar_url || "",
+      })),
+    };
+  }
+
+  const receivedInvitesRes = await pool.query(
+    `SELECT
+        i.id,
+        i.status,
+        i.created_at,
+        g.id AS group_id,
+        g.name AS group_name,
+        g.description AS group_description,
+        inviter.id AS inviter_id,
+        inviter.display_name AS inviter_name,
+        inviter.phone_number AS inviter_phone
+     FROM rescue_group_invites i
+     INNER JOIN rescue_groups g ON g.id = i.group_id
+     INNER JOIN users inviter ON inviter.id = i.invited_by
+     WHERE i.invited_user_id = $1
+       AND i.status = 'pending'
+       AND g.status = 'active'
+     ORDER BY i.created_at DESC`,
+    [userId]
+  );
+
+  return {
+    group,
+    pendingInvites: receivedInvitesRes.rows.map((row) => ({
+      id: row.id,
+      status: row.status,
+      createdAt: row.created_at,
+      group: {
+        id: row.group_id,
+        name: row.group_name,
+        description: row.group_description || "",
+      },
+      inviter: {
+        id: row.inviter_id,
+        displayName: row.inviter_name,
+        phoneNumber: row.inviter_phone,
+      },
+    })),
+  };
+}
+
 /**
  * POST /api/auth/register
  * Body: { phone_number, password, display_name?, role? }
@@ -256,6 +410,335 @@ router.get("/users", authMiddleware, requireAdmin, async (req, res) => {
     return res.json({ success: true, data: users });
   } catch (err) {
     console.error("Fetch users error:", err);
+    return res.status(500).json({ success: false, message: "Server error." });
+  }
+});
+
+/**
+ * GET /api/auth/rescuers
+ * List rescue team members for admin and rescuer roles
+ */
+router.get("/rescuers", authMiddleware, requireRoles(["admin", "rescuer"]), async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, phone_number, display_name, role, avatar_url, is_active, created_at, updated_at
+       FROM users
+       WHERE role = 'rescuer'
+       ORDER BY is_active DESC, display_name ASC, created_at DESC`
+    );
+
+    const rescuers = result.rows.map((u) => ({
+      id: u.id,
+      uid: `phone_${u.id}`,
+      phoneNumber: u.phone_number,
+      displayName: u.display_name,
+      role: u.role,
+      avatarUrl: u.avatar_url || "",
+      isActive: u.is_active,
+      createdAt: u.created_at,
+      updatedAt: u.updated_at,
+    }));
+
+    return res.json({ success: true, data: rescuers });
+  } catch (err) {
+    console.error("Fetch rescuers error:", err);
+    return res.status(500).json({ success: false, message: "Server error." });
+  }
+});
+
+/**
+ * GET /api/auth/rescue-groups/my
+ * Get the current rescuer's active group and pending invites
+ */
+router.get("/rescue-groups/my", authMiddleware, requireRoles(["rescuer", "admin"]), async (req, res) => {
+  try {
+    const data = await buildMyRescueGroupPayload(req.user.id);
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error("Fetch my rescue group error:", err);
+    return res.status(500).json({ success: false, message: "Server error." });
+  }
+});
+
+/**
+ * POST /api/auth/rescue-groups
+ * Create a new rescue group. One active group per rescuer.
+ */
+router.post("/rescue-groups", authMiddleware, requireRoles(["rescuer"]), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { name, description } = req.body;
+
+    if (!name?.trim()) {
+      return res.status(400).json({ success: false, message: "Group name is required." });
+    }
+
+    const existingMembership = await client.query(
+      `SELECT 1
+       FROM rescue_group_members m
+       INNER JOIN rescue_groups g ON g.id = m.group_id
+       WHERE m.user_id = $1
+         AND m.join_status = 'active'
+         AND g.status = 'active'
+       LIMIT 1`,
+      [req.user.id]
+    );
+
+    if (existingMembership.rows.length > 0) {
+      return res.status(409).json({ success: false, message: "You are already in an active rescue group." });
+    }
+
+    await client.query("BEGIN");
+
+    const groupRes = await client.query(
+      `INSERT INTO rescue_groups (name, description, created_by, leader_id)
+       VALUES ($1, $2, $3, $3)
+       RETURNING *`,
+      [name.trim(), description?.trim() || "", req.user.id]
+    );
+
+    const group = groupRes.rows[0];
+
+    await client.query(
+      `INSERT INTO rescue_group_members (group_id, user_id, member_role, join_status)
+       VALUES ($1, $2, 'leader', 'active')`,
+      [group.id, req.user.id]
+    );
+
+    await client.query("COMMIT");
+
+    const data = await buildMyRescueGroupPayload(req.user.id);
+    return res.status(201).json({ success: true, data });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Create rescue group error:", err);
+    return res.status(500).json({ success: false, message: "Server error." });
+  } finally {
+    client.release();
+  }
+});
+
+/**
+ * POST /api/auth/rescue-groups/:id/invite
+ * Leader/co-leader invites a rescuer by phone number
+ */
+router.post("/rescue-groups/:id/invite", authMiddleware, requireRoles(["rescuer"]), async (req, res) => {
+  try {
+    const groupId = Number(req.params.id);
+    const { phone_number } = req.body;
+
+    if (!groupId) {
+      return res.status(400).json({ success: false, message: "Invalid group." });
+    }
+
+    if (!phone_number) {
+      return res.status(400).json({ success: false, message: "Phone number is required." });
+    }
+
+    const phoneRegex = /^\+84\d{9,10}$/;
+    if (!phoneRegex.test(phone_number)) {
+      return res.status(400).json({ success: false, message: "Invalid phone number format." });
+    }
+
+    const permissionRes = await pool.query(
+      `SELECT member_role
+       FROM rescue_group_members
+       WHERE group_id = $1
+         AND user_id = $2
+         AND join_status = 'active'
+       LIMIT 1`,
+      [groupId, req.user.id]
+    );
+
+    const memberRole = permissionRes.rows[0]?.member_role;
+    if (!memberRole || !["leader", "co_leader"].includes(memberRole)) {
+      return res.status(403).json({ success: false, message: "Only a group leader can invite members." });
+    }
+
+    const groupRes = await pool.query(
+      "SELECT id, status FROM rescue_groups WHERE id = $1 LIMIT 1",
+      [groupId]
+    );
+
+    if (groupRes.rows.length === 0 || groupRes.rows[0].status !== "active") {
+      return res.status(404).json({ success: false, message: "Rescue group not found." });
+    }
+
+    const userRes = await pool.query(
+      `SELECT id, role, phone_number, display_name
+       FROM users
+       WHERE phone_number = $1
+       LIMIT 1`,
+      [phone_number]
+    );
+
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "No rescuer account found with this phone number." });
+    }
+
+    const invitedUser = userRes.rows[0];
+    if (invitedUser.role !== "rescuer") {
+      return res.status(400).json({ success: false, message: "This phone number does not belong to a rescuer account." });
+    }
+
+    if (invitedUser.id === req.user.id) {
+      return res.status(400).json({ success: false, message: "You cannot invite yourself." });
+    }
+
+    const activeMembershipRes = await pool.query(
+      `SELECT group_id
+       FROM rescue_group_members
+       WHERE user_id = $1
+         AND join_status = 'active'
+       LIMIT 1`,
+      [invitedUser.id]
+    );
+
+    if (activeMembershipRes.rows.length > 0) {
+      return res.status(409).json({ success: false, message: "This rescuer is already in an active group." });
+    }
+
+    const existingInviteRes = await pool.query(
+      `SELECT id
+       FROM rescue_group_invites
+       WHERE group_id = $1
+         AND invited_user_id = $2
+         AND status = 'pending'
+       LIMIT 1`,
+      [groupId, invitedUser.id]
+    );
+
+    if (existingInviteRes.rows.length > 0) {
+      return res.status(409).json({ success: false, message: "A pending invite already exists for this rescuer." });
+    }
+
+    await pool.query(
+      `INSERT INTO rescue_group_invites (group_id, invited_user_id, invited_phone_number, invited_by, status)
+       VALUES ($1, $2, $3, $4, 'pending')`,
+      [groupId, invitedUser.id, invitedUser.phone_number, req.user.id]
+    );
+
+    const data = await buildMyRescueGroupPayload(req.user.id);
+    return res.status(201).json({ success: true, data });
+  } catch (err) {
+    console.error("Invite rescue group member error:", err);
+    return res.status(500).json({ success: false, message: "Server error." });
+  }
+});
+
+/**
+ * POST /api/auth/rescue-group-invites/:id/accept
+ * Accept a rescue group invite
+ */
+router.post("/rescue-group-invites/:id/accept", authMiddleware, requireRoles(["rescuer"]), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const inviteId = Number(req.params.id);
+    if (!inviteId) {
+      return res.status(400).json({ success: false, message: "Invalid invite." });
+    }
+
+    await client.query("BEGIN");
+
+    const inviteRes = await client.query(
+      `SELECT i.*, g.status AS group_status
+       FROM rescue_group_invites i
+       INNER JOIN rescue_groups g ON g.id = i.group_id
+       WHERE i.id = $1
+         AND i.invited_user_id = $2
+         AND i.status = 'pending'
+       LIMIT 1`,
+      [inviteId, req.user.id]
+    );
+
+    const invite = inviteRes.rows[0];
+    if (!invite || invite.group_status !== "active") {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ success: false, message: "Invite not found or no longer active." });
+    }
+
+    const existingMembershipRes = await client.query(
+      `SELECT 1
+       FROM rescue_group_members m
+       INNER JOIN rescue_groups g ON g.id = m.group_id
+       WHERE m.user_id = $1
+         AND m.join_status = 'active'
+         AND g.status = 'active'
+       LIMIT 1`,
+      [req.user.id]
+    );
+
+    if (existingMembershipRes.rows.length > 0) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ success: false, message: "You are already in an active group." });
+    }
+
+    await client.query(
+      `UPDATE rescue_group_invites
+       SET status = 'accepted', responded_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [inviteId]
+    );
+
+    await client.query(
+      `INSERT INTO rescue_group_members (group_id, user_id, member_role, join_status)
+       VALUES ($1, $2, 'member', 'active')
+       ON CONFLICT (group_id, user_id)
+       DO UPDATE SET member_role = 'member', join_status = 'active', joined_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP`,
+      [invite.group_id, req.user.id]
+    );
+
+    await client.query(
+      `UPDATE rescue_group_invites
+       SET status = 'cancelled', responded_at = CURRENT_TIMESTAMP
+       WHERE invited_user_id = $1
+         AND id <> $2
+         AND status = 'pending'`,
+      [req.user.id, inviteId]
+    );
+
+    await client.query("COMMIT");
+
+    const data = await buildMyRescueGroupPayload(req.user.id);
+    return res.json({ success: true, data });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Accept rescue group invite error:", err);
+    return res.status(500).json({ success: false, message: "Server error." });
+  } finally {
+    client.release();
+  }
+});
+
+/**
+ * POST /api/auth/rescue-group-invites/:id/decline
+ * Decline a rescue group invite
+ */
+router.post("/rescue-group-invites/:id/decline", authMiddleware, requireRoles(["rescuer"]), async (req, res) => {
+  try {
+    const inviteId = Number(req.params.id);
+    if (!inviteId) {
+      return res.status(400).json({ success: false, message: "Invalid invite." });
+    }
+
+    const result = await pool.query(
+      `UPDATE rescue_group_invites
+       SET status = 'declined', responded_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+         AND invited_user_id = $2
+         AND status = 'pending'
+       RETURNING id`,
+      [inviteId, req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Invite not found or already handled." });
+    }
+
+    const data = await buildMyRescueGroupPayload(req.user.id);
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error("Decline rescue group invite error:", err);
     return res.status(500).json({ success: false, message: "Server error." });
   }
 });

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import RescueTrackingMap from "../components/rescue/RescueTrackingMap";
 import { useAuth } from "../contexts/AuthContext";
+import { getStoredToken } from "../utils/authStorage";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
@@ -24,6 +25,68 @@ const urgencyColors = {
   medium: "bg-primary/10 text-primary border-primary/20",
   low: "bg-safe/10 text-safe border-safe/20",
 };
+
+function AcceptModeModal({ request, activeGroup, processing, onClose, onConfirm }) {
+  if (!request) return null;
+
+  return (
+    <div className="fixed inset-0 z-[1000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-lg rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 space-y-5 shadow-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-xl font-black">Choose Assignment Mode</h3>
+            <p className="text-sm text-slate-500 mt-1">
+              Receive this SOS as an individual rescuer or on behalf of your rescue group.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={processing}
+            className="size-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 hover:text-danger transition-colors"
+          >
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/40 p-4">
+          <p className="font-bold">{request.user_name || "Citizen"}</p>
+          <p className="text-sm text-slate-500 mt-1">{request.location || "Unknown location"}</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <button
+            onClick={() => onConfirm("individual")}
+            disabled={processing}
+            className="rounded-2xl border border-slate-200 dark:border-slate-700 p-5 text-left hover:border-primary hover:bg-primary/5 transition-all disabled:opacity-50"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <span className="material-symbols-outlined text-primary">person</span>
+              <p className="font-black">Individual</p>
+            </div>
+            <p className="text-sm text-slate-500">
+              Assign this mission directly to yourself.
+            </p>
+          </button>
+          <button
+            onClick={() => onConfirm("group")}
+            disabled={processing || !activeGroup}
+            className="rounded-2xl border border-slate-200 dark:border-slate-700 p-5 text-left hover:border-warning hover:bg-warning/5 transition-all disabled:opacity-50"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <span className="material-symbols-outlined text-warning">groups</span>
+              <p className="font-black">Group</p>
+            </div>
+            <p className="text-sm text-slate-500">
+              {activeGroup
+                ? `Assign this mission under group "${activeGroup.name}".`
+                : "You need an active rescue group before using group mode."}
+            </p>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function formatTimeAgo(iso) {
   if (!iso) return "";
@@ -76,6 +139,16 @@ function QueueItem({ request, selected, isNew, onSelect, onAccept }) {
       <p className="mt-1 text-[11px] text-slate-500 truncate">
         Assigned to: <span className="font-semibold text-slate-600 dark:text-slate-300">{request.assigned_name || "Unassigned"}</span>
       </p>
+      {request.assigned_group_name && (
+        <p className="mt-1 text-[11px] text-primary truncate">
+          Group: <span className="font-semibold">{request.assigned_group_name}</span>
+        </p>
+      )}
+      {request.status === "pending" && request.last_cancelled_by_name && (
+        <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-300 truncate">
+          Returned by: <span className="font-semibold">{request.last_cancelled_by_name}</span>
+        </p>
+      )}
 
       {request.status === "pending" && onAccept && (
         <div className="mt-2 flex justify-end">
@@ -96,7 +169,7 @@ function QueueItem({ request, selected, isNew, onSelect, onAccept }) {
   );
 }
 
-function RequestDetail({ request, canAccept, canComplete, canTrack, onAccept, onComplete, onViewTracking, onMarkSeen }) {
+function RequestDetail({ request, canAccept, canComplete, canCancel, canTrack, onAccept, onComplete, onCancel, onViewTracking, onMarkSeen }) {
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
@@ -148,11 +221,23 @@ function RequestDetail({ request, canAccept, canComplete, canTrack, onAccept, on
           <span className="material-symbols-outlined text-base text-primary">local_fire_department</span>
           <span>Assigned to: <span className="font-semibold">{request.assigned_name || "Unassigned"}</span></span>
         </p>
+        {request.assigned_group_name && (
+          <p className="flex items-start gap-1.5">
+            <span className="material-symbols-outlined text-base text-primary">groups</span>
+            <span>Group: <span className="font-semibold">{request.assigned_group_name}</span></span>
+          </p>
+        )}
         <p className="text-slate-600 dark:text-slate-300">{request.description || "No description provided"}</p>
         {request.latitude && request.longitude && (
           <p className="text-xs text-safe flex items-center gap-1 font-medium">
             <span className="material-symbols-outlined text-[13px]">my_location</span>
             GPS: {Number(request.latitude).toFixed(5)}, {Number(request.longitude).toFixed(5)}
+          </p>
+        )}
+        {request.status === "pending" && request.last_cancelled_by_name && (
+          <p className="text-xs text-amber-700 dark:text-amber-300 flex items-center gap-1 font-medium">
+            <span className="material-symbols-outlined text-[13px]">info</span>
+            Returned by {request.last_cancelled_by_name}
           </p>
         )}
       </div>
@@ -201,6 +286,16 @@ function RequestDetail({ request, canAccept, canComplete, canTrack, onAccept, on
             Complete
           </button>
         )}
+        {request.status === "in_progress" && canCancel && (
+          <button
+            onClick={() => handleAction(() => onCancel(request.id))}
+            disabled={processing}
+            className="inline-flex items-center gap-1.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-100 px-4 py-2 rounded-xl text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-600 transition-all disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined text-sm">undo</span>
+            Cancel
+          </button>
+        )}
       </div>
     </div>
   );
@@ -211,12 +306,15 @@ export default function RescueRequestPage() {
   const [activeTab, setActiveTab] = useState("all");
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeGroup, setActiveGroup] = useState(null);
   const [trackingRequest, setTrackingRequest] = useState(null);
   const [selectedRequestId, setSelectedRequestId] = useState(null);
   const [seenRequestIds, setSeenRequestIds] = useState([]);
+  const [acceptModeRequest, setAcceptModeRequest] = useState(null);
+  const [acceptingWithMode, setAcceptingWithMode] = useState(false);
 
   const fetchRequests = async () => {
-    const token = localStorage.getItem("aquaguard_token");
+    const token = getStoredToken();
     if (!token) {
       setLoading(false);
       return;
@@ -237,8 +335,26 @@ export default function RescueRequestPage() {
     }
   };
 
+  const fetchGroupContext = async () => {
+    const token = getStoredToken();
+    if (!token || role !== "rescuer") return;
+
+    try {
+      const res = await fetch(`${API_BASE}/auth/rescue-groups/my`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (json.success) {
+        setActiveGroup(json.data?.group || null);
+      }
+    } catch (err) {
+      console.error("Failed to fetch rescue group context:", err);
+    }
+  };
+
   useEffect(() => {
     fetchRequests();
+    fetchGroupContext();
   }, []);
 
   // Auto-refresh every 10 seconds
@@ -268,8 +384,8 @@ export default function RescueRequestPage() {
     });
   };
 
-  const handleAccept = async (requestId) => {
-    const token = localStorage.getItem("aquaguard_token");
+  const performAccept = async (requestId, acceptMode = "individual") => {
+    const token = getStoredToken();
 
     // Get rescuer's current GPS
     let latitude = null;
@@ -296,7 +412,7 @@ export default function RescueRequestPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ latitude, longitude }),
+        body: JSON.stringify({ latitude, longitude, acceptMode }),
       });
       const json = await res.json();
       if (json.success) {
@@ -307,14 +423,28 @@ export default function RescueRequestPage() {
           setTrackingRequest(acceptedRequest);
         }
         window.dispatchEvent(new CustomEvent("sos_changed", { detail: { type: "accepted", requestId } }));
+      } else {
+        alert(json.message || "Accept failed");
       }
     } catch (err) {
       console.error("Failed to accept:", err);
     }
   };
 
+  const handleAccept = (requestId) => {
+    const request = requests.find((item) => item.id === requestId);
+    if (!request) return;
+
+    if (role !== "rescuer" || !activeGroup) {
+      performAccept(requestId, "individual");
+      return;
+    }
+
+    setAcceptModeRequest(request);
+  };
+
   const handleComplete = async (requestId) => {
-    const token = localStorage.getItem("aquaguard_token");
+    const token = getStoredToken();
     try {
       const res = await fetch(`${API_BASE}/sos/${requestId}/complete`, {
         method: "PUT",
@@ -331,6 +461,38 @@ export default function RescueRequestPage() {
       }
     } catch (err) {
       console.error("Failed to complete:", err);
+    }
+  };
+
+  const handleCancel = async (requestId) => {
+    const token = getStoredToken();
+    try {
+      const res = await fetch(`${API_BASE}/sos/${requestId}/cancel`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const json = await res.json();
+      if (json.success) {
+        setTrackingRequest(null);
+        fetchRequests();
+        window.dispatchEvent(new CustomEvent("sos_changed", { detail: { type: "cancelled", requestId } }));
+      }
+    } catch (err) {
+      console.error("Failed to cancel:", err);
+    }
+  };
+
+  const handleConfirmAcceptMode = async (mode) => {
+    if (!acceptModeRequest) return;
+    setAcceptingWithMode(true);
+    try {
+      await performAccept(acceptModeRequest.id, mode);
+      setAcceptModeRequest(null);
+    } finally {
+      setAcceptingWithMode(false);
     }
   };
 
@@ -370,6 +532,11 @@ export default function RescueRequestPage() {
     return request.assigned_to == rescuerUid;
   };
 
+  const canCurrentUserCancel = (request) => {
+    if (!request || request.status !== "in_progress") return false;
+    return role === "rescuer" && request.assigned_to == rescuerUid;
+  };
+
   const canCurrentUserAccept = (request) => {
     if (!request) return false;
     if (request.status === "pending") return true;
@@ -406,6 +573,11 @@ export default function RescueRequestPage() {
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
               Manage and track rescue requests
             </p>
+            {role === "rescuer" && activeGroup && (
+              <p className="text-xs text-primary mt-2 font-medium">
+                Active group: {activeGroup.name} • You can accept SOS as an individual or as a group.
+              </p>
+            )}
           </div>
         </div>
 
@@ -541,9 +713,11 @@ export default function RescueRequestPage() {
               request={selectedRequest}
               canAccept={canCurrentUserAccept(selectedRequest)}
               canComplete={canCurrentUserComplete(selectedRequest)}
+              canCancel={canCurrentUserCancel(selectedRequest)}
               canTrack={selectedRequest?.status === "in_progress"}
               onAccept={handleAccept}
               onComplete={handleComplete}
+              onCancel={handleCancel}
               onViewTracking={handleViewTracking}
               onMarkSeen={markAsSeen}
             />
@@ -556,6 +730,8 @@ export default function RescueRequestPage() {
         <RescueTrackingMap
           requestId={trackingRequest.id}
           userRole="rescuer"
+          trackingRole={trackingRequest?.assigned_to == rescuerUid ? "rescuer" : null}
+          shareLocation={trackingRequest?.assigned_to == rescuerUid}
           citizenName={trackingRequest.user_name}
           citizenPhone={trackingRequest.user_phone}
           rescuerName={trackingRequest.assigned_name}
@@ -573,7 +749,20 @@ export default function RescueRequestPage() {
             setTrackingRequest(null);
             fetchRequests();
           }}
-          onComplete={() => handleComplete(trackingRequest.id)}
+          onComplete={role === "rescuer" && trackingRequest?.assigned_to == rescuerUid ? () => handleComplete(trackingRequest.id) : undefined}
+          onCancel={role === "rescuer" && trackingRequest?.assigned_to == rescuerUid ? () => handleCancel(trackingRequest.id) : undefined}
+        />
+      )}
+
+      {acceptModeRequest && (
+        <AcceptModeModal
+          request={acceptModeRequest}
+          activeGroup={activeGroup}
+          processing={acceptingWithMode}
+          onClose={() => {
+            if (!acceptingWithMode) setAcceptModeRequest(null);
+          }}
+          onConfirm={handleConfirmAcceptMode}
         />
       )}
     </div>

@@ -201,6 +201,9 @@ router.put("/:id/assign", authMiddleware, requireAdmin, async (req, res) => {
        SET status = 'assigned',
            assigned_to = $1,
            assigned_name = $2,
+           assigned_group_id = NULL,
+           assigned_group_name = NULL,
+           accepted_mode = 'individual',
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $3 AND status = 'pending'
        RETURNING *`,
@@ -227,25 +230,60 @@ router.put("/:id/assign", authMiddleware, requireAdmin, async (req, res) => {
 router.put("/:id/accept", authMiddleware, requireRoles(["rescuer"]), async (req, res) => {
   try {
     const { id } = req.params;
-    const { latitude, longitude } = req.body;
+    const { latitude, longitude, acceptMode } = req.body;
+    const resolvedAcceptMode = acceptMode === "group" ? "group" : "individual";
 
     // Lấy tên rescuer
     const userResult = await pool.query("SELECT display_name FROM users WHERE id = $1", [req.user.id]);
     const rescuerName = userResult.rows[0]?.display_name || "Rescuer";
 
+    let assignedGroupId = null;
+    let assignedGroupName = null;
+
+    if (resolvedAcceptMode === "group") {
+      const groupRes = await pool.query(
+        `SELECT g.id, g.name
+         FROM rescue_group_members m
+         INNER JOIN rescue_groups g ON g.id = m.group_id
+         WHERE m.user_id = $1
+           AND m.join_status = 'active'
+           AND g.status = 'active'
+         ORDER BY m.joined_at DESC
+         LIMIT 1`,
+        [req.user.id]
+      );
+
+      if (groupRes.rows.length === 0) {
+        return res.status(400).json({ success: false, message: "Bạn chưa thuộc nhóm cứu hộ nào để nhận mission theo nhóm." });
+      }
+
+      assignedGroupId = groupRes.rows[0].id;
+      assignedGroupName = groupRes.rows[0].name;
+    }
+
     const result = await pool.query(
       `UPDATE rescue_requests
        SET status = 'in_progress', assigned_to = $1, assigned_name = $2,
-           rescuer_latitude = $3, rescuer_longitude = $4,
+           assigned_group_id = $3, assigned_group_name = $4, accepted_mode = $5,
+           rescuer_latitude = $6, rescuer_longitude = $7,
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $5
+       WHERE id = $8
          AND (
            (status = 'pending' AND (assigned_to IS NULL OR assigned_to = $1))
            OR
            (status = 'assigned' AND assigned_to = $1)
          )
        RETURNING *`,
-      [req.user.id, rescuerName, latitude || null, longitude || null, id]
+      [
+        req.user.id,
+        rescuerName,
+        assignedGroupId,
+        assignedGroupName,
+        resolvedAcceptMode,
+        latitude || null,
+        longitude || null,
+        id,
+      ]
     );
 
     if (result.rows.length === 0) {
@@ -269,6 +307,57 @@ router.put("/:id/accept", authMiddleware, requireRoles(["rescuer"]), async (req,
     return res.json({ success: true, data: request });
   } catch (err) {
     console.error("Accept SOS error:", err);
+    return res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+});
+
+/**
+ * PUT /api/sos/:id/cancel
+ * Rescuer trả case đang in_progress về pending
+ */
+router.put("/:id/cancel", authMiddleware, requireRoles(["rescuer"]), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const userResult = await pool.query("SELECT display_name FROM users WHERE id = $1", [req.user.id]);
+    const rescuerName = userResult.rows[0]?.display_name || "Rescuer";
+
+    const result = await pool.query(
+      `UPDATE rescue_requests
+       SET status = 'pending',
+           assigned_to = NULL,
+           assigned_name = NULL,
+           assigned_group_id = NULL,
+           assigned_group_name = NULL,
+           accepted_mode = 'individual',
+           rescuer_latitude = NULL,
+           rescuer_longitude = NULL,
+           last_cancelled_by = $1,
+           last_cancelled_by_name = $2,
+           last_cancelled_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $3
+         AND assigned_to = $1
+         AND status = 'in_progress'
+       RETURNING *`,
+      [req.user.id, rescuerName, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Không thể huỷ request này (không phải mission của bạn hoặc request không ở trạng thái in progress)",
+      });
+    }
+
+    broadcastToRoom(req, parseInt(id, 10), {
+      type: "tracking_cancelled",
+      requestId: parseInt(id, 10),
+    });
+
+    return res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    console.error("Cancel SOS error:", err);
     return res.status(500).json({ success: false, message: "Lỗi server" });
   }
 });
