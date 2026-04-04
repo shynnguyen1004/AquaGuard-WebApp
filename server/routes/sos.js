@@ -30,6 +30,15 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+function requireRoles(roles) {
+  return (req, res, next) => {
+    if (!roles.includes(req.user?.role)) {
+      return res.status(403).json({ success: false, message: "You do not have permission to perform this action." });
+    }
+    next();
+  };
+}
+
 // ── Helper: broadcast to a tracking room ──
 function broadcastToRoom(req, requestId, message) {
   const trackingRooms = req.app.get("trackingRooms");
@@ -49,7 +58,7 @@ function broadcastToRoom(req, requestId, message) {
  * Tạo SOS request mới (Citizen) — with GPS + image uploads
  * Accepts: multipart/form-data with fields + files
  */
-router.post("/", authMiddleware, upload.array("images", 5), async (req, res) => {
+router.post("/", authMiddleware, requireRoles(["citizen"]), upload.array("images", 5), async (req, res) => {
   try {
     const { location, description, urgency, latitude, longitude } = req.body;
 
@@ -215,7 +224,7 @@ router.put("/:id/assign", authMiddleware, requireAdmin, async (req, res) => {
  * - pending (chưa ai nhận) -> in_progress
  * - assigned (được admin gán đúng rescuer) -> in_progress
  */
-router.put("/:id/accept", authMiddleware, async (req, res) => {
+router.put("/:id/accept", authMiddleware, requireRoles(["rescuer"]), async (req, res) => {
   try {
     const { id } = req.params;
     const { latitude, longitude } = req.body;

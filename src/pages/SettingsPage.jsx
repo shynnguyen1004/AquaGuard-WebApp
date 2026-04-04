@@ -79,10 +79,10 @@ export default function SettingsPage({ defaultTab = "profile" }) {
       if (data.success && data.data) {
         setSearchResult(data.data);
       } else {
-        setSearchError("Không tìm thấy người dùng với SĐT này");
+        setSearchError("No user was found with that phone number.");
       }
     } catch (err) {
-      setSearchError("Lỗi tìm kiếm");
+      setSearchError("Search failed.");
     }
   };
 
@@ -97,16 +97,16 @@ export default function SettingsPage({ defaultTab = "profile" }) {
       });
       const data = await res.json();
       if (data.success) {
-        alert("Đã gửi lời mời kết nối!");
+        alert("Connection request sent successfully!");
         setShowAddFamily(false);
         setSearchResult(null);
         setSearchPhone("");
         setRelation("");
       } else {
-        alert(data.message || "Lỗi gửi lời mời");
+        alert(data.message || "Failed to send the connection request.");
       }
     } catch (err) {
-      alert("Lỗi server");
+      alert("Server error.");
     }
   };
 

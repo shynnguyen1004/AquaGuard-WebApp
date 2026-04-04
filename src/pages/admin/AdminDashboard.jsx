@@ -159,9 +159,16 @@ export default function AdminDashboard({ activePage = "admin" }) {
 
   // Fetch all users from PostgreSQL backend
   const fetchUsers = async () => {
+    const token = localStorage.getItem("aquaguard_token");
+    if (!token) {
+      setLoadingUsers(false);
+      return;
+    }
     setLoadingUsers(true);
     try {
-      const res = await fetch(`${API_BASE}/auth/users`);
+      const res = await fetch(`${API_BASE}/auth/users`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await res.json();
       if (data.success) {
         setUsers(data.data);
@@ -196,10 +203,15 @@ export default function AdminDashboard({ activePage = "admin" }) {
   }, []);
 
   const handleRoleChange = async (userId, newRole) => {
+    const token = localStorage.getItem("aquaguard_token");
+    if (!token) return;
     try {
       const res = await fetch(`${API_BASE}/auth/users/${userId}/role`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ role: newRole }),
       });
       if (res.ok) {
@@ -232,7 +244,7 @@ export default function AdminDashboard({ activePage = "admin" }) {
         fetchRequests();
         window.dispatchEvent(new CustomEvent("sos_changed", { detail: { type: "assigned", requestId } }));
       } else {
-        alert(json.message || "Assign thất bại");
+        alert(json.message || "Failed to assign request.");
       }
     } catch (err) {
       console.error("Failed to assign request:", err);
@@ -259,7 +271,7 @@ export default function AdminDashboard({ activePage = "admin" }) {
         fetchRequests();
         window.dispatchEvent(new CustomEvent("sos_changed", { detail: { type: "completed", requestId } }));
       } else {
-        alert(json.message || "Complete thất bại");
+        alert(json.message || "Failed to complete request.");
       }
     } catch (err) {
       console.error("Failed to complete request:", err);

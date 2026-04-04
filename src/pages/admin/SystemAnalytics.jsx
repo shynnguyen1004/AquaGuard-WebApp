@@ -152,25 +152,37 @@ export default function SystemAnalytics() {
   const [error, setError] = useState(null);
 
   const fetchAll = useCallback(async () => {
+    const token = localStorage.getItem("aquaguard_token");
+    if (!token) {
+      setLoading(false);
+      setError("Authentication required");
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
+      const headers = { Authorization: `Bearer ${token}` };
       const [ovRes, usrRes, resRes] = await Promise.all([
-        fetch(`${API_BASE}/analytics/overview`),
-        fetch(`${API_BASE}/analytics/users`),
-        fetch(`${API_BASE}/analytics/rescue`),
+        fetch(`${API_BASE}/analytics/overview`, { headers }),
+        fetch(`${API_BASE}/analytics/users`, { headers }),
+        fetch(`${API_BASE}/analytics/rescue`, { headers }),
       ]);
 
       const [ovJson, usrJson, resJson] = await Promise.all([
         ovRes.json(), usrRes.json(), resRes.json(),
       ]);
 
+      if (!ovRes.ok || !usrRes.ok || !resRes.ok) {
+        throw new Error(ovJson.message || usrJson.message || resJson.message || "Failed to load analytics data");
+      }
+
       if (ovJson.success) setOverview(ovJson.data);
       if (usrJson.success) setUserData(usrJson.data);
       if (resJson.success) setRescueData(resJson.data);
     } catch (err) {
       console.error("Analytics fetch error:", err);
-      setError("Failed to load analytics data");
+      setError(err.message || "Failed to load analytics data");
     } finally {
       setLoading(false);
     }

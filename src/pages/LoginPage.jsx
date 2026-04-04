@@ -20,9 +20,70 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [rolePassword, setRolePassword] = useState("");
   const [rolePasswordError, setRolePasswordError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [requestError, setRequestError] = useState("");
+
+  const normalizedPhone = normalizePhone(phoneNumber);
+  const hasPhoneValue = phoneNumber.trim().length > 0;
+  const isPhoneValid = isValidVNPhone(normalizedPhone);
+  const isLoginDisabled = isSigningIn || loading || !isPhoneValid || password.length < 1;
+  const isRegisterDisabled = isSigningIn || loading || !isPhoneValid || password.length < 6;
+
+  const validatePhoneNumber = (value) => {
+    if (!value.trim()) return "Please enter your phone number.";
+    if (!isValidVNPhone(value)) return "Please enter a valid Vietnamese phone number.";
+    return "";
+  };
+
+  const handlePhoneNumberChange = (e) => {
+    const rawValue = e.target.value;
+    const sanitizedValue = rawValue.replace(/[^\d+\s\-().]/g, "");
+
+    setPhoneNumber(sanitizedValue);
+    setRequestError("");
+    clearError();
+
+    if (rawValue !== sanitizedValue) {
+      setPhoneError("Phone numbers can only contain digits and valid formatting characters.");
+      return;
+    }
+
+    if (!sanitizedValue.trim()) {
+      setPhoneError("");
+      return;
+    }
+
+    if (isValidVNPhone(sanitizedValue)) {
+      setPhoneError("");
+      return;
+    }
+
+    setPhoneError("Please enter a valid Vietnamese phone number.");
+  };
+
+  const handlePasswordChange = (e) => {
+    const nextPassword = e.target.value;
+    setPassword(nextPassword);
+    setRequestError("");
+    clearError();
+
+    if (!nextPassword) {
+      setPasswordError("");
+      return;
+    }
+
+    if (phoneMode === "register" && nextPassword.length < 6) {
+      setPasswordError("Password must be at least 6 characters.");
+      return;
+    }
+
+    setPasswordError("");
+  };
 
   const handleGoogleLogin = async () => {
     setIsSigningIn(true);
+    setRequestError("");
     clearError();
     try {
       await loginWithGoogle();
@@ -36,15 +97,22 @@ export default function LoginPage() {
 
   const handlePhoneLogin = async (e) => {
     e.preventDefault();
-    const normalized = normalizePhone(phoneNumber);
-    if (!isValidVNPhone(normalized) || !password) return;
-    setIsSigningIn(true);
+    const nextPhoneError = validatePhoneNumber(phoneNumber);
+    const nextPasswordError = password ? "" : "Please enter your password.";
+
+    setPhoneError(nextPhoneError);
+    setPasswordError(nextPasswordError);
+    setRequestError("");
     clearError();
+
+    if (nextPhoneError || nextPasswordError) return;
+
+    setIsSigningIn(true);
     try {
-      await loginWithPhonePassword(normalized, password);
+      await loginWithPhonePassword(normalizedPhone, password);
       navigate("/", { replace: true });
-    } catch {
-      // Error handled by AuthContext
+    } catch (err) {
+      setRequestError(err.message);
     } finally {
       setIsSigningIn(false);
     }
@@ -52,8 +120,19 @@ export default function LoginPage() {
 
   const handlePhoneRegister = async (e) => {
     e.preventDefault();
-    const normalized = normalizePhone(phoneNumber);
-    if (!isValidVNPhone(normalized) || !password) return;
+    const nextPhoneError = validatePhoneNumber(phoneNumber);
+    const nextPasswordError = !password
+      ? "Please enter your password."
+      : password.length < 6
+        ? "Password must be at least 6 characters."
+        : "";
+
+    setPhoneError(nextPhoneError);
+    setPasswordError(nextPasswordError);
+    setRequestError("");
+    clearError();
+
+    if (nextPhoneError || nextPasswordError) return;
 
     // Validate role password for admin and rescuer
     if ((selectedRole === "admin" || selectedRole === "rescuer") && rolePassword !== "123456") {
@@ -63,12 +142,11 @@ export default function LoginPage() {
     setRolePasswordError("");
 
     setIsSigningIn(true);
-    clearError();
     try {
-      await registerWithPhone(normalized, password, displayName, selectedRole);
+      await registerWithPhone(normalizedPhone, password, displayName, selectedRole);
       navigate("/", { replace: true });
-    } catch {
-      // Error handled by AuthContext
+    } catch (err) {
+      setRequestError(err.message);
     } finally {
       setIsSigningIn(false);
     }
@@ -79,6 +157,9 @@ export default function LoginPage() {
   const switchPhoneMode = (mode) => {
     setPhoneMode(mode);
     clearError();
+    setRequestError("");
+    setPhoneError("");
+    setPasswordError("");
     setPassword("");
     setDisplayName("");
     setRolePassword("");
@@ -164,12 +245,18 @@ export default function LoginPage() {
             </div>
 
             {/* Error Message */}
-            {error && (
+            {(requestError || error) && (
               <div className="mb-6 p-4 rounded-xl bg-danger/10 border border-danger/20 flex items-start gap-3">
                 <span className="material-symbols-outlined text-danger text-xl mt-0.5">error</span>
                 <div>
-                  <p className="text-sm text-danger font-medium">{error}</p>
-                  <button onClick={clearError} className="text-xs text-danger/70 hover:text-danger mt-1 underline">
+                  <p className="text-sm text-danger font-medium">{requestError || error}</p>
+                  <button
+                    onClick={() => {
+                      setRequestError("");
+                      clearError();
+                    }}
+                    className="text-xs text-danger/70 hover:text-danger mt-1 underline"
+                  >
                     Close
                   </button>
                 </div>
@@ -237,11 +324,22 @@ export default function LoginPage() {
                     <input
                       type="tel"
                       value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      onChange={handlePhoneNumberChange}
+                      onBlur={() => setPhoneError(hasPhoneValue ? validatePhoneNumber(phoneNumber) : "")}
                       placeholder="+84 xxx xxx xxx"
-                      className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all text-sm"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      aria-invalid={Boolean(phoneError)}
+                      className={`w-full bg-white/5 border rounded-xl pl-11 pr-4 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition-all text-sm ${
+                        phoneError
+                          ? "border-danger/60 focus:border-danger/60 focus:ring-danger/30"
+                          : "border-white/10 focus:border-primary/50 focus:ring-primary/30"
+                      }`}
                     />
                   </div>
+                  {phoneError && (
+                    <p className="mt-2 text-xs text-danger font-medium">{phoneError}</p>
+                  )}
                 </div>
 
                 {/* Password */}
@@ -256,9 +354,29 @@ export default function LoginPage() {
                     <input
                       type={showPassword ? "text" : "password"}
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={handlePasswordChange}
+                      onBlur={() => {
+                        if (!password) {
+                          setPasswordError(phoneMode === "login"
+                            ? "Please enter your password."
+                            : "Please enter your password.");
+                          return;
+                        }
+
+                        if (phoneMode === "register" && password.length < 6) {
+                          setPasswordError("Password must be at least 6 characters.");
+                          return;
+                        }
+
+                        setPasswordError("");
+                      }}
                       placeholder={phoneMode === "register" ? "Min 6 characters" : "Enter your password"}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-11 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all text-sm"
+                      aria-invalid={Boolean(passwordError)}
+                      className={`w-full bg-white/5 border rounded-xl pl-11 pr-11 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition-all text-sm ${
+                        passwordError
+                          ? "border-danger/60 focus:border-danger/60 focus:ring-danger/30"
+                          : "border-white/10 focus:border-primary/50 focus:ring-primary/30"
+                      }`}
                     />
                     <button
                       type="button"
@@ -270,6 +388,9 @@ export default function LoginPage() {
                       </span>
                     </button>
                   </div>
+                  {passwordError && (
+                    <p className="mt-2 text-xs text-danger font-medium">{passwordError}</p>
+                  )}
                 </div>
 
                 {/* Forgot Password link (login only) */}
@@ -279,7 +400,7 @@ export default function LoginPage() {
                       href="/forgot-password"
                       className="text-xs text-primary hover:underline font-medium"
                     >
-                      Quên mật khẩu?
+                      Forgot password?
                     </a>
                   </div>
                 )}
@@ -335,7 +456,7 @@ export default function LoginPage() {
                 {/* Submit Button */}
                 <button
                   type="submit"
-                  disabled={isSigningIn || loading || phoneNumber.length < 10 || password.length < 1}
+                  disabled={phoneMode === "login" ? isLoginDisabled : isRegisterDisabled}
                   className="w-full flex items-center justify-center gap-3 bg-primary hover:bg-primary/90 text-white font-semibold py-4 px-6 rounded-2xl transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSigningIn ? (

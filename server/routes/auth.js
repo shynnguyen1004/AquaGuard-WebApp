@@ -19,6 +19,29 @@ const SALT_ROUNDS = 10;
 // Rate limit store for OTP requests (in-memory, resets on server restart)
 const otpRateLimits = new Map();
 
+function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ success: false, message: "Authentication required." });
+  }
+
+  try {
+    const token = authHeader.split(" ")[1];
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch {
+    return res.status(401).json({ success: false, message: "Invalid token." });
+  }
+}
+
+function requireAdmin(req, res, next) {
+  if (req.user?.role !== "admin") {
+    return res.status(403).json({ success: false, message: "Admin access required." });
+  }
+
+  next();
+}
+
 /**
  * POST /api/auth/register
  * Body: { phone_number, password, display_name?, role? }
@@ -31,7 +54,7 @@ router.post("/register", async (req, res) => {
     if (!phone_number || !password) {
       return res.status(400).json({
         success: false,
-        message: "Số điện thoại và mật khẩu là bắt buộc",
+        message: "Phone number and password are required.",
       });
     }
 
@@ -40,7 +63,7 @@ router.post("/register", async (req, res) => {
     if (!phoneRegex.test(phone_number)) {
       return res.status(400).json({
         success: false,
-        message: "Số điện thoại không hợp lệ (VD: +84901234567)",
+        message: "Invalid phone number format (for example: +84901234567).",
       });
     }
 
@@ -48,7 +71,7 @@ router.post("/register", async (req, res) => {
     if (password.length < 6) {
       return res.status(400).json({
         success: false,
-        message: "Mật khẩu phải có ít nhất 6 ký tự",
+        message: "Password must be at least 6 characters.",
       });
     }
 
@@ -60,7 +83,7 @@ router.post("/register", async (req, res) => {
     if (existing.rows.length > 0) {
       return res.status(409).json({
         success: false,
-        message: "Số điện thoại này đã được đăng ký",
+        message: "This phone number is already registered.",
       });
     }
 
@@ -91,7 +114,7 @@ router.post("/register", async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: "Đăng ký thành công!",
+      message: "Registration successful!",
       data: {
         user: {
           id: user.id,
@@ -108,7 +131,7 @@ router.post("/register", async (req, res) => {
     console.error("Register error:", err);
     return res.status(500).json({
       success: false,
-      message: "Lỗi server, vui lòng thử lại",
+      message: "Server error. Please try again.",
     });
   }
 });
@@ -120,12 +143,20 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     const { phone_number, password } = req.body;
+    const phoneRegex = /^\+84\d{9,10}$/;
 
     // Validate
     if (!phone_number || !password) {
       return res.status(400).json({
         success: false,
-        message: "Số điện thoại và mật khẩu là bắt buộc",
+        message: "Phone number and password are required.",
+      });
+    }
+
+    if (!phoneRegex.test(phone_number)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid phone number format (for example: +84901234567).",
       });
     }
 
@@ -138,7 +169,7 @@ router.post("/login", async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(401).json({
         success: false,
-        message: "Số điện thoại hoặc mật khẩu không đúng",
+        message: "Incorrect phone number or password.",
       });
     }
 
@@ -148,7 +179,7 @@ router.post("/login", async (req, res) => {
     if (!user.is_active) {
       return res.status(403).json({
         success: false,
-        message: "Tài khoản đã bị khóa",
+        message: "This account has been locked.",
       });
     }
 
@@ -157,7 +188,7 @@ router.post("/login", async (req, res) => {
     if (!isMatch) {
       return res.status(401).json({
         success: false,
-        message: "Số điện thoại hoặc mật khẩu không đúng",
+        message: "Incorrect phone number or password.",
       });
     }
 
@@ -176,7 +207,7 @@ router.post("/login", async (req, res) => {
 
     return res.json({
       success: true,
-      message: "Đăng nhập thành công!",
+      message: "Sign in successful!",
       data: {
         user: {
           id: user.id,
@@ -193,7 +224,7 @@ router.post("/login", async (req, res) => {
     console.error("Login error:", err);
     return res.status(500).json({
       success: false,
-      message: "Lỗi server, vui lòng thử lại",
+      message: "Server error. Please try again.",
     });
   }
 });
@@ -202,7 +233,7 @@ router.post("/login", async (req, res) => {
  * GET /api/auth/users
  * List all users from PostgreSQL
  */
-router.get("/users", async (req, res) => {
+router.get("/users", authMiddleware, requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT id, phone_number, display_name, role, avatar_url, is_active, created_at, updated_at
@@ -225,7 +256,7 @@ router.get("/users", async (req, res) => {
     return res.json({ success: true, data: users });
   } catch (err) {
     console.error("Fetch users error:", err);
-    return res.status(500).json({ success: false, message: "Lỗi server" });
+    return res.status(500).json({ success: false, message: "Server error." });
   }
 });
 
@@ -233,13 +264,13 @@ router.get("/users", async (req, res) => {
  * PUT /api/auth/users/:id/role
  * Update a user's role
  */
-router.put("/users/:id/role", async (req, res) => {
+router.put("/users/:id/role", authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { role } = req.body;
 
     if (!role || !["citizen", "rescuer", "admin"].includes(role)) {
-      return res.status(400).json({ success: false, message: "Role không hợp lệ" });
+      return res.status(400).json({ success: false, message: "Invalid role." });
     }
 
     const result = await pool.query(
@@ -248,13 +279,13 @@ router.put("/users/:id/role", async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: "User không tồn tại" });
+      return res.status(404).json({ success: false, message: "User not found." });
     }
 
     return res.json({ success: true, data: result.rows[0] });
   } catch (err) {
     console.error("Update role error:", err);
-    return res.status(500).json({ success: false, message: "Lỗi server" });
+    return res.status(500).json({ success: false, message: "Server error." });
   }
 });
 
@@ -270,7 +301,7 @@ router.post("/forgot-password", async (req, res) => {
     if (!phone_number) {
       return res.status(400).json({
         success: false,
-        message: "Số điện thoại là bắt buộc",
+        message: "Phone number is required.",
       });
     }
 
@@ -280,7 +311,7 @@ router.post("/forgot-password", async (req, res) => {
       const remaining = Math.ceil((60000 - (Date.now() - lastSent)) / 1000);
       return res.status(429).json({
         success: false,
-        message: `Vui lòng chờ ${remaining} giây trước khi gửi lại OTP`,
+        message: `Please wait ${remaining} seconds before requesting another OTP.`,
       });
     }
 
@@ -293,7 +324,7 @@ router.post("/forgot-password", async (req, res) => {
     if (userResult.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "Số điện thoại không tồn tại trong hệ thống",
+        message: "This phone number does not exist in the system.",
       });
     }
 
@@ -309,7 +340,7 @@ router.post("/forgot-password", async (req, res) => {
 
     return res.json({
       success: true,
-      message: "Mã OTP đã được gửi đến số điện thoại của bạn",
+      message: "OTP sent to your phone number.",
     });
   } catch (err) {
     console.error("Forgot password error:", err);
@@ -318,13 +349,13 @@ router.post("/forgot-password", async (req, res) => {
     if (err.code === 60203) {
       return res.status(429).json({
         success: false,
-        message: "Đã gửi quá nhiều OTP. Vui lòng thử lại sau",
+        message: "Too many OTP requests. Please try again later.",
       });
     }
 
     return res.status(500).json({
       success: false,
-      message: "Lỗi gửi SMS, vui lòng thử lại",
+      message: "Failed to send SMS. Please try again.",
     });
   }
 });
@@ -341,7 +372,7 @@ router.post("/verify-otp", async (req, res) => {
     if (!phone_number || !otp) {
       return res.status(400).json({
         success: false,
-        message: "Số điện thoại và mã OTP là bắt buộc",
+        message: "Phone number and OTP are required.",
       });
     }
 
@@ -353,7 +384,7 @@ router.post("/verify-otp", async (req, res) => {
     if (verificationCheck.status !== "approved") {
       return res.status(400).json({
         success: false,
-        message: "Mã OTP không đúng hoặc đã hết hạn",
+        message: "The OTP is incorrect or has expired.",
       });
     }
 
@@ -369,7 +400,7 @@ router.post("/verify-otp", async (req, res) => {
 
     return res.json({
       success: true,
-      message: "Xác thực OTP thành công",
+      message: "OTP verified successfully.",
       data: { sessionToken },
     });
   } catch (err) {
@@ -379,13 +410,13 @@ router.post("/verify-otp", async (req, res) => {
     if (err.status === 404) {
       return res.status(400).json({
         success: false,
-        message: "Mã OTP đã hết hạn. Vui lòng gửi lại",
+        message: "The OTP has expired. Please request a new one.",
       });
     }
 
     return res.status(500).json({
       success: false,
-      message: "Lỗi server, vui lòng thử lại",
+      message: "Server error. Please try again.",
     });
   }
 });
@@ -402,7 +433,7 @@ router.post("/reset-password", async (req, res) => {
     if (!phone_number || !sessionToken || !newPassword) {
       return res.status(400).json({
         success: false,
-        message: "Thiếu thông tin bắt buộc",
+        message: "Missing required information.",
       });
     }
 
@@ -410,7 +441,7 @@ router.post("/reset-password", async (req, res) => {
     if (newPassword.length < 6) {
       return res.status(400).json({
         success: false,
-        message: "Mật khẩu mới phải có ít nhất 6 ký tự",
+        message: "New password must be at least 6 characters.",
       });
     }
 
@@ -423,7 +454,7 @@ router.post("/reset-password", async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "Số điện thoại không tồn tại",
+        message: "Phone number not found.",
       });
     }
 
@@ -432,14 +463,14 @@ router.post("/reset-password", async (req, res) => {
     if (!reset_token || reset_token !== sessionToken) {
       return res.status(400).json({
         success: false,
-        message: "Phiên đã hết hạn. Vui lòng thực hiện lại",
+        message: "Your reset session has expired. Please start again.",
       });
     }
 
     if (new Date() > new Date(reset_token_expiry)) {
       return res.status(400).json({
         success: false,
-        message: "Phiên đã hết hạn. Vui lòng thực hiện lại",
+        message: "Your reset session has expired. Please start again.",
       });
     }
 
@@ -454,13 +485,13 @@ router.post("/reset-password", async (req, res) => {
 
     return res.json({
       success: true,
-      message: "Đổi mật khẩu thành công! Vui lòng đăng nhập lại",
+      message: "Password reset successful. Please sign in again.",
     });
   } catch (err) {
     console.error("Reset password error:", err);
     return res.status(500).json({
       success: false,
-      message: "Lỗi server, vui lòng thử lại",
+      message: "Server error. Please try again.",
     });
   }
 });

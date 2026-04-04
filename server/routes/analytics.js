@@ -1,13 +1,38 @@
 const express = require("express");
+const jwt = require("jsonwebtoken");
 const pool = require("../db");
 
 const router = express.Router();
+const JWT_SECRET = process.env.JWT_SECRET || "aquaguard_jwt_secret_2026";
+
+function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ success: false, message: "Authentication required." });
+  }
+
+  try {
+    const token = authHeader.split(" ")[1];
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch {
+    return res.status(401).json({ success: false, message: "Invalid token." });
+  }
+}
+
+function requireAdmin(req, res, next) {
+  if (req.user?.role !== "admin") {
+    return res.status(403).json({ success: false, message: "Admin access required." });
+  }
+
+  next();
+}
 
 /**
  * GET /api/analytics/overview
  * KPI summary: total users, new users (7d), total requests, avg response time
  */
-router.get("/overview", async (req, res) => {
+router.get("/overview", authMiddleware, requireAdmin, async (req, res) => {
   try {
     const [usersRes, newUsersRes, requestsRes, avgTimeRes] = await Promise.all([
       // Total users
@@ -65,7 +90,7 @@ router.get("/overview", async (req, res) => {
  * GET /api/analytics/users
  * User growth (daily registrations last 30 days) + role distribution
  */
-router.get("/users", async (req, res) => {
+router.get("/users", authMiddleware, requireAdmin, async (req, res) => {
   try {
     const [growthRes, rolesRes] = await Promise.all([
       // Daily new registrations for the last 30 days
@@ -111,7 +136,7 @@ router.get("/users", async (req, res) => {
  * GET /api/analytics/rescue
  * SOS trends (daily, 30d) + urgency breakdown + status counts + response perf
  */
-router.get("/rescue", async (req, res) => {
+router.get("/rescue", authMiddleware, requireAdmin, async (req, res) => {
   try {
     const [trendRes, urgencyRes, statusRes, perfRes] = await Promise.all([
       // Daily SOS requests for the last 30 days

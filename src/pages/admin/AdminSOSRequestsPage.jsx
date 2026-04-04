@@ -246,8 +246,12 @@ export default function AdminSOSRequestsPage() {
   };
 
   const fetchRescuers = async () => {
+    const token = localStorage.getItem("aquaguard_token");
+    if (!token) return;
     try {
-      const res = await fetch(`${API_BASE}/auth/users`);
+      const res = await fetch(`${API_BASE}/auth/users`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const json = await res.json();
       if (json.success) {
         setRescuers((json.data || []).filter((u) => u.role === "rescuer"));
@@ -530,4 +534,3 @@ export default function AdminSOSRequestsPage() {
     </div>
   );
 }
-

@@ -50,7 +50,7 @@ export default function ForgotPasswordPage() {
     e?.preventDefault();
     const normalized = normalizePhone(phoneNumber);
     if (!isValidVNPhone(normalized)) {
-      setError("Số điện thoại không hợp lệ (VD: +84901234567)");
+      setError("Please enter a valid phone number (for example: +84901234567).");
       return;
     }
 
@@ -65,14 +65,14 @@ export default function ForgotPasswordPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || "Lỗi gửi OTP");
+        throw new Error(data.message || "Failed to send OTP.");
       }
 
       setPhoneNumber(normalized);
       setStep(2);
       setCountdown(300); // 5 minutes
       setCanResend(false);
-      setSuccess("Mã OTP đã được gửi!");
+      setSuccess("OTP code sent successfully.");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err.message);
@@ -86,7 +86,7 @@ export default function ForgotPasswordPage() {
     e?.preventDefault();
     const otpString = otp.join("");
     if (otpString.length !== 6) {
-      setError("Vui lòng nhập đủ 6 chữ số OTP");
+      setError("Please enter the full 6-digit OTP.");
       return;
     }
 
@@ -101,12 +101,12 @@ export default function ForgotPasswordPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || "OTP không hợp lệ");
+        throw new Error(data.message || "Invalid OTP.");
       }
 
       setSessionToken(data.data.sessionToken);
       setStep(3);
-      setSuccess("Xác thực thành công!");
+      setSuccess("OTP verified successfully.");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err.message);
@@ -119,11 +119,11 @@ export default function ForgotPasswordPage() {
   const handleResetPassword = async (e) => {
     e?.preventDefault();
     if (newPassword.length < 6) {
-      setError("Mật khẩu phải có ít nhất 6 ký tự");
+      setError("Password must be at least 6 characters.");
       return;
     }
     if (newPassword !== confirmPassword) {
-      setError("Mật khẩu xác nhận không khớp");
+      setError("Passwords do not match.");
       return;
     }
 
@@ -142,10 +142,10 @@ export default function ForgotPasswordPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || "Đổi mật khẩu thất bại");
+        throw new Error(data.message || "Failed to reset password.");
       }
 
-      setSuccess("Đổi mật khẩu thành công! Đang chuyển về trang đăng nhập...");
+      setSuccess("Password reset successful. Redirecting to sign in...");
       setTimeout(() => {
         navigate("/login", { replace: true });
       }, 2000);
@@ -187,9 +187,9 @@ export default function ForgotPasswordPage() {
 
   // ── Step indicator ──
   const steps = [
-    { num: 1, label: "Nhập SĐT", icon: "phone" },
-    { num: 2, label: "Xác thực OTP", icon: "pin" },
-    { num: 3, label: "Mật khẩu mới", icon: "lock_reset" },
+    { num: 1, label: "Enter Phone", icon: "phone" },
+    { num: 2, label: "Verify OTP", icon: "pin" },
+    { num: 3, label: "New Password", icon: "lock_reset" },
   ];
 
   return (
@@ -216,12 +216,12 @@ export default function ForgotPasswordPage() {
             <img alt="AquaGuard" src="/images/dark_mode_logo.png" />
           </div>
           <h2 className="text-4xl font-bold text-white leading-tight mb-4">
-            Khôi phục
+            Recover
             <br />
-            <span className="text-primary">Mật khẩu của bạn</span>
+            <span className="text-primary">Your Password</span>
           </h2>
           <p className="text-slate-400 text-lg leading-relaxed mb-8">
-            Nhập số điện thoại đã đăng ký để nhận mã OTP và đặt lại mật khẩu mới cho tài khoản AquaGuard.
+            Enter your registered phone number to receive an OTP and reset your AquaGuard password.
           </p>
 
           {/* Step Progress */}
@@ -300,14 +300,14 @@ export default function ForgotPasswordPage() {
             {/* Header */}
             <div className="text-center mb-6">
               <h3 className="text-2xl font-bold text-white mb-2">
-                {step === 1 && "Quên mật khẩu?"}
-                {step === 2 && "Nhập mã OTP"}
-                {step === 3 && "Đặt mật khẩu mới"}
+                {step === 1 && "Forgot your password?"}
+                {step === 2 && "Enter OTP"}
+                {step === 3 && "Create a new password"}
               </h3>
               <p className="text-slate-400 text-sm">
-                {step === 1 && "Nhập số điện thoại đã đăng ký để nhận mã OTP"}
-                {step === 2 && `Mã OTP đã gửi đến ${phoneNumber}`}
-                {step === 3 && "Tạo mật khẩu mới cho tài khoản của bạn"}
+                {step === 1 && "Enter your registered phone number to receive an OTP"}
+                {step === 2 && `We sent an OTP to ${phoneNumber}`}
+                {step === 3 && "Create a new password for your account"}
               </p>
             </div>
 
@@ -318,7 +318,7 @@ export default function ForgotPasswordPage() {
                 <div>
                   <p className="text-sm text-danger font-medium">{error}</p>
                   <button onClick={() => setError(null)} className="text-xs text-danger/70 hover:text-danger mt-1 underline">
-                    Đóng
+                    Close
                   </button>
                 </div>
               </div>
@@ -337,7 +337,7 @@ export default function ForgotPasswordPage() {
               <form onSubmit={handleRequestOTP} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Số điện thoại
+                    Phone Number
                   </label>
                   <div className="relative">
                     <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">
@@ -362,12 +362,12 @@ export default function ForgotPasswordPage() {
                   {loading ? (
                     <>
                       <div className="size-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                      <span>Đang gửi...</span>
+                      <span>Sending...</span>
                     </>
                   ) : (
                     <>
                       <span className="material-symbols-outlined text-xl">send</span>
-                      <span>Gửi mã OTP</span>
+                      <span>Send OTP</span>
                     </>
                   )}
                 </button>
@@ -400,11 +400,11 @@ export default function ForgotPasswordPage() {
                 <div className="text-center">
                   {countdown > 0 ? (
                     <p className="text-sm text-slate-400">
-                      Mã hết hạn sau{" "}
+                      Code expires in{" "}
                       <span className="text-primary font-semibold">{formatTime(countdown)}</span>
                     </p>
                   ) : (
-                    <p className="text-sm text-danger font-medium">Mã OTP đã hết hạn</p>
+                    <p className="text-sm text-danger font-medium">OTP code has expired</p>
                   )}
                 </div>
 
@@ -416,7 +416,7 @@ export default function ForgotPasswordPage() {
                     disabled={loading}
                     className="w-full text-sm text-primary hover:text-primary/80 font-medium py-2 transition-colors"
                   >
-                    Gửi lại mã OTP
+                    Resend OTP
                   </button>
                 )}
 
@@ -428,12 +428,12 @@ export default function ForgotPasswordPage() {
                   {loading ? (
                     <>
                       <div className="size-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                      <span>Đang xác thực...</span>
+                      <span>Verifying...</span>
                     </>
                   ) : (
                     <>
                       <span className="material-symbols-outlined text-xl">verified</span>
-                      <span>Xác thực OTP</span>
+                      <span>Verify OTP</span>
                     </>
                   )}
                 </button>
@@ -443,7 +443,7 @@ export default function ForgotPasswordPage() {
                   onClick={() => { setStep(1); setOtp(["", "", "", "", "", ""]); setError(null); }}
                   className="w-full text-sm text-slate-500 hover:text-slate-300 py-2 transition-colors"
                 >
-                  ← Quay lại nhập SĐT
+                  ← Back to phone entry
                 </button>
               </form>
             )}
@@ -453,7 +453,7 @@ export default function ForgotPasswordPage() {
               <form onSubmit={handleResetPassword} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Mật khẩu mới
+                    New Password
                   </label>
                   <div className="relative">
                     <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">
@@ -463,7 +463,7 @@ export default function ForgotPasswordPage() {
                       type={showPassword ? "text" : "password"}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Tối thiểu 6 ký tự"
+                      placeholder="At least 6 characters"
                       className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-11 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all text-sm"
                       autoFocus
                     />
@@ -481,7 +481,7 @@ export default function ForgotPasswordPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Xác nhận mật khẩu
+                    Confirm Password
                   </label>
                   <div className="relative">
                     <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">
@@ -491,14 +491,14 @@ export default function ForgotPasswordPage() {
                       type={showPassword ? "text" : "password"}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Nhập lại mật khẩu"
+                      placeholder="Re-enter your password"
                       className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all text-sm"
                     />
                   </div>
                   {confirmPassword && newPassword !== confirmPassword && (
                     <p className="text-xs text-danger mt-1.5 flex items-center gap-1">
                       <span className="material-symbols-outlined text-xs">error</span>
-                      Mật khẩu không khớp
+                      Passwords do not match
                     </p>
                   )}
                 </div>
@@ -511,12 +511,12 @@ export default function ForgotPasswordPage() {
                   {loading ? (
                     <>
                       <div className="size-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                      <span>Đang đổi mật khẩu...</span>
+                      <span>Resetting password...</span>
                     </>
                   ) : (
                     <>
                       <span className="material-symbols-outlined text-xl">lock_reset</span>
-                      <span>Đổi mật khẩu</span>
+                      <span>Reset Password</span>
                     </>
                   )}
                 </button>
@@ -537,7 +537,7 @@ export default function ForgotPasswordPage() {
                 className="text-sm text-primary hover:underline font-medium inline-flex items-center gap-1"
               >
                 <span className="material-symbols-outlined text-base">arrow_back</span>
-                Quay lại trang đăng nhập
+                Back to sign in
               </Link>
             </div>
           </div>

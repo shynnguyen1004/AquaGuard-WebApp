@@ -75,6 +75,34 @@ async function createUserDoc(uid, email, displayName, role) {
   }
 }
 
+async function parseJsonResponse(res) {
+  const raw = await res.text();
+
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new Error("The server returned an invalid response. Please try again.");
+  }
+}
+
+function mapAuthRequestError(err) {
+  if (err instanceof Error) {
+    if (err.name === "AbortError") {
+      return "The sign-in request timed out. Please try again.";
+    }
+
+    if (err.message === "Failed to fetch") {
+      return "Unable to connect to the server. Please check the backend or API configuration.";
+    }
+
+    return err.message;
+  }
+
+  return "Unable to sign in right now. Please try again.";
+}
+
 /* ── provider ───────────────────────────────────────────────── */
 
 export function AuthProvider({ children }) {
@@ -228,7 +256,7 @@ export function AuthProvider({ children }) {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || "Đăng ký thất bại");
+        throw new Error(data.message || "Registration failed.");
       }
 
       const userData = {
@@ -257,18 +285,27 @@ export function AuthProvider({ children }) {
   const loginWithPhonePassword = async (phone_number, password) => {
     setError(null);
     setLoading(true);
+    let timeoutId;
     try {
       const normalized = normalizePhone(phone_number);
+      const controller = new AbortController();
+      timeoutId = setTimeout(() => controller.abort(), 10000);
       const res = await fetch(`${API_BASE}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({ phone_number: normalized, password }),
       });
+      clearTimeout(timeoutId);
 
-      const data = await res.json();
+      const data = await parseJsonResponse(res);
 
       if (!res.ok) {
-        throw new Error(data.message || "Đăng nhập thất bại");
+        throw new Error(data?.message || "Sign in failed");
+      }
+
+      if (!data?.data?.user || !data?.data?.accessToken) {
+        throw new Error("The sign-in response was incomplete. Please try again.");
       }
 
       const userData = {
@@ -286,9 +323,11 @@ export function AuthProvider({ children }) {
       saveUserToStorage(userData);
       return userData;
     } catch (err) {
-      setError(err.message);
-      throw err;
+      const message = mapAuthRequestError(err);
+      setError(message);
+      throw new Error(message);
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   };
