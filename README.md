@@ -143,7 +143,53 @@ AquaGuard Web
 
 ## 🚀 Getting Started
 
-### Prerequisites
+### 🐳 Quick Start with Docker (Recommended)
+
+Cách nhanh nhất để chạy dự án — chỉ cần **Docker Desktop** được cài sẵn.
+
+```bash
+# 1. Clone repo
+git clone https://github.com/shynnguyen1004/AquaGuard-WebApp.git
+cd AquaGuard-WebApp
+
+# 2. Copy env templates
+cp .env.example .env
+cp server/.env.example server/.env
+
+# 3. Điền API keys vào .env và server/.env (nhờ team lead cấp)
+
+# 4. Khởi chạy toàn bộ hệ thống
+docker compose up --build
+```
+
+Sau khi chạy xong:
+- 🌐 **Frontend:** http://localhost:5173
+- 🔌 **Backend API:** http://localhost:5001/api/health
+- 🐘 **PostgreSQL:** localhost:5433 (user: `aquaguard`, pass: `aquaguard_pass`, db: `aquaguard_db`)
+
+> 📌 Database sẽ tự động được khởi tạo với schema và dữ liệu mẫu từ `database/init_db.sql`.
+
+Các lệnh Docker hữu ích:
+```bash
+# Dừng toàn bộ services
+docker compose down
+
+# Xem logs
+docker compose logs -f backend
+docker compose logs -f frontend
+
+# Reset database (xoá data cũ, chạy lại init)
+docker compose down -v && docker compose up --build
+
+# Chỉ chạy backend + database (không cần frontend container)
+docker compose up postgres backend
+```
+
+---
+
+### 🖥️ Manual Setup (Without Docker)
+
+#### Prerequisites
 
 Ensure the following are installed on your machine:
 

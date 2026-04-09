@@ -1,0 +1,80 @@
+# ============================================================
+# AquaGuard — Docker Compose (Local Development)
+# Usage: docker compose up --build
+# ============================================================
+
+services:
+  # ── PostgreSQL Database ──
+  postgres:
+    image: postgres:16-alpine
+    container_name: aquaguard-postgres
+    environment:
+      POSTGRES_USER: aquaguard
+      POSTGRES_PASSWORD: aquaguard_pass
+      POSTGRES_DB: aquaguard_db
+    ports:
+      - "5433:5432"   # 5433 trên host để tránh xung đột với PG local
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Tự động chạy init script + migrations khi tạo DB lần đầu
+      - ./database/init_db.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+      - ./server/migrations/002_family.sql:/docker-entrypoint-initdb.d/02_family.sql:ro
+      - ./server/migrations/003_rescue_gps.sql:/docker-entrypoint-initdb.d/03_rescue_gps.sql:ro
+      - ./server/migrations/004_reset_password.sql:/docker-entrypoint-initdb.d/04_reset_password.sql:ro
+      - ./server/migrations/005_rescue_reassign.sql:/docker-entrypoint-initdb.d/05_rescue_reassign.sql:ro
+      - ./server/migrations/006_rescue_groups.sql:/docker-entrypoint-initdb.d/06_rescue_groups.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aquaguard -d aquaguard_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Backend API Server ──
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: aquaguard-backend
+    ports:
+      - "5001:5001"
+    env_file:
+      - ./server/.env
+    environment:
+      # Override DATABASE_URL to point to Docker postgres service
+      DATABASE_URL: postgresql://aquaguard:aquaguard_pass@postgres:5432/aquaguard_db
+    volumes:
+      # Bind mount for hot-reload (node --watch)
+      - ./server:/app
+      # Prevent host node_modules from overriding container's
+      - /app/node_modules
+    command: ["node", "--watch", "index.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Frontend Dev Server ──
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aquaguard-frontend
+    ports:
+      - "5173:5173"
+    env_file:
+      - .env
+    volumes:
+      # Bind mount for Vite hot-reload
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./index.html:/app/index.html
+      - ./vite.config.js:/app/vite.config.js
+      # Prevent host node_modules from overriding container's
+      - /app/node_modules
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  pgdata:

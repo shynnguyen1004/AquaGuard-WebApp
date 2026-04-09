@@ -1,0 +1,83 @@
+# ============================================================
+# AquaGuard — Docker Compose (Production / VPS)
+# Usage: docker compose -f docker-compose.prod.yml up --build -d
+# ============================================================
+
+services:
+  # ── PostgreSQL Database ──
+  postgres:
+    image: postgres:16-alpine
+    container_name: aquaguard-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aquaguard}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aquaguard_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-aquaguard_db}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/init_db.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+      - ./server/migrations/002_family.sql:/docker-entrypoint-initdb.d/02_family.sql:ro
+      - ./server/migrations/003_rescue_gps.sql:/docker-entrypoint-initdb.d/03_rescue_gps.sql:ro
+      - ./server/migrations/004_reset_password.sql:/docker-entrypoint-initdb.d/04_reset_password.sql:ro
+      - ./server/migrations/005_rescue_reassign.sql:/docker-entrypoint-initdb.d/05_rescue_reassign.sql:ro
+      - ./server/migrations/006_rescue_groups.sql:/docker-entrypoint-initdb.d/06_rescue_groups.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aquaguard} -d ${POSTGRES_DB:-aquaguard_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    # Không expose port ra ngoài trong production
+
+  # ── Backend API Server ──
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: aquaguard-backend
+    env_file:
+      - ./server/.env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-aquaguard}:${POSTGRES_PASSWORD:-aquaguard_pass}@postgres:5432/${POSTGRES_DB:-aquaguard_db}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    # Không expose port — nginx sẽ proxy
+
+  # ── Frontend (Static Build + Nginx) ──
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY}
+        VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN}
+        VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID}
+        VITE_FIREBASE_STORAGE_BUCKET: ${VITE_FIREBASE_STORAGE_BUCKET}
+        VITE_FIREBASE_MESSAGING_SENDER_ID: ${VITE_FIREBASE_MESSAGING_SENDER_ID}
+        VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+        VITE_WS_URL: ${VITE_WS_URL}
+        VITE_GROQ_API_KEY: ${VITE_GROQ_API_KEY}
+        VITE_OWM_API_KEY: ${VITE_OWM_API_KEY}
+        VITE_WINDY_API_KEY: ${VITE_WINDY_API_KEY}
+    container_name: aquaguard-frontend
+    restart: unless-stopped
+    # Không expose port — nginx sẽ proxy
+
+  # ── Nginx Reverse Proxy ──
+  nginx:
+    image: nginx:alpine
+    container_name: aquaguard-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+
+volumes:
+  pgdata:
