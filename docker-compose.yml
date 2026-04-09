@@ -23,6 +23,7 @@ services:
       - ./server/migrations/004_reset_password.sql:/docker-entrypoint-initdb.d/04_reset_password.sql:ro
       - ./server/migrations/005_rescue_reassign.sql:/docker-entrypoint-initdb.d/05_rescue_reassign.sql:ro
       - ./server/migrations/006_rescue_groups.sql:/docker-entrypoint-initdb.d/06_rescue_groups.sql:ro
+      - ./server/migrations/007_user_profile.sql:/docker-entrypoint-initdb.d/07_user_profile.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U aquaguard -d aquaguard_db"]
       interval: 5s
