@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
 
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
+
 export default function RescueRequestForm({ onClose, onSubmit }) {
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -19,6 +21,24 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
   const [gpsStatus, setGpsStatus] = useState("loading"); // loading | success | error
   const [gpsCoords, setGpsCoords] = useState(null);
 
+  const reverseGeocode = async (lat, lng) => {
+    if (GOOGLE_MAPS_API_KEY) {
+      const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GOOGLE_MAPS_API_KEY}&language=vi&result_type=street_address|route|sublocality|locality`;
+      const res = await fetch(geocodeUrl);
+      const data = await res.json();
+      if (data.status === "OK" && data.results?.length > 0) {
+        return data.results[0].formatted_address;
+      }
+    }
+
+    const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=vi`;
+    const fallbackRes = await fetch(nominatimUrl, {
+      headers: { "User-Agent": "AquaGuard-WebApp" },
+    });
+    const fallbackData = await fallbackRes.json();
+    return fallbackData.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  };
+
   useEffect(() => {
     if (!navigator.geolocation) {
       setGpsStatus("error");
@@ -26,9 +46,25 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
     }
     setGpsStatus("loading");
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setGpsCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setGpsCoords({ lat, lng });
         setGpsStatus("success");
+
+        try {
+          const address = await reverseGeocode(lat, lng);
+          setFormData((prev) => ({
+            ...prev,
+            location: prev.location.trim() ? prev.location : address,
+          }));
+        } catch (err) {
+          console.error("Reverse geocoding failed:", err);
+          setFormData((prev) => ({
+            ...prev,
+            location: prev.location.trim() ? prev.location : `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+          }));
+        }
       },
       () => {
         setGpsStatus("error");

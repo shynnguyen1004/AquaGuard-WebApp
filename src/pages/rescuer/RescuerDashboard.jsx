@@ -362,6 +362,14 @@ export default function RescuerDashboard() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const handleProfileUpdated = () => {
+      fetchRequests();
+    };
+    window.addEventListener("profile_updated", handleProfileUpdated);
+    return () => window.removeEventListener("profile_updated", handleProfileUpdated);
+  }, []);
+
   const rescuerUid = user?.uid?.startsWith("phone_")
     ? parseInt(user.uid.replace("phone_", ""), 10)
     : user?.uid || "";

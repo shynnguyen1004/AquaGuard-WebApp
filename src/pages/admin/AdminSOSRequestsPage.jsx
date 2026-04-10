@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import RescueTrackingMap from "../../components/rescue/RescueTrackingMap";
 import { getStoredToken } from "../../utils/authStorage";
 
@@ -24,6 +24,49 @@ const urgencyColors = {
   medium: "bg-primary/10 text-primary border-primary/20",
   low: "bg-safe/10 text-safe border-safe/20",
 };
+
+const ADMIN_SORT_OPTIONS = [
+  { key: "priority", label: "Priority" },
+  { key: "newest", label: "Newest" },
+  { key: "oldest", label: "Oldest" },
+];
+
+const ADMIN_SORT_LABELS = Object.fromEntries(ADMIN_SORT_OPTIONS.map((opt) => [opt.key, opt.label]));
+const gpsCityCache = new Map();
+
+function extractCityFromLocation(location) {
+  if (!location || typeof location !== "string") return "";
+  const normalized = location.replace(/\s+/g, " ").trim();
+  const match = normalized.match(/thành phố\s+([^,]+)/i);
+  if (match?.[1]) return match[1].trim();
+  return "";
+}
+
+async function reverseGeocodeCity(lat, lng) {
+  if (typeof lat !== "number" || typeof lng !== "number") return "";
+  const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+  if (gpsCityCache.has(cacheKey)) return gpsCityCache.get(cacheKey);
+
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=vi`
+    );
+    const data = await res.json();
+    const addr = data?.address || {};
+    const city =
+      addr.city ||
+      addr.municipality ||
+      addr.town ||
+      addr.county ||
+      addr.state ||
+      "";
+    gpsCityCache.set(cacheKey, city || "");
+    return city || "";
+  } catch {
+    gpsCityCache.set(cacheKey, "");
+    return "";
+  }
+}
 
 function formatTimeAgo(iso) {
   if (!iso) return "";
@@ -241,6 +284,9 @@ function RequestDetail({
 
 export default function AdminSOSRequestsPage() {
   const [activeTab, setActiveTab] = useState("all");
+  const [sortKey, setSortKey] = useState("priority");
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const [selectedCities, setSelectedCities] = useState([]);
   const [requests, setRequests] = useState([]);
   const [rescuers, setRescuers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -250,6 +296,8 @@ export default function AdminSOSRequestsPage() {
   const [selectedRescuerByRequest, setSelectedRescuerByRequest] = useState({});
   const [assigningRequestId, setAssigningRequestId] = useState(null);
   const [completingRequestId, setCompletingRequestId] = useState(null);
+  const [cityByRequestId, setCityByRequestId] = useState({});
+  const sortMenuRef = useRef(null);
 
   const fetchRequests = async () => {
     const token = getStoredToken();
@@ -289,6 +337,17 @@ export default function AdminSOSRequestsPage() {
   useEffect(() => {
     fetchRequests();
     fetchRescuers();
+  }, []);
+
+  useEffect(() => {
+    const onDocClick = (event) => {
+      if (!sortMenuRef.current) return;
+      if (!sortMenuRef.current.contains(event.target)) {
+        setShowSortMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
   useEffect(() => {
@@ -374,6 +433,12 @@ export default function AdminSOSRequestsPage() {
     }
   };
 
+  const toggleCity = (city) => {
+    setSelectedCities((prev) =>
+      prev.includes(city) ? prev.filter((item) => item !== city) : [...prev, city]
+    );
+  };
+
   const filtered =
     activeTab === "all"
       ? requests
@@ -381,10 +446,71 @@ export default function AdminSOSRequestsPage() {
         ? requests.filter((r) => r.status === "assigned" || r.status === "in_progress")
         : requests.filter((r) => r.status === activeTab);
 
+  const filteredWithCity = useMemo(
+    () =>
+      filtered.map((r) => ({
+        ...r,
+        cityFromLocation: cityByRequestId[r.id] || extractCityFromLocation(r.location),
+      })),
+    [filtered, cityByRequestId]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveCitiesFromGps = async () => {
+      const targets = requests.filter(
+        (r) =>
+          r?.id &&
+          Number.isFinite(Number(r.latitude)) &&
+          Number.isFinite(Number(r.longitude)) &&
+          !cityByRequestId[r.id]
+      );
+      if (targets.length === 0) return;
+
+      const resolved = await Promise.all(
+        targets.map(async (r) => {
+          const city = await reverseGeocodeCity(Number(r.latitude), Number(r.longitude));
+          return [r.id, city || extractCityFromLocation(r.location)];
+        })
+      );
+
+      if (cancelled) return;
+      setCityByRequestId((prev) => {
+        const next = { ...prev };
+        resolved.forEach(([id, city]) => {
+          if (city) next[id] = city;
+        });
+        return next;
+      });
+    };
+
+    resolveCitiesFromGps();
+    return () => {
+      cancelled = true;
+    };
+  }, [requests, cityByRequestId]);
+
+  const cityOptions = useMemo(() => {
+    const uniq = Array.from(new Set(filteredWithCity.map((r) => r.cityFromLocation).filter(Boolean)));
+    return uniq;
+  }, [filteredWithCity]);
+
+  const cityFiltered = useMemo(() => {
+    if (selectedCities.length === 0) return filteredWithCity;
+    return filteredWithCity.filter((r) => r.cityFromLocation && selectedCities.includes(r.cityFromLocation));
+  }, [filteredWithCity, selectedCities]);
+
   const sorted = useMemo(() => {
-    const arr = [...filtered];
+    const arr = [...cityFiltered];
     const urgencyRank = { critical: 3, high: 2, medium: 1, low: 0 };
     arr.sort((a, b) => {
+      if (sortKey === "newest") {
+        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+      }
+      if (sortKey === "oldest") {
+        return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+      }
       const statusPriority = (s) => (s === "pending" ? 2 : s === "assigned" || s === "in_progress" ? 1 : 0);
       const sp = statusPriority(b.status) - statusPriority(a.status);
       if (sp !== 0) return sp;
@@ -393,7 +519,7 @@ export default function AdminSOSRequestsPage() {
       return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
     });
     return arr;
-  }, [filtered]);
+  }, [cityFiltered, sortKey]);
 
   const selectedRequest = sorted.find((r) => r.id === selectedRequestId) || sorted[0] || null;
 
@@ -475,6 +601,74 @@ export default function AdminSOSRequestsPage() {
           ))}
         </div>
 
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <div className="relative" ref={sortMenuRef}>
+            <button
+              onClick={() => setShowSortMenu((prev) => !prev)}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:border-primary/40"
+            >
+              <span className="material-symbols-outlined text-base">tune</span>
+              Sort By
+              <span className="text-slate-500">{ADMIN_SORT_LABELS[sortKey]}</span>
+              <span className="material-symbols-outlined text-base">{showSortMenu ? "expand_less" : "expand_more"}</span>
+            </button>
+
+            {showSortMenu && (
+              <div className="absolute z-20 mt-2 w-72 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-2xl">
+                <p className="mb-2 text-xs font-black uppercase tracking-wider text-slate-500">Sort</p>
+                <div className="space-y-1">
+                  {ADMIN_SORT_OPTIONS.map((option) => (
+                    <button
+                      key={option.key}
+                      onClick={() => {
+                        setSortKey(option.key);
+                        setShowSortMenu(false);
+                      }}
+                      className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                        sortKey === option.key
+                          ? "bg-primary/10 text-primary font-bold"
+                          : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+
+                <p className="mb-2 mt-4 text-xs font-black uppercase tracking-wider text-slate-500">City</p>
+                <div className="flex flex-wrap gap-2">
+                  {cityOptions.map((city) => (
+                    <button
+                      key={city}
+                      onClick={() => toggleCity(city)}
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                        selectedCities.includes(city)
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
+                      }`}
+                    >
+                      {city}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => setSelectedCities([])}
+                  className="mt-4 w-full rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  Clear Filters
+                </button>
+              </div>
+            )}
+          </div>
+
+          {selectedCities.map((city) => (
+            <span key={city} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+              {city}
+            </span>
+          ))}
+        </div>
+
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="size-10 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
@@ -492,7 +686,7 @@ export default function AdminSOSRequestsPage() {
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                   Request Queue ({sorted.length})
                 </p>
-                <p className="text-[11px] text-slate-400">Priority sorted</p>
+                <p className="text-[11px] text-slate-400">{ADMIN_SORT_LABELS[sortKey]}</p>
               </div>
               <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
                 {sorted.map((request) => {

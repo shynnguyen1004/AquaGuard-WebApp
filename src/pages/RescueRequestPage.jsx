@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import RescueTrackingMap from "../components/rescue/RescueTrackingMap";
 import { useAuth } from "../contexts/AuthContext";
 import { getStoredToken } from "../utils/authStorage";
@@ -25,6 +25,77 @@ const urgencyColors = {
   medium: "bg-primary/10 text-primary border-primary/20",
   low: "bg-safe/10 text-safe border-safe/20",
 };
+
+const AGE_GROUPS = [
+  { key: "0-16", label: "0-16", min: 0, max: 16 },
+  { key: "16-30", label: "16-30", min: 16, max: 30 },
+  { key: "30-50", label: "30-50", min: 30, max: 50 },
+  { key: "50-90", label: "50-90", min: 50, max: 90 },
+];
+
+const SORT_OPTIONS = [
+  { key: "priority", label: "Priority" },
+  { key: "newest", label: "Newest" },
+  { key: "oldest", label: "Oldest" },
+  { key: "age_asc", label: "Age: Low-High" },
+  { key: "age_desc", label: "Age: High-Low" },
+];
+
+const GENDER_OPTIONS = [
+  { key: "male", label: "Male" },
+  { key: "female", label: "Female" },
+  { key: "other", label: "Other" },
+];
+
+const SORT_LABELS = Object.fromEntries(SORT_OPTIONS.map((opt) => [opt.key, opt.label]));
+const gpsCityCache = new Map();
+
+function formatGender(value) {
+  if (!value) return "Unknown";
+  if (value === "male") return "Male";
+  if (value === "female") return "Female";
+  if (value === "other") return "Other";
+  return "Unknown";
+}
+
+function extractCityFromLocation(location) {
+  if (!location || typeof location !== "string") return "";
+  const normalized = location.replace(/\s+/g, " ").trim();
+  const match = normalized.match(/thành phố\s+([^,]+)/i);
+  if (match?.[1]) return match[1].trim();
+  return "";
+}
+
+async function reverseGeocodeCity(lat, lng) {
+  if (typeof lat !== "number" || typeof lng !== "number") return "";
+  const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+  if (gpsCityCache.has(cacheKey)) return gpsCityCache.get(cacheKey);
+
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=vi`
+    );
+    const data = await res.json();
+    const addr = data?.address || {};
+    const city =
+      addr.city ||
+      addr.municipality ||
+      addr.town ||
+      addr.county ||
+      addr.state ||
+      "";
+    gpsCityCache.set(cacheKey, city || "");
+    return city || "";
+  } catch {
+    gpsCityCache.set(cacheKey, "");
+    return "";
+  }
+}
+
+function formatCity(value) {
+  if (value) return value;
+  return "Unknown";
+}
 
 function AcceptModeModal({ request, activeGroup, processing, onClose, onConfirm }) {
   if (!request) return null;
@@ -100,6 +171,10 @@ function formatTimeAgo(iso) {
 }
 
 function QueueItem({ request, selected, isNew, onSelect, onAccept }) {
+  const ageLabel = request.user_age ?? "N/A";
+  const genderLabel = formatGender(request.user_gender);
+  const cityLabel = formatCity(request.cityFromLocation);
+
   return (
     <button
       type="button"
@@ -136,6 +211,13 @@ function QueueItem({ request, selected, isNew, onSelect, onAccept }) {
       <p className="mt-1 text-xs text-slate-600 dark:text-slate-400 line-clamp-1">
         {request.description || "No description provided"}
       </p>
+      <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-500">
+        <span>Age: {ageLabel}</span>
+        <span>•</span>
+        <span>{genderLabel}</span>
+        <span>•</span>
+        <span className="truncate">{cityLabel}</span>
+      </div>
       <p className="mt-1 text-[11px] text-slate-500 truncate">
         Assigned to: <span className="font-semibold text-slate-600 dark:text-slate-300">{request.assigned_name || "Unassigned"}</span>
       </p>
@@ -193,6 +275,10 @@ function RequestDetail({ request, canAccept, canComplete, canCancel, canTrack, o
     }
   };
 
+  const ageLabel = request.user_age ?? "N/A";
+  const genderLabel = formatGender(request.user_gender);
+  const cityLabel = formatCity(request.cityFromLocation);
+
   return (
     <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 space-y-4">
       <div className="flex items-start justify-between gap-3">
@@ -228,6 +314,10 @@ function RequestDetail({ request, canAccept, canComplete, canCancel, canTrack, o
           </p>
         )}
         <p className="text-slate-600 dark:text-slate-300">{request.description || "No description provided"}</p>
+        <p className="text-xs text-slate-500 flex items-center gap-1 font-medium">
+          <span className="material-symbols-outlined text-[13px]">badge</span>
+          Age: {ageLabel} • Gender: {genderLabel} • City: {cityLabel}
+        </p>
         {request.latitude && request.longitude && (
           <p className="text-xs text-safe flex items-center gap-1 font-medium">
             <span className="material-symbols-outlined text-[13px]">my_location</span>
@@ -304,6 +394,11 @@ function RequestDetail({ request, canAccept, canComplete, canCancel, canTrack, o
 export default function RescueRequestPage() {
   const { user, role } = useAuth();
   const [activeTab, setActiveTab] = useState("all");
+  const [sortKey, setSortKey] = useState("priority");
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const [selectedAgeGroups, setSelectedAgeGroups] = useState([]);
+  const [selectedGenders, setSelectedGenders] = useState([]);
+  const [selectedCities, setSelectedCities] = useState([]);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeGroup, setActiveGroup] = useState(null);
@@ -312,6 +407,9 @@ export default function RescueRequestPage() {
   const [seenRequestIds, setSeenRequestIds] = useState([]);
   const [acceptModeRequest, setAcceptModeRequest] = useState(null);
   const [acceptingWithMode, setAcceptingWithMode] = useState(false);
+  const [acceptError, setAcceptError] = useState("");
+  const [cityByRequestId, setCityByRequestId] = useState({});
+  const sortMenuRef = useRef(null);
 
   const fetchRequests = async () => {
     const token = getStoredToken();
@@ -352,15 +450,24 @@ export default function RescueRequestPage() {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchRequests/fetchGroupContext use getStoredToken() internally
   useEffect(() => {
     fetchRequests();
     fetchGroupContext();
-  }, []);
+  }, [role]);
 
   // Auto-refresh every 10 seconds
   useEffect(() => {
     const interval = setInterval(fetchRequests, 10000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const handleProfileUpdated = () => {
+      fetchRequests();
+    };
+    window.addEventListener("profile_updated", handleProfileUpdated);
+    return () => window.removeEventListener("profile_updated", handleProfileUpdated);
   }, []);
 
   useEffect(() => {
@@ -372,6 +479,17 @@ export default function RescueRequestPage() {
     } catch {
       // ignore invalid data
     }
+  }, []);
+
+  useEffect(() => {
+    const onDocClick = (event) => {
+      if (!sortMenuRef.current) return;
+      if (!sortMenuRef.current.contains(event.target)) {
+        setShowSortMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
   const markAsSeen = (requestId) => {
@@ -424,7 +542,7 @@ export default function RescueRequestPage() {
         }
         window.dispatchEvent(new CustomEvent("sos_changed", { detail: { type: "accepted", requestId } }));
       } else {
-        alert(json.message || "Accept failed");
+        setAcceptError(json.message || "Accept failed");
       }
     } catch (err) {
       console.error("Failed to accept:", err);
@@ -500,17 +618,112 @@ export default function RescueRequestPage() {
     setTrackingRequest(request);
   };
 
-  const filtered =
+  const toggleInList = (value, setter) => {
+    setter((prev) => (prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]));
+  };
+
+  const resetFilters = () => {
+    setSelectedAgeGroups([]);
+    setSelectedGenders([]);
+    setSelectedCities([]);
+  };
+
+  const tabFiltered =
     activeTab === "all"
       ? requests
       : activeTab === "in_progress"
         ? requests.filter((r) => r.status === "assigned" || r.status === "in_progress")
         : requests.filter((r) => r.status === activeTab);
 
+  const tabFilteredWithCity = useMemo(
+    () =>
+      tabFiltered.map((r) => ({
+        ...r,
+        cityFromLocation: cityByRequestId[r.id] || extractCityFromLocation(r.location),
+      })),
+    [tabFiltered, cityByRequestId]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveCitiesFromGps = async () => {
+      const targets = requests.filter(
+        (r) =>
+          r?.id &&
+          Number.isFinite(Number(r.latitude)) &&
+          Number.isFinite(Number(r.longitude)) &&
+          !cityByRequestId[r.id]
+      );
+      if (targets.length === 0) return;
+
+      const resolved = await Promise.all(
+        targets.map(async (r) => {
+          const city = await reverseGeocodeCity(Number(r.latitude), Number(r.longitude));
+          return [r.id, city || extractCityFromLocation(r.location)];
+        })
+      );
+
+      if (cancelled) return;
+      setCityByRequestId((prev) => {
+        const next = { ...prev };
+        resolved.forEach(([id, city]) => {
+          if (city) next[id] = city;
+        });
+        return next;
+      });
+    };
+
+    resolveCitiesFromGps();
+    return () => {
+      cancelled = true;
+    };
+  }, [requests, cityByRequestId]);
+
+  const cityOptions = useMemo(() => {
+    const uniq = Array.from(new Set(tabFilteredWithCity.map((r) => r.cityFromLocation).filter(Boolean)));
+    return uniq.map((city) => ({ key: city, label: city }));
+  }, [tabFilteredWithCity]);
+
+  const filtered = useMemo(() => {
+    return tabFilteredWithCity.filter((r) => {
+      const passAge =
+        selectedAgeGroups.length === 0 ||
+        (typeof r.user_age === "number" &&
+          selectedAgeGroups.some((groupKey) => {
+            const group = AGE_GROUPS.find((item) => item.key === groupKey);
+            return group && r.user_age >= group.min && r.user_age < group.max;
+          }));
+
+      const passGender =
+        selectedGenders.length === 0 ||
+        (r.user_gender && selectedGenders.includes(r.user_gender));
+
+      const passCity =
+        selectedCities.length === 0 ||
+        (r.cityFromLocation && selectedCities.includes(r.cityFromLocation));
+
+      return passAge && passGender && passCity;
+    });
+  }, [tabFilteredWithCity, selectedAgeGroups, selectedGenders, selectedCities]);
+
   const sorted = useMemo(() => {
     const copy = [...filtered];
     const urgencyRank = { critical: 3, high: 2, medium: 1, low: 0 };
     copy.sort((a, b) => {
+      if (sortKey === "newest") {
+        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+      }
+      if (sortKey === "oldest") {
+        return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+      }
+      if (sortKey === "age_asc") {
+        return (a.user_age ?? Number.MAX_SAFE_INTEGER) - (b.user_age ?? Number.MAX_SAFE_INTEGER);
+      }
+      if (sortKey === "age_desc") {
+        return (b.user_age ?? -1) - (a.user_age ?? -1);
+      }
+
       const statusPriority = (s) => (s === "pending" ? 2 : s === "in_progress" ? 1 : 0);
       const sp = statusPriority(b.status) - statusPriority(a.status);
       if (sp !== 0) return sp;
@@ -519,7 +732,7 @@ export default function RescueRequestPage() {
       return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
     });
     return copy;
-  }, [filtered]);
+  }, [filtered, sortKey]);
 
   const selectedRequest = sorted.find((r) => r.id === selectedRequestId) || sorted[0] || null;
   const rescuerUid = user?.uid?.startsWith("phone_")
@@ -663,6 +876,102 @@ export default function RescueRequestPage() {
           ))}
         </div>
 
+        <div className="mb-5 flex flex-wrap items-center gap-2">
+          <div className="relative" ref={sortMenuRef}>
+            <button
+              onClick={() => setShowSortMenu((prev) => !prev)}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:border-primary/40"
+            >
+              <span className="material-symbols-outlined text-base">tune</span>
+              Sort By
+              <span className="text-slate-500">{SORT_LABELS[sortKey]}</span>
+              <span className="material-symbols-outlined text-base">{showSortMenu ? "expand_less" : "expand_more"}</span>
+            </button>
+
+            {showSortMenu && (
+              <div className="absolute z-20 mt-2 w-72 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-2xl">
+                <p className="mb-2 text-xs font-black uppercase tracking-wider text-slate-500">Sort</p>
+                <div className="space-y-1">
+                  {SORT_OPTIONS.map((option) => (
+                    <button
+                      key={option.key}
+                      onClick={() => {
+                        setSortKey(option.key);
+                        setShowSortMenu(false);
+                      }}
+                      className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${sortKey === option.key ? "bg-primary/10 text-primary font-bold" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+
+                <p className="mb-2 mt-4 text-xs font-black uppercase tracking-wider text-slate-500">Age Group</p>
+                <div className="flex flex-wrap gap-2">
+                  {AGE_GROUPS.map((group) => (
+                    <button
+                      key={group.key}
+                      onClick={() => toggleInList(group.key, setSelectedAgeGroups)}
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold ${selectedAgeGroups.includes(group.key) ? "border-primary bg-primary/10 text-primary" : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"}`}
+                    >
+                      {group.label}
+                    </button>
+                  ))}
+                </div>
+
+                <p className="mb-2 mt-4 text-xs font-black uppercase tracking-wider text-slate-500">Gender</p>
+                <div className="flex flex-wrap gap-2">
+                  {GENDER_OPTIONS.map((option) => (
+                    <button
+                      key={option.key}
+                      onClick={() => toggleInList(option.key, setSelectedGenders)}
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold ${selectedGenders.includes(option.key) ? "border-primary bg-primary/10 text-primary" : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"}`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+
+                <p className="mb-2 mt-4 text-xs font-black uppercase tracking-wider text-slate-500">City</p>
+                <div className="flex flex-wrap gap-2">
+                  {cityOptions.map((option) => (
+                    <button
+                      key={option.key}
+                      onClick={() => toggleInList(option.key, setSelectedCities)}
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold ${selectedCities.includes(option.key) ? "border-primary bg-primary/10 text-primary" : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"}`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={resetFilters}
+                  className="mt-4 w-full rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  Clear Filters
+                </button>
+              </div>
+            )}
+          </div>
+
+          {selectedAgeGroups.map((item) => (
+            <span key={item} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+              Age {item}
+            </span>
+          ))}
+          {selectedGenders.map((item) => (
+            <span key={item} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+              {formatGender(item)}
+            </span>
+          ))}
+          {selectedCities.map((item) => (
+            <span key={item} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+              {item}
+            </span>
+          ))}
+        </div>
+
         {/* Request List */}
         {loading ? (
           <div className="flex justify-center py-16">
@@ -687,7 +996,7 @@ export default function RescueRequestPage() {
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                   Request Queue ({sorted.length})
                 </p>
-                <p className="text-[11px] text-slate-400">Priority sorted</p>
+                <p className="text-[11px] text-slate-400">{SORT_LABELS[sortKey]}</p>
               </div>
               <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
                 {sorted.map((request) => {

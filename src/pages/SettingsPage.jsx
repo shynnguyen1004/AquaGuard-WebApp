@@ -158,14 +158,18 @@ export default function SettingsPage({ defaultTab = "profile" }) {
   const [mySafetyStatus, setMySafetyStatus] = useState("unknown");
   const [myHealthNote, setMyHealthNote] = useState("");
 
-  const authHeaders = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+  // Build auth headers fresh each call to avoid stale closures
+  const getAuthHeaders = useCallback(() => ({
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  }), [token]);
 
   // ── Fetch family members ──
   const fetchFamily = useCallback(async () => {
     if (!token) return;
     setFamilyLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/family/members`, { headers: authHeaders });
+      const res = await fetch(`${API_BASE}/family/members`, { headers: getAuthHeaders() });
       const data = await res.json();
       if (data.success) setFamily(data.data);
     } catch (err) {
@@ -173,19 +177,19 @@ export default function SettingsPage({ defaultTab = "profile" }) {
     } finally {
       setFamilyLoading(false);
     }
-  }, [token]);
+  }, [token, getAuthHeaders]);
 
   // ── Fetch pending requests ──
   const fetchRequests = useCallback(async () => {
     if (!token) return;
     try {
-      const res = await fetch(`${API_BASE}/family/requests`, { headers: authHeaders });
+      const res = await fetch(`${API_BASE}/family/requests`, { headers: getAuthHeaders() });
       const data = await res.json();
       if (data.success) setPendingRequests(data.data);
     } catch (err) {
       console.error("Fetch requests error:", err);
     }
-  }, [token]);
+  }, [token, getAuthHeaders]);
 
   useEffect(() => {
     if (activeTab === "family") {
@@ -201,15 +205,15 @@ export default function SettingsPage({ defaultTab = "profile" }) {
     setSearchResult(null);
     try {
       const phone = normalizePhone(searchPhone);
-      const res = await fetch(`${API_BASE}/family/search?phone=${encodeURIComponent(phone)}`, { headers: authHeaders });
+      const res = await fetch(`${API_BASE}/family/search?phone=${encodeURIComponent(phone)}`, { headers: getAuthHeaders() });
       const data = await res.json();
       if (data.success && data.data) {
         setSearchResult(data.data);
       } else {
-        setSearchError("No user was found with that phone number.");
+        setSearchError(t("settings.family.userNotFound"));
       }
     } catch (err) {
-      setSearchError("Search failed.");
+      setSearchError(t("settings.family.connectionError"));
     }
   };
 
@@ -219,28 +223,28 @@ export default function SettingsPage({ defaultTab = "profile" }) {
     try {
       const res = await fetch(`${API_BASE}/family/request`, {
         method: "POST",
-        headers: authHeaders,
+        headers: getAuthHeaders(),
         body: JSON.stringify({ receiver_id: searchResult.id, relation }),
       });
       const data = await res.json();
       if (data.success) {
-        alert("Connection request sent successfully!");
+        setProfileMessage({ type: "success", text: t("settings.family.connectionSent") });
         setShowAddFamily(false);
         setSearchResult(null);
         setSearchPhone("");
         setRelation("");
       } else {
-        alert(data.message || "Failed to send the connection request.");
+        setProfileMessage({ type: "error", text: data.message || t("settings.family.connectionError") });
       }
     } catch (err) {
-      alert("Server error.");
+      setProfileMessage({ type: "error", text: t("settings.family.connectionError") });
     }
   };
 
   // ── Accept / Reject request ──
   const handleAcceptRequest = async (id) => {
     try {
-      await fetch(`${API_BASE}/family/requests/${id}/accept`, { method: "PUT", headers: authHeaders });
+      await fetch(`${API_BASE}/family/requests/${id}/accept`, { method: "PUT", headers: getAuthHeaders() });
       fetchFamily();
       fetchRequests();
     } catch (err) { console.error(err); }
@@ -248,16 +252,16 @@ export default function SettingsPage({ defaultTab = "profile" }) {
 
   const handleRejectRequest = async (id) => {
     try {
-      await fetch(`${API_BASE}/family/requests/${id}/reject`, { method: "PUT", headers: authHeaders });
+      await fetch(`${API_BASE}/family/requests/${id}/reject`, { method: "PUT", headers: getAuthHeaders() });
       fetchRequests();
     } catch (err) { console.error(err); }
   };
 
   // ── Remove family member ──
   const handleRemoveFamily = async (connectionId) => {
-    if (!confirm("Xóa kết nối với người thân này?")) return;
+    if (!confirm(t("settings.family.removeConfirm"))) return;
     try {
-      await fetch(`${API_BASE}/family/members/${connectionId}`, { method: "DELETE", headers: authHeaders });
+      await fetch(`${API_BASE}/family/members/${connectionId}`, { method: "DELETE", headers: getAuthHeaders() });
       fetchFamily();
     } catch (err) { console.error(err); }
   };
@@ -267,7 +271,7 @@ export default function SettingsPage({ defaultTab = "profile" }) {
     try {
       await fetch(`${API_BASE}/family/status`, {
         method: "PUT",
-        headers: authHeaders,
+        headers: getAuthHeaders(),
         body: JSON.stringify({ safety_status: status, health_note: myHealthNote }),
       });
       setMySafetyStatus(status);
@@ -314,6 +318,16 @@ export default function SettingsPage({ defaultTab = "profile" }) {
       const data = await res.json();
       if (data.success) {
         setProfileMessage({ type: "success", text: t("settings.profile.profileUpdated") });
+        window.dispatchEvent(
+          new CustomEvent("profile_updated", {
+            detail: {
+              userId: user?.uid || null,
+              dateOfBirth: profile.dateOfBirth || null,
+              gender: profile.gender || "",
+              address: profile.address || "",
+            },
+          })
+        );
       } else {
         setProfileMessage({ type: "error", text: data.message || "Failed to save." });
       }

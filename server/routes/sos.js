@@ -1,43 +1,11 @@
 const express = require("express");
-const jwt = require("jsonwebtoken");
 const pool = require("../db");
 const { upload, uploadToCloudinary } = require("../utils/upload");
+const { authMiddleware, requireAdmin, requireRoles } = require("../middleware/auth");
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || "aquaguard_jwt_secret_2026";
 
-// ── Middleware xác thực JWT ──
-function authMiddleware(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ success: false, message: "Chưa đăng nhập" });
-  }
 
-  try {
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded; // { id, phone_number, role }
-    next();
-  } catch (err) {
-    return res.status(401).json({ success: false, message: "Token không hợp lệ" });
-  }
-}
-
-function requireAdmin(req, res, next) {
-  if (req.user?.role !== "admin") {
-    return res.status(403).json({ success: false, message: "Chỉ admin mới được phép thực hiện" });
-  }
-  next();
-}
-
-function requireRoles(roles) {
-  return (req, res, next) => {
-    if (!roles.includes(req.user?.role)) {
-      return res.status(403).json({ success: false, message: "You do not have permission to perform this action." });
-    }
-    next();
-  };
-}
 
 // ── Helper: broadcast to a tracking room ──
 function broadcastToRoom(req, requestId, message) {
@@ -131,10 +99,27 @@ router.get("/my", authMiddleware, async (req, res) => {
  * GET /api/sos/all
  * Lấy tất cả requests (Rescuer / Admin)
  */
-router.get("/all", authMiddleware, async (req, res) => {
+router.get("/all", authMiddleware, requireRoles(["rescuer", "admin"]), async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT r.*, u.phone_number as user_phone
+      `SELECT r.*, 
+              u.phone_number as user_phone,
+              u.gender as user_gender,
+              u.date_of_birth as user_date_of_birth,
+              u.address as user_address,
+              CASE
+                WHEN u.date_of_birth IS NULL THEN NULL
+                ELSE DATE_PART('year', AGE(CURRENT_DATE, u.date_of_birth))::int
+              END as user_age,
+              CASE
+                WHEN u.address ILIKE '%hồ chí minh%'
+                  OR u.address ILIKE '%ho chi minh%'
+                  OR u.address ILIKE '%hcm%'
+                  OR u.address ILIKE '%tphcm%'
+                  OR u.address ILIKE '%tp. hcm%'
+                THEN 'ho_chi_minh'
+                ELSE NULL
+              END as user_city
        FROM rescue_requests r
        LEFT JOIN users u ON r.user_id = u.id
        ORDER BY r.created_at DESC`

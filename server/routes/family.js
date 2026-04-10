@@ -1,25 +1,8 @@
 const express = require("express");
-const jwt = require("jsonwebtoken");
 const pool = require("../db");
+const { authMiddleware } = require("../middleware/auth");
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || "aquaguard_jwt_secret_2026";
-
-// ── Middleware xác thực JWT ──
-function authMiddleware(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ success: false, message: "Chưa đăng nhập" });
-  }
-  try {
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (err) {
-    return res.status(401).json({ success: false, message: "Token không hợp lệ" });
-  }
-}
 
 // ──────────────────────────────────────────────
 // GET /api/family/search?phone=+84...

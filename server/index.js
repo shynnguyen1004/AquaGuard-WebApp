@@ -10,6 +10,7 @@ const authRoutes = require("./routes/auth");
 const sosRoutes = require("./routes/sos");
 const familyRoutes = require("./routes/family");
 const analyticsRoutes = require("./routes/analytics");
+const { rateLimit } = require("./middleware/rateLimit");
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -34,7 +35,14 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// ── Rate limiting for auth endpoints ──
+const authLoginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: "Too many login attempts. Please try again later." });
+const authRegisterLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, message: "Too many registration attempts. Please try again later." });
+
 // ── Routes ──
+app.use("/api/auth/login", authLoginLimiter);
+app.use("/api/auth/register", authRegisterLimiter);
+app.use("/api/auth/forgot-password", rateLimit({ windowMs: 15 * 60 * 1000, max: 5 }));
 app.use("/api/auth", authRoutes);
 app.use("/api/sos", sosRoutes);
 app.use("/api/family", familyRoutes);

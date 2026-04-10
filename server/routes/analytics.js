@@ -1,32 +1,8 @@
 const express = require("express");
-const jwt = require("jsonwebtoken");
 const pool = require("../db");
+const { authMiddleware, requireAdmin } = require("../middleware/auth");
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || "aquaguard_jwt_secret_2026";
-
-function authMiddleware(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ success: false, message: "Authentication required." });
-  }
-
-  try {
-    const token = authHeader.split(" ")[1];
-    req.user = jwt.verify(token, JWT_SECRET);
-    next();
-  } catch {
-    return res.status(401).json({ success: false, message: "Invalid token." });
-  }
-}
-
-function requireAdmin(req, res, next) {
-  if (req.user?.role !== "admin") {
-    return res.status(403).json({ success: false, message: "Admin access required." });
-  }
-
-  next();
-}
 
 /**
  * GET /api/analytics/overview

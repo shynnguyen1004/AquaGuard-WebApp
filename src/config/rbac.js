@@ -70,7 +70,7 @@ export function getMobileNavItemsForRole(role) {
  */
 export function canAccessPage(role, page) {
   const item = ALL_NAV_ITEMS.find((i) => i.page === page);
-  if (!item) return true; // pages not in nav are accessible by all
+  if (!item) return false; // pages not in nav are blocked by default
   return item.roles.includes(role);
 }
 

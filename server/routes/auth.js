@@ -3,6 +3,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const pool = require("../db");
+const { authMiddleware, requireAdmin, requireRoles } = require("../middleware/auth");
 
 // ── Twilio Verify SDK ──
 const twilio = require("twilio");
@@ -15,42 +16,12 @@ const VERIFY_SERVICE_SID = process.env.TWILIO_VERIFY_SERVICE_SID;
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "aquaguard_jwt_secret_2026";
 const SALT_ROUNDS = 10;
+const ROLE_PASSWORD = process.env.ROLE_PASSWORD || "123456";
 
 // Rate limit store for OTP requests (in-memory, resets on server restart)
 const otpRateLimits = new Map();
 
-function authMiddleware(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ success: false, message: "Authentication required." });
-  }
 
-  try {
-    const token = authHeader.split(" ")[1];
-    req.user = jwt.verify(token, JWT_SECRET);
-    next();
-  } catch {
-    return res.status(401).json({ success: false, message: "Invalid token." });
-  }
-}
-
-function requireAdmin(req, res, next) {
-  if (req.user?.role !== "admin") {
-    return res.status(403).json({ success: false, message: "Admin access required." });
-  }
-
-  next();
-}
-
-function requireRoles(roles) {
-  return (req, res, next) => {
-    if (!roles.includes(req.user?.role)) {
-      return res.status(403).json({ success: false, message: "You do not have permission to perform this action." });
-    }
-
-    next();
-  };
-}
 
 async function findActiveGroupMembership(userId) {
   const result = await pool.query(
@@ -202,14 +173,23 @@ async function buildMyRescueGroupPayload(userId) {
  */
 router.post("/register", async (req, res) => {
   try {
-    const { phone_number, password, display_name, role } = req.body;
+    const { phone_number, password, display_name, role, role_password } = req.body;
 
-    // Validate required fields
     if (!phone_number || !password) {
       return res.status(400).json({
         success: false,
         message: "Phone number and password are required.",
       });
+    }
+
+    // Validate role password for admin/rescuer
+    if (role === "admin" || role === "rescuer") {
+      if (!role_password || role_password !== ROLE_PASSWORD) {
+        return res.status(403).json({
+          success: false,
+          message: "Incorrect role password.",
+        });
+      }
     }
 
     // Validate phone format (Vietnamese phone: +84xxxxxxxxx)
@@ -1350,16 +1330,25 @@ router.put("/profile", authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid gender value." });
     }
 
-    // Validate date of birth
+    // Validate date of birth (accept today => age 0)
     let parsedDob = null;
-    if (dateOfBirth) {
-      parsedDob = new Date(dateOfBirth);
+    if (dateOfBirth !== undefined && dateOfBirth !== null && String(dateOfBirth).trim() !== "") {
+      const rawDob = String(dateOfBirth).trim();
+      const normalizedDob = rawDob.includes("T") ? rawDob.split("T")[0] : rawDob;
+      const dobPattern = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dobPattern.test(normalizedDob)) {
+        return res.status(400).json({ success: false, message: "Invalid date of birth format." });
+      }
+
+      parsedDob = new Date(`${normalizedDob}T00:00:00`);
       if (isNaN(parsedDob.getTime())) {
         return res.status(400).json({ success: false, message: "Invalid date of birth." });
       }
-      // Must be in the past
-      if (parsedDob >= new Date()) {
-        return res.status(400).json({ success: false, message: "Date of birth must be in the past." });
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (parsedDob > today) {
+        return res.status(400).json({ success: false, message: "Date of birth cannot be in the future." });
       }
     }
 
@@ -1382,7 +1371,7 @@ router.put("/profile", authMiddleware, async (req, res) => {
     }
     if (dateOfBirth !== undefined) {
       fields.push(`date_of_birth = $${paramIdx++}`);
-      values.push(parsedDob);
+      values.push(parsedDob ? parsedDob.toISOString().slice(0, 10) : null);
     }
     if (emergencyContact !== undefined) {
       fields.push(`emergency_contact = $${paramIdx++}`);

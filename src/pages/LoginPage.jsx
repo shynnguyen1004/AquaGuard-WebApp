@@ -134,19 +134,20 @@ export default function LoginPage() {
 
     if (nextPhoneError || nextPasswordError) return;
 
-    // Validate role password for admin and rescuer
-    if ((selectedRole === "admin" || selectedRole === "rescuer") && rolePassword !== "123456") {
-      setRolePasswordError("Incorrect role password");
-      return;
-    }
+    // Role password will be validated by the backend
     setRolePasswordError("");
 
     setIsSigningIn(true);
     try {
-      await registerWithPhone(normalizedPhone, password, displayName, selectedRole);
+      await registerWithPhone(normalizedPhone, password, displayName, selectedRole, rolePassword);
       navigate("/", { replace: true });
     } catch (err) {
-      setRequestError(err.message);
+      // Show role password error from backend in the right field
+      if (err.message?.toLowerCase().includes("role password")) {
+        setRolePasswordError(err.message);
+      } else {
+        setRequestError(err.message);
+      }
     } finally {
       setIsSigningIn(false);
     }
