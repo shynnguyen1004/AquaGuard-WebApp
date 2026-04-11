@@ -32,6 +32,17 @@ const ALL_NAV_ITEMS = [
   { icon: "shield_with_heart", label: "Safety Protocols", labelKey: "nav.safety", page: "safety", roles: [ROLES.CITIZEN], mobileNav: true },
   { icon: "info", label: "About Us", labelKey: "nav.about", page: "about", roles: [], mobileNav: false },
 
+  // Settings lives in the sidebar footer; listed here for RBAC only (not duplicated in main nav).
+  {
+    icon: "settings",
+    label: "Settings",
+    labelKey: "nav.settings",
+    page: "settings",
+    roles: [ROLES.CITIZEN, ROLES.RESCUER, ROLES.ADMIN],
+    mobileNav: false,
+    sidebar: false,
+  },
+
   // ── Admin ──
   { icon: "admin_panel_settings", label: "Admin Dashboard", labelKey: "nav.admin", page: "admin", roles: [ROLES.ADMIN], mobileNav: true },
   { icon: "emergency", label: "SOS Requests", labelKey: "nav.admin-requests", page: "admin-requests", roles: [ROLES.ADMIN], mobileNav: true },
