@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import { collection, getDocs } from "firebase/firestore";
 import { getFirebaseDb } from "../../config/firebase";
 import { useAuth } from "../../contexts/AuthContext";
+import { useLanguage } from "../../contexts/LanguageContext";
 import MapLegend from "./MapLegend";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
@@ -46,11 +47,11 @@ function createPinIcon(color) {
 
 // Map severity → color & label
 const severityMap = {
-  critical: { color: "#a855f7", label: "Critical" },
-  severe: { color: "#ef4444", label: "Severe" },
-  moderate: { color: "#f59e0b", label: "Moderate" },
-  low: { color: "#10b981", label: "Low" },
-  safe: { color: "#10b981", label: "Safe" },
+  critical: { color: "#a855f7", labelKey: "floodMap.severityCritical" },
+  severe: { color: "#ef4444", labelKey: "floodMap.severitySevere" },
+  moderate: { color: "#f59e0b", labelKey: "floodMap.severityModerate" },
+  low: { color: "#10b981", labelKey: "floodMap.severityLow" },
+  safe: { color: "#10b981", labelKey: "floodMap.severitySafe" },
 };
 
 const familySafetyColors = {
@@ -175,6 +176,7 @@ function parseLocation(location) {
 
 export default function FloodMap() {
   const { token } = useAuth();
+  const { t, language } = useLanguage();
   const [markers, setMarkers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -258,7 +260,7 @@ export default function FloodMap() {
           }
         }
 
-        const userName = req.user_name || req.userName || "User";
+        const userName = req.user_name || req.userName || t("roles.user");
         const avatarUrl = getAvatarUrlForName(userName, stage);
 
         nextPins.push({
@@ -284,7 +286,7 @@ export default function FloodMap() {
       // Không phá map nếu server SOS bị lỗi.
       console.warn("[FloodMap] SOS poll error:", err);
     }
-  }, [token]);
+  }, [token, t]);
 
   const syncMyLocation = useCallback((loc, force = false) => {
     if (!token || !loc) return;
@@ -402,7 +404,7 @@ export default function FloodMap() {
             lat: pos.lat,
             lng: pos.lng,
             name: d.name || "",
-            label: sev.label,
+            label: t(sev.labelKey),
             color: sev.color,
             waterLevel: d.water_level ?? null,
           });
@@ -418,7 +420,7 @@ export default function FloodMap() {
       }
     }
     fetchFloodZones();
-  }, []);
+  }, [t]);
 
   // Fetch family members locations
   const fetchFamilyMembers = useCallback(async () => {
@@ -627,7 +629,7 @@ export default function FloodMap() {
           <div className="flex flex-col items-center gap-3">
             <div className="size-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
             <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
-              Đang tải dữ liệu bản đồ...
+              {t("floodMap.loading")}
             </span>
           </div>
         </div>
@@ -648,7 +650,7 @@ export default function FloodMap() {
             ? "bg-primary text-white shadow-primary/30"
             : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
             } hover:scale-105`}
-          title="Lớp thời tiết Windy"
+          title={t("floodMap.windyLayers")}
         >
           <span className="material-symbols-outlined text-xl">layers</span>
         </button>
@@ -656,7 +658,7 @@ export default function FloodMap() {
         {weatherPanelOpen && (
           <div className="mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-3 min-w-[220px]">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">
-              🌦️ Windy Weather
+              {t("floodMap.windyLayers")}
             </p>
 
             {/* Toggle Windy Map */}
@@ -670,14 +672,14 @@ export default function FloodMap() {
               <span className="material-symbols-outlined text-base">
                 {showWindy ? "visibility" : "visibility_off"}
               </span>
-              <span>{showWindy ? "Ẩn bản đồ thời tiết" : "Hiện bản đồ thời tiết"}</span>
+              <span>{showWindy ? t("floodMap.hideWeather") : t("floodMap.showWeather")}</span>
             </button>
 
             {/* Overlay options (only show when Windy is active) */}
             {showWindy && (
               <>
                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 px-1 mt-1">
-                  Chọn lớp hiển thị
+                  {t("floodMap.chooseLayer")}
                 </p>
                 {WINDY_OVERLAYS.map((layer) => {
                   const isActive = windyOverlay === layer.key;
@@ -720,7 +722,7 @@ export default function FloodMap() {
               ? "bg-emerald-500 text-white shadow-emerald-500/30"
               : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
               } hover:scale-105`}
-            title={showFamily ? "Ẩn người thân" : "Hiện người thân"}
+            title={showFamily ? t("floodMap.hideFamily") : t("floodMap.showFamily")}
           >
             <span className="material-symbols-outlined text-xl">group</span>
           </button>
@@ -733,7 +735,7 @@ export default function FloodMap() {
               ? "bg-blue-500 text-white shadow-blue-500/30"
               : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
               } hover:scale-105 disabled:opacity-50`}
-            title="Vị trí của tôi"
+            title={t("floodMap.myLocation")}
           >
             <span className={`material-symbols-outlined text-xl ${locating ? 'animate-spin' : ''}`}>
               {locating ? "progress_activity" : "my_location"}
@@ -747,7 +749,7 @@ export default function FloodMap() {
               ? "bg-amber-500 text-white shadow-amber-500/30"
               : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
               } hover:scale-105`}
-            title={showFloodZones ? "Ẩn vùng ngập" : "Hiện vùng ngập"}
+            title={showFloodZones ? t("floodMap.hideFloodZones") : t("floodMap.showFloodZones")}
           >
             <span className="material-symbols-outlined text-xl">flood</span>
           </button>
@@ -758,10 +760,10 @@ export default function FloodMap() {
       {routeTo && myLocation && (
         <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[1000] bg-blue-500 text-white px-5 py-2.5 rounded-2xl shadow-xl flex items-center gap-3 text-sm font-bold">
           <span className="material-symbols-outlined text-lg">directions</span>
-          <span>Đường đến {routeTo.name}</span>
+          <span>{t("floodMap.routeTo").replace("{name}", routeTo.name)}</span>
           {routeInfo && (
             <span className="bg-white/20 px-2 py-0.5 rounded-lg text-xs">
-              {routeInfo.distance} km • ~{routeInfo.duration} phút
+              {routeInfo.distance} km • {t("floodMap.routeDuration").replace("{n}", String(routeInfo.duration))}
             </span>
           )}
           <button
@@ -780,7 +782,7 @@ export default function FloodMap() {
             ref={windyIframeRef}
             src={windyUrl}
             className="w-full h-full border-0"
-            title="Windy Weather Map"
+            title={t("floodMap.windyMapTitle")}
             allow="geolocation"
           />
         </div>
@@ -821,7 +823,7 @@ export default function FloodMap() {
                     </span>
                     {marker.waterLevel != null && (
                       <span className="text-[10px] font-bold text-slate-500 ml-auto bg-slate-100 px-2 py-0.5 rounded-full">
-                        Water +{marker.waterLevel}m
+                        {t("floodMap.waterLevel").replace("{level}", String(marker.waterLevel))}
                       </span>
                     )}
                   </div>
@@ -858,11 +860,11 @@ export default function FloodMap() {
                       </p>
                       <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
                         <span className="material-symbols-outlined text-[12px]">location_on</span>
-                        <span className="truncate">{p.location || "Unknown location"}</span>
+                        <span className="truncate">{p.location || t("floodMap.unknownLocation")}</span>
                       </div>
                       {p.urgency && (
                         <div className="mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                          Urgency: {p.urgency}
+                          {t("floodMap.urgency")}: {p.urgency}
                         </div>
                       )}
                     </div>
@@ -876,7 +878,7 @@ export default function FloodMap() {
 
                   <div className="text-[10px] text-slate-400 mt-2">
                     {p.rawStatus}
-                    {p.createdAt ? ` • ${new Date(p.createdAt).toLocaleTimeString("vi-VN")}` : ""}
+                    {p.createdAt ? ` • ${new Date(p.createdAt).toLocaleTimeString(language === "vi" ? "vi-VN" : "en-US")}` : ""}
                     {p.assignedName ? ` • ${p.assignedName}` : ""}
                   </div>
                 </div>

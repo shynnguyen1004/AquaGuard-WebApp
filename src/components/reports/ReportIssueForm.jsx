@@ -1,8 +1,10 @@
 import { useState, useRef } from "react";
 import { useAuth } from "../../contexts/AuthContext";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 export default function ReportIssueForm() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
     title: "",
@@ -16,10 +18,10 @@ export default function ReportIssueForm() {
   const [success, setSuccess] = useState(false);
 
   const issueTypes = [
-    { id: "bug", label: "System Bug", icon: "bug_report" },
-    { id: "feature", label: "Feature Request", icon: "lightbulb" },
-    { id: "data", label: "Data Inaccuracy", icon: "database" },
-    { id: "other", label: "Other", icon: "help" },
+    { id: "bug", labelKey: "reportIssue.typeBug", icon: "bug_report" },
+    { id: "feature", labelKey: "reportIssue.typeFeature", icon: "lightbulb" },
+    { id: "data", labelKey: "reportIssue.typeData", icon: "database" },
+    { id: "other", labelKey: "reportIssue.typeOther", icon: "help" },
   ];
 
   const handleFiles = (newFiles) => {
@@ -58,8 +60,8 @@ export default function ReportIssueForm() {
 
   const validate = () => {
     const errs = {};
-    if (!formData.title.trim()) errs.title = "Please enter an issue title";
-    if (!formData.description.trim()) errs.description = "Please provide detailed description";
+    if (!formData.title.trim()) errs.title = t("reportIssue.titleRequired");
+    if (!formData.description.trim()) errs.description = t("reportIssue.descriptionRequired");
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -84,10 +86,10 @@ export default function ReportIssueForm() {
       <div className="mb-6">
         <h2 className="text-xl font-black flex items-center gap-2">
           <span className="material-symbols-outlined text-primary">report</span>
-          Report Issue & Feedback
+          {t("reportIssue.title")}
         </h2>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Help us improve AquaGuard by reporting a bug or requesting a new feature.
+          {t("reportIssue.subtitle")}
         </p>
       </div>
 
@@ -96,15 +98,15 @@ export default function ReportIssueForm() {
           <div className="size-16 bg-safe text-white rounded-full flex items-center justify-center mx-auto mb-4 scale-110">
             <span className="material-symbols-outlined text-3xl">check</span>
           </div>
-          <h3 className="text-lg font-bold text-safe mb-1">Thank You!</h3>
+          <h3 className="text-lg font-bold text-safe mb-1">{t("reportIssue.successTitle")}</h3>
           <p className="text-sm text-slate-600 dark:text-slate-300">
-            Your report has been successfully submitted. Our development team will review it shortly.
+            {t("reportIssue.successMessage")}
           </p>
           <button
             onClick={() => setSuccess(false)}
             className="mt-6 px-6 py-2.5 bg-slate-100 dark:bg-slate-700 text-sm font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
           >
-            Submit another report
+            {t("reportIssue.submitAnother")}
           </button>
         </div>
       ) : (
@@ -112,7 +114,7 @@ export default function ReportIssueForm() {
           {/* Issue Type */}
           <div>
             <label className="block text-sm font-bold mb-3 text-slate-700 dark:text-slate-300">
-              Report Type
+              {t("reportIssue.reportType")}
             </label>
             <div className="grid grid-cols-2 gap-3">
               {issueTypes.map((type) => (
@@ -130,7 +132,7 @@ export default function ReportIssueForm() {
                       {type.icon}
                     </span>
                     <span className={`text-[11px] font-bold text-center leading-tight truncate w-full ${formData.type === type.id ? 'text-primary' : ''}`}>
-                      {type.label}
+                      {t(type.labelKey)}
                     </span>
                   </div>
                 </label>
@@ -141,11 +143,11 @@ export default function ReportIssueForm() {
           {/* Title */}
           <div>
             <label className="block text-sm font-bold mb-2 text-slate-700 dark:text-slate-300">
-              Title
+              {t("reportIssue.titleLabel")}
             </label>
             <input
               type="text"
-              placeholder="e.g.: Map is not showing the correct location"
+              placeholder={t("reportIssue.titlePlaceholder")}
               value={formData.title}
               onChange={(e) => setFormData(p => ({ ...p, title: e.target.value }))}
               className={`w-full px-4 py-3 rounded-xl border ${errors.title ? "border-danger" : "border-slate-200 dark:border-slate-700"} bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-sm transition-all`}
@@ -156,11 +158,11 @@ export default function ReportIssueForm() {
           {/* Description */}
           <div>
             <label className="block text-sm font-bold mb-2 text-slate-700 dark:text-slate-300">
-              Detailed Description
+              {t("reportIssue.detailedDescription")}
             </label>
             <textarea
               rows={4}
-              placeholder="Describe the steps to reproduce the bug or the feature requirements..."
+              placeholder={t("reportIssue.descriptionPlaceholder")}
               value={formData.description}
               onChange={(e) => setFormData(p => ({ ...p, description: e.target.value }))}
               className={`w-full px-4 py-3 rounded-xl border ${errors.description ? "border-danger" : "border-slate-200 dark:border-slate-700"} bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-sm resize-none transition-all`}
@@ -171,7 +173,7 @@ export default function ReportIssueForm() {
           {/* File Upload */}
           <div>
             <label className="block text-sm font-bold mb-2 text-slate-700 dark:text-slate-300">
-              Attachments / Screenshots <span className="font-normal text-slate-400">(Max 3 files)</span>
+              {t("reportIssue.attachments")} <span className="font-normal text-slate-400">{t("reportIssue.maxFiles")}</span>
             </label>
             <div
               onDragEnter={handleDrag}
@@ -188,9 +190,9 @@ export default function ReportIssueForm() {
                 attach_file
               </span>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Drag and drop files here or <span className="text-primary font-bold">choose a file</span>
+                {t("reportIssue.dropFiles")} <span className="text-primary font-bold">{t("reportIssue.chooseFile")}</span>
               </p>
-              <p className="text-[11px] text-slate-400 mt-1">PNG, JPG, PDF — max 5MB/file</p>
+              <p className="text-[11px] text-slate-400 mt-1">{t("reportIssue.fileTypes")}</p>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -240,12 +242,12 @@ export default function ReportIssueForm() {
             {isSubmitting ? (
               <>
                 <span className="size-5 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-                Sending...
+                {t("reportIssue.sending")}
               </>
             ) : (
               <>
                 <span className="material-symbols-outlined filled-icon">send</span>
-                Submit Report
+                {t("reportIssue.submit")}
               </>
             )}
           </button>

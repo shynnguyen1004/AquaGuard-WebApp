@@ -1,8 +1,10 @@
 import { useAuth } from "../contexts/AuthContext";
+import { useLanguage } from "../contexts/LanguageContext";
 import ImageCarousel from "../components/common/ImageCarousel";
 
 export default function AboutUsPage() {
   const { user } = useAuth();
+  const { t } = useLanguage();
 
   return (
     <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-900/50">
@@ -12,7 +14,7 @@ export default function AboutUsPage() {
         {/* Vision & Mission */}
         <div className="mb-24">
           <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-8 border-b-2 border-slate-900/10 dark:border-white/10 pb-4">
-            Vision & Mission
+            {t("aboutPage.visionMission")}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
 
@@ -20,10 +22,10 @@ export default function AboutUsPage() {
             <div className="bg-white dark:bg-slate-800/40 p-8 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">visibility</span>
-                Vision
+                {t("aboutPage.vision")}
               </h3>
               <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-[1.05rem]">
-                To build a resilient and accessible digital platform that improves disaster preparedness and helps flood-prone communities stay safe and connected.
+                {t("aboutPage.visionText")}
               </p>
             </div>
 
@@ -31,12 +33,12 @@ export default function AboutUsPage() {
             <div className="bg-white dark:bg-slate-800/40 p-8 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">flag</span>
-                Mission
+                {t("aboutPage.mission")}
               </h3>
               <ul className="list-disc pl-5 text-slate-600 dark:text-slate-400 leading-relaxed space-y-3 text-[1.05rem]">
-                <li>Provide reliable flood alerts and safety information.</li>
-                <li>Enable fast communication between citizens and rescue teams via SOS.</li>
-                <li>Support authorities with real-time situational data.</li>
+                {t("aboutPage.missionPoints").map((point) => (
+                  <li key={point}>{point}</li>
+                ))}
               </ul>
             </div>
 
@@ -44,10 +46,10 @@ export default function AboutUsPage() {
             <div className="bg-white dark:bg-slate-800/40 p-8 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">rocket_launch</span>
-                Future
+                {t("aboutPage.future")}
               </h3>
               <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-[1.05rem]">
-                Deploy a drone system integrated with the AquaGuard app to connect to isolated victims in every region, ensuring communication even during widespread connectivity loss.
+                {t("aboutPage.futureText")}
               </p>
             </div>
 
@@ -57,7 +59,7 @@ export default function AboutUsPage() {
         {/* Gallery Section */}
         <div className="mb-24">
           <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-8 border-b-2 border-slate-900/10 dark:border-white/10 pb-4">
-            Gallery
+            {t("aboutPage.gallery")}
           </h2>
           <ImageCarousel
             images={[
@@ -71,7 +73,7 @@ export default function AboutUsPage() {
         {/* Academic Supervisors Section */}
         <div className="mb-24">
           <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-12 border-b-2 border-slate-900/10 dark:border-white/10 pb-4">
-            Academic Supervisors
+            {t("aboutPage.academicSupervisors")}
           </h2>
 
           <div className="space-y-16">
@@ -88,7 +90,7 @@ export default function AboutUsPage() {
               <div className="flex-1 pt-2">
                 <h3 className="text-4xl font-extrabold text-slate-900 dark:text-white mb-2">Võ Thanh Hằng</h3>
                 <p className="text-slate-600 dark:text-slate-400 text-lg leading-relaxed mb-4 mt-6">
-                  Dr. Võ Thanh Hằng is a faculty member in the Faculty of Environment and Natural Resources Engineering at Ho Chi Minh City University of Technology (HCMUT).
+                  {t("aboutPage.supervisorHangBio")}
                 </p>
               </div>
             </div>
@@ -105,7 +107,7 @@ export default function AboutUsPage() {
               <div className="flex-1 pt-2">
                 <h3 className="text-4xl font-extrabold text-slate-900 dark:text-white mb-2">Bùi Xuân Giang</h3>
                 <p className="text-slate-600 dark:text-slate-400 text-lg leading-relaxed mb-4 mt-6">
-                  Mr. Bùi Xuân Giang is a faculty member in the Faculty of Computer Science and Engineering at Ho Chi Minh City University of Technology (HCMUT).
+                  {t("aboutPage.supervisorGiangBio")}
                 </p>
               </div>
             </div>
@@ -116,15 +118,15 @@ export default function AboutUsPage() {
         {/* Advisors Section */}
         <div className="mb-24">
           <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-12 border-b-2 border-slate-900/10 dark:border-white/10 pb-4">
-            Advisor
+            {t("aboutPage.advisor")}
           </h2>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-6 gap-y-10">
             {[
-              { id: 1, name: "Lê Phúc Khang", role: "Advisor" },
-              { id: 2, name: "Phan Hoàng Kiên", role: "Advisor" },
-              { id: 3, name: "Trần Gia Kiệt", role: "Advisor" },
-              { id: 4, name: "Lê Quốc Huy", role: "Advisor" },
+              { id: 1, name: "Lê Phúc Khang", role: t("aboutPage.advisor") },
+              { id: 2, name: "Phan Hoàng Kiên", role: t("aboutPage.advisor") },
+              { id: 3, name: "Trần Gia Kiệt", role: t("aboutPage.advisor") },
+              { id: 4, name: "Lê Quốc Huy", role: t("aboutPage.advisor") },
             ].map(advisor => (
               <div key={advisor.id} className="flex flex-col group cursor-default">
                 {/* Large Square Image Container */}
@@ -149,7 +151,7 @@ export default function AboutUsPage() {
         {/* Core Team Section */}
         <div className="mb-24">
           <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-12 border-b-2 border-slate-900/10 dark:border-white/10 pb-4">
-            Core Team
+            {t("aboutPage.coreTeam")}
           </h2>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-6 gap-y-10">
@@ -185,7 +187,7 @@ export default function AboutUsPage() {
                 {/* Left-Aligned Name Container */}
                 <div className="text-left">
                   <h4 className="font-bold text-slate-900 dark:text-white text-base md:text-lg leading-tight">{contributor.name}</h4>
-                  <p className="text-slate-500 dark:text-slate-400 italic text-xs mt-1">Core Team Member</p>
+                  <p className="text-slate-500 dark:text-slate-400 italic text-xs mt-1">{t("aboutPage.coreTeamMember")}</p>
                 </div>
               </div>
             ))}

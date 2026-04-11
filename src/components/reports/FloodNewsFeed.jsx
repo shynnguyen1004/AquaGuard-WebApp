@@ -1,58 +1,30 @@
+import { useLanguage } from "../../contexts/LanguageContext";
+
 const newsItems = [
   {
     id: 1,
-    source: "National Meteorologic Center",
-    time: "2 hours ago",
-    title: "URGENT WARNING: Flash floods, landslides in Central region",
-    summary:
-      "Level 2 natural disaster risk in Thua Thien Hue, Quang Nam, Quang Ngai due to continuous heavy rain for the past 48 hours.",
     image: "https://images.unsplash.com/photo-1547683905-f686c993aae5?w=500&h=300&fit=crop",
     type: "danger",
-    typeLabel: "Red Alert",
   },
   {
     id: 2,
-    source: "Central Province Committee",
-    time: "5 hours ago",
-    title: "Urgent directive to evacuate 2,000 households in low-lying areas",
-    summary:
-      "Authorities requested to urgently relocate all residents in 3 deeply flooded riverside communes before 6:00 PM tonight.",
     image: "https://avaco.com.vn/data/News/ngoi-nha-cua-nhung-nguoi-di-cu-cong-ty-thiet-ke-nha-dep-ava.jpg",
     type: "warning",
-    typeLabel: "Urgent Directive",
   },
   {
     id: 3,
-    source: "VNExpress News",
-    time: "12 hours ago",
-    title: "North-South traffic cut off due to mountain landslide",
-    summary:
-      "Severe landslide at Hai Van pass and Highway 1A causes traffic paralysis. Rescue forces are striving to clean up.",
     image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQfX6ZtBMuAEMqDV6Qj124u3ogH2-J14L6W_g&s",
     type: "info",
-    typeLabel: "News",
   },
   {
     id: 4,
-    source: "Health Organization (WHO VN)",
-    time: "1 day ago",
-    title: "Recommendations for disease prevention after floods",
-    summary:
-      "Guiding people to treat drinking water sources to ensure hygiene, preventing waterborne infectious diseases.",
     image: "https://images.unsplash.com/photo-1584483766114-2cea6facdf57?w=500&h=300&fit=crop",
     type: "primary",
-    typeLabel: "Health Guide",
   },
   {
     id: 5,
-    source: "Tuoi Tre Newspaper",
-    time: "2 days ago",
-    title: "Update on hydroelectric reservoir discharge",
-    summary:
-      "The Central Steering Committee for Disaster Prevention issues notice on regulating flood discharge of 4 major reservoirs to ensure dam safety.",
     image: "https://baokhanhhoa.vn/file/e7837c02857c8ca30185a8c39b582c03/dataimages/201611/original/images1182686_2.jpg",
     type: "info",
-    typeLabel: "News",
   },
 ];
 
@@ -64,22 +36,29 @@ const typeStyles = {
 };
 
 export default function FloodNewsFeed() {
+  const { t } = useLanguage();
+  const translatedItems = t("reportsFeed.items");
+  const localizedNewsItems = newsItems.map((news, index) => ({
+    ...news,
+    ...(Array.isArray(translatedItems) ? translatedItems[index] : {}),
+  }));
+
   return (
     <div className="bg-white dark:bg-slate-800/60 rounded-3xl border border-slate-200 dark:border-slate-700/50 p-6 lg:p-8 shadow-sm h-full">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h2 className="text-xl font-black flex items-center gap-2">
             <span className="material-symbols-outlined text-primary">newspaper</span>
-            News & Alerts
+            {t("reportsFeed.title")}
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Update the latest flood information from authorities
+            {t("reportsFeed.subtitle")}
           </p>
         </div>
       </div>
 
       <div className="space-y-6">
-        {newsItems.map((news) => (
+        {localizedNewsItems.map((news) => (
           <a
             key={news.id}
             href="#"
