@@ -9,7 +9,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api
 
 export default function CitizenSOSPage() {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [myRequests, setMyRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -112,7 +112,7 @@ export default function CitizenSOSPage() {
     if (mins < 60) return `${mins} ${t("sosPage.minAgo")}`;
     const hours = Math.floor(mins / 60);
     if (hours < 24) return `${hours} ${t("sosPage.hAgo")}`;
-    return d.toLocaleDateString("vi-VN");
+    return d.toLocaleDateString(language === "vi" ? "vi-VN" : "en-US");
   };
 
   return (
@@ -187,7 +187,7 @@ export default function CitizenSOSPage() {
                     <div className="flex items-center gap-2 mb-2">
                       <span className="material-symbols-outlined text-primary text-base filled-icon">person</span>
                       <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                        You <span className="text-slate-400 font-normal">({req.user_name || "User"})</span>
+                        {t("sosPage.you")} <span className="text-slate-400 font-normal">({req.user_name || t("sosPage.user")})</span>
                       </p>
                     </div>                    {/* Location */}
                     <div className="flex items-start gap-2 mb-2">
@@ -249,7 +249,7 @@ export default function CitizenSOSPage() {
                           className="inline-flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-primary/90 transition-all shadow-md shadow-primary/20 animate-pulse"
                         >
                           <span className="material-symbols-outlined text-sm">map</span>
-                          Xem Tracking
+                          {t("sosPage.viewTracking")}
                         </button>
                       )}
                     </div>

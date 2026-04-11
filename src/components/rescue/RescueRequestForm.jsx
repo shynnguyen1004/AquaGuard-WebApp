@@ -181,10 +181,10 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
               {gpsStatus === "success" ? "my_location" : gpsStatus === "loading" ? "progress_activity" : "location_off"}
             </span>
             {gpsStatus === "success" && (
-              <span>📍 GPS đã lấy: {gpsCoords.lat.toFixed(5)}, {gpsCoords.lng.toFixed(5)}</span>
+              <span>{t("rescueForm.gpsSuccess")}: {gpsCoords.lat.toFixed(5)}, {gpsCoords.lng.toFixed(5)}</span>
             )}
-            {gpsStatus === "loading" && <span>⏳ Đang lấy vị trí GPS...</span>}
-            {gpsStatus === "error" && <span>⚠️ Không lấy được GPS (vẫn gửi được)</span>}
+            {gpsStatus === "loading" && <span>{t("rescueForm.gpsLoading")}</span>}
+            {gpsStatus === "error" && <span>{t("rescueForm.gpsError")}</span>}
           </div>
 
           {/* Location */}

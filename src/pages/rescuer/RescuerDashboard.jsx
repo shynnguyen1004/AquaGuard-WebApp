@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
+import { useLanguage } from "../../contexts/LanguageContext";
 import RescueTrackingMap from "../../components/rescue/RescueTrackingMap";
 import { getStoredToken } from "../../utils/authStorage";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
-const TABS = [
-  { key: "active", label: "Active SOS", icon: "emergency" },
-  { key: "my-missions", label: "My Missions", icon: "assignment_ind" },
-  { key: "completed", label: "Completed", icon: "check_circle" },
+const RESCUER_TAB_DEFS = [
+  { key: "active", labelKey: "rescueQueue.rescuerTabActive", icon: "emergency" },
+  { key: "my-missions", labelKey: "rescueQueue.rescuerTabMissions", icon: "assignment_ind" },
+  { key: "completed", labelKey: "rescueQueue.rescuerTabCompleted", icon: "check_circle" },
 ];
 
 const statusColors = {
@@ -18,12 +19,37 @@ const statusColors = {
   resolved: "bg-safe/10 text-safe border-safe/20",
 };
 
-const statusLabels = {
-  pending: "Pending",
-  assigned: "Assigned",
-  in_progress: "In Progress",
-  resolved: "Resolved",
-};
+function displayStatus(status, t) {
+  const keys = {
+    pending: "sosPage.pending",
+    assigned: "sosPage.assigned",
+    in_progress: "sosPage.inProgress",
+    resolved: "sosPage.resolved",
+  };
+  return keys[status] ? t(keys[status]) : status;
+}
+
+function displayUrgency(urgency, t) {
+  const u = urgency || "medium";
+  const keys = {
+    low: "sosPage.low",
+    medium: "sosPage.medium",
+    high: "sosPage.high",
+    critical: "sosPage.critical",
+  };
+  return t(keys[u] || "sosPage.medium");
+}
+
+function formatTimeAgo(iso, t) {
+  if (!iso) return "";
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return t("rescueQueue.timeJustNow");
+  if (mins < 60) return t("rescueQueue.timeMinAgo").replace("{n}", String(mins));
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return t("rescueQueue.timeHourAgo").replace("{n}", String(hours));
+  return t("rescueQueue.timeDayAgo").replace("{n}", String(Math.floor(hours / 24)));
+}
 
 const urgencyColors = {
   critical: "bg-danger/10 text-danger border-danger/20",
@@ -33,6 +59,7 @@ const urgencyColors = {
 };
 
 function AcceptModeModal({ request, activeGroup, processing, onClose, onConfirm }) {
+  const { t } = useLanguage();
   if (!request) return null;
 
   return (
@@ -40,9 +67,9 @@ function AcceptModeModal({ request, activeGroup, processing, onClose, onConfirm 
       <div className="w-full max-w-lg rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 space-y-5 shadow-2xl">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-xl font-black">Choose Assignment Mode</h3>
+            <h3 className="text-xl font-black">{t("rescueQueue.modalChooseTitle")}</h3>
             <p className="text-sm text-slate-500 mt-1">
-              Decide whether you want to receive this SOS as an individual rescuer or on behalf of your rescue group.
+              {t("rescueQueue.modalChooseSubtitle")}
             </p>
           </div>
           <button
@@ -55,8 +82,8 @@ function AcceptModeModal({ request, activeGroup, processing, onClose, onConfirm 
         </div>
 
         <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/40 p-4">
-          <p className="font-bold">{request.user_name || "Citizen"}</p>
-          <p className="text-sm text-slate-500 mt-1">{request.location || "Unknown location"}</p>
+          <p className="font-bold">{request.user_name || t("rescueQueue.citizen")}</p>
+          <p className="text-sm text-slate-500 mt-1">{request.location || t("sosPage.unknownLocation")}</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -67,10 +94,10 @@ function AcceptModeModal({ request, activeGroup, processing, onClose, onConfirm 
           >
             <div className="flex items-center gap-2 mb-2">
               <span className="material-symbols-outlined text-primary">person</span>
-              <p className="font-black">Individual</p>
+              <p className="font-black">{t("rescueQueue.modalIndividual")}</p>
             </div>
             <p className="text-sm text-slate-500">
-              The mission will be assigned directly to you as a single rescuer.
+              {t("rescueQueue.modalIndividualDesc")}
             </p>
           </button>
 
@@ -81,12 +108,12 @@ function AcceptModeModal({ request, activeGroup, processing, onClose, onConfirm 
           >
             <div className="flex items-center gap-2 mb-2">
               <span className="material-symbols-outlined text-warning">groups</span>
-              <p className="font-black">Group</p>
+              <p className="font-black">{t("rescueQueue.modalGroup")}</p>
             </div>
             <p className="text-sm text-slate-500">
               {activeGroup
-                ? `Receive this mission under group "${activeGroup.name}".`
-                : "You need an active rescue group before you can accept a mission as a group."}
+                ? t("rescueQueue.modalGroupDescNamed").replace("{name}", activeGroup.name)
+                : t("rescueQueue.modalGroupDisabled")}
             </p>
           </button>
         </div>
@@ -95,23 +122,14 @@ function AcceptModeModal({ request, activeGroup, processing, onClose, onConfirm 
   );
 }
 
-function formatTime(iso) {
+function formatTime(iso, language) {
   if (!iso) return "";
-  return new Date(iso).toLocaleString("vi-VN");
-}
-
-function formatTimeAgo(iso) {
-  if (!iso) return "";
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+  const locale = language === "vi" ? "vi-VN" : "en-US";
+  return new Date(iso).toLocaleString(locale);
 }
 
 function SOSListItem({ request, selected, isNew, onClick }) {
+  const { t } = useLanguage();
   const urgencyClass = urgencyColors[request.urgency] || urgencyColors.medium;
   const statusClass = statusColors[request.status] || statusColors.pending;
 
@@ -127,38 +145,40 @@ function SOSListItem({ request, selected, isNew, onClick }) {
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="font-bold text-sm truncate">{request.user_name || "Anonymous"}</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">{formatTimeAgo(request.created_at)}</p>
+          <p className="font-bold text-sm truncate">{request.user_name || t("rescueQueue.anonymous")}</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">{formatTimeAgo(request.created_at, t)}</p>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {isNew && (
             <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-danger text-white animate-pulse">
-              NEW
+              {t("rescueQueue.newBadge")}
             </span>
           )}
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${urgencyClass}`}>
-            {request.urgency || "medium"}
+            {displayUrgency(request.urgency, t)}
           </span>
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusClass}`}>
-            {statusLabels[request.status] || request.status}
+            {displayStatus(request.status, t)}
           </span>
         </div>
       </div>
       <p className="mt-2 text-xs text-slate-500 flex items-center gap-1 truncate">
         <span className="material-symbols-outlined text-[14px]">location_on</span>
-        {request.location || "Unknown location"}
+        {request.location || t("sosPage.unknownLocation")}
       </p>
       <p className="mt-1 text-xs text-slate-600 dark:text-slate-400 line-clamp-1">
-        {request.description || "No description provided"}
+        {request.description || t("rescueQueue.noDescription")}
       </p>
       {request.assigned_group_name && (
         <p className="mt-2 text-[11px] text-primary truncate">
-          Group: <span className="font-semibold">{request.assigned_group_name}</span>
+          {t("rescueQueue.group")}{" "}
+          <span className="font-semibold">{request.assigned_group_name}</span>
         </p>
       )}
       {request.status === "pending" && request.last_cancelled_by_name && (
         <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-300 truncate">
-          Returned by: <span className="font-semibold">{request.last_cancelled_by_name}</span>
+          {t("rescueQueue.returnedBy")}{" "}
+          <span className="font-semibold">{request.last_cancelled_by_name}</span>
         </p>
       )}
     </button>
@@ -167,6 +187,7 @@ function SOSListItem({ request, selected, isNew, onClick }) {
 
 function SOSDetailPanel({ request, isOwn, onAccept, onComplete, onCancel, onViewTracking, onMarkSeen }) {
   const [processing, setProcessing] = useState(false);
+  const { t, language } = useLanguage();
 
   useEffect(() => {
     if (request?.id) onMarkSeen?.(request.id);
@@ -175,7 +196,7 @@ function SOSDetailPanel({ request, isOwn, onAccept, onComplete, onCancel, onView
   if (!request) {
     return (
       <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 text-center text-slate-500">
-        Select a request to view details.
+        {t("rescueQueue.selectRequest")}
       </div>
     );
   }
@@ -193,15 +214,15 @@ function SOSDetailPanel({ request, isOwn, onAccept, onComplete, onCancel, onView
     <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-black text-base truncate">{request.user_name || "Anonymous"}</p>
-          <p className="text-xs text-slate-500 mt-1">{formatTime(request.created_at)}</p>
+          <p className="font-black text-base truncate">{request.user_name || t("rescueQueue.anonymous")}</p>
+          <p className="text-xs text-slate-500 mt-1">{formatTime(request.created_at, language)}</p>
         </div>
         <div className="flex gap-2">
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${urgencyColors[request.urgency] || urgencyColors.medium}`}>
-            {request.urgency || "medium"}
+            {displayUrgency(request.urgency, t)}
           </span>
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusColors[request.status] || statusColors.pending}`}>
-            {statusLabels[request.status] || request.status}
+            {displayStatus(request.status, t)}
           </span>
         </div>
       </div>
@@ -209,25 +230,25 @@ function SOSDetailPanel({ request, isOwn, onAccept, onComplete, onCancel, onView
       <div className="text-sm space-y-2">
         <p className="flex items-start gap-1.5">
           <span className="material-symbols-outlined text-base text-danger">location_on</span>
-          <span>{request.location || "Unknown location"}</span>
+          <span>{request.location || t("sosPage.unknownLocation")}</span>
         </p>
-        <p className="text-slate-600 dark:text-slate-300">{request.description || "No description provided"}</p>
+        <p className="text-slate-600 dark:text-slate-300">{request.description || t("rescueQueue.noDescription")}</p>
         {request.assigned_group_name && (
           <p className="text-xs text-primary flex items-center gap-1 font-medium">
             <span className="material-symbols-outlined text-[13px]">groups</span>
-            Group assignment: {request.assigned_group_name}
+            {t("rescueQueue.groupAssignment")} {request.assigned_group_name}
           </p>
         )}
         {request.latitude && request.longitude && (
           <p className="text-xs text-safe flex items-center gap-1 font-medium">
             <span className="material-symbols-outlined text-[13px]">my_location</span>
-            GPS: {Number(request.latitude).toFixed(5)}, {Number(request.longitude).toFixed(5)}
+            {t("rescueQueue.gps")}: {Number(request.latitude).toFixed(5)}, {Number(request.longitude).toFixed(5)}
           </p>
         )}
         {request.status === "pending" && request.last_cancelled_by_name && (
           <p className="text-xs text-amber-700 dark:text-amber-300 flex items-center gap-1 font-medium">
             <span className="material-symbols-outlined text-[13px]">info</span>
-            Returned by {request.last_cancelled_by_name}
+            {t("rescueQueue.returnedByLine").replace("{name}", request.last_cancelled_by_name)}
           </p>
         )}
       </div>
@@ -254,7 +275,7 @@ function SOSDetailPanel({ request, isOwn, onAccept, onComplete, onCancel, onView
             className="inline-flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-primary/90 transition-all shadow-md shadow-primary/20 disabled:opacity-50"
           >
             <span className="material-symbols-outlined text-sm">check</span>
-            Accept
+            {t("rescueQueue.accept")}
           </button>
         )}
         {isOwn && request.status === "assigned" && onAccept && (
@@ -264,7 +285,7 @@ function SOSDetailPanel({ request, isOwn, onAccept, onComplete, onCancel, onView
             className="inline-flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-primary/90 transition-all shadow-md shadow-primary/20 disabled:opacity-50"
           >
             <span className="material-symbols-outlined text-sm">play_arrow</span>
-            Start Mission
+            {t("rescueQueue.startMission")}
           </button>
         )}
         {isOwn && request.status === "in_progress" && request.latitude && onViewTracking && (
@@ -273,7 +294,7 @@ function SOSDetailPanel({ request, isOwn, onAccept, onComplete, onCancel, onView
             className="inline-flex items-center gap-1.5 bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-600 transition-all shadow-md shadow-blue-500/20 animate-pulse"
           >
             <span className="material-symbols-outlined text-sm">map</span>
-            Tracking
+            {t("rescueQueue.tracking")}
           </button>
         )}
         {isOwn && request.status === "in_progress" && onComplete && (
@@ -283,7 +304,7 @@ function SOSDetailPanel({ request, isOwn, onAccept, onComplete, onCancel, onView
             className="inline-flex items-center gap-1.5 bg-safe text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-safe/90 transition-all shadow-md shadow-safe/20 disabled:opacity-50"
           >
             <span className="material-symbols-outlined text-sm">done_all</span>
-            Complete
+            {t("rescueQueue.complete")}
           </button>
         )}
         {isOwn && request.status === "in_progress" && onCancel && (
@@ -293,7 +314,7 @@ function SOSDetailPanel({ request, isOwn, onAccept, onComplete, onCancel, onView
             className="inline-flex items-center gap-1.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-100 px-4 py-2 rounded-xl text-xs font-bold hover:bg-slate-300 dark:hover:bg-slate-600 transition-all disabled:opacity-50"
           >
             <span className="material-symbols-outlined text-sm">undo</span>
-            Cancel Mission
+            {t("rescueQueue.cancelMission")}
           </button>
         )}
       </div>
@@ -303,6 +324,7 @@ function SOSDetailPanel({ request, isOwn, onAccept, onComplete, onCancel, onView
 
 export default function RescuerDashboard() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState("active");
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -435,7 +457,7 @@ export default function RescuerDashboard() {
           setTrackingRequest(acceptedRequest);
         }
       } else {
-        alert(json.message || "Failed to accept request");
+        alert(json.message || t("rescueQueue.acceptFailed"));
       }
     } catch (err) {
       console.error("Failed to accept request:", err);
@@ -551,20 +573,25 @@ export default function RescuerDashboard() {
     completed: completed.length,
   };
 
+  const tabList = useMemo(
+    () => RESCUER_TAB_DEFS.map((tab) => ({ ...tab, label: t(tab.labelKey) })),
+    [t]
+  );
+
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
         <div>
           <div className="flex items-center gap-3 mb-1">
             <span className="material-symbols-outlined filled-icon text-warning text-2xl">assignment_ind</span>
-            <h1 className="text-2xl lg:text-3xl font-black tracking-tight">My Missions</h1>
+            <h1 className="text-2xl lg:text-3xl font-black tracking-tight">{t("rescueQueue.rescuerTitle")}</h1>
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Manage requests assigned to you and track active rescue missions
+            {t("rescueQueue.rescuerSubtitle")}
           </p>
           {activeGroup && (
             <p className="text-xs text-primary mt-2 font-medium">
-              Active group: {activeGroup.name} • You can accept SOS as an individual or as a group.
+              {t("rescueQueue.activeGroup").replace("{name}", activeGroup.name)}
             </p>
           )}
         </div>
@@ -575,26 +602,26 @@ export default function RescuerDashboard() {
               <span className="material-symbols-outlined filled-icon text-danger">emergency</span>
             </div>
             <p className="text-2xl font-black">{stats.activeSOS}</p>
-            <p className="text-xs text-slate-500 font-medium">Active SOS</p>
+            <p className="text-xs text-slate-500 font-medium">{t("rescueQueue.rescuerStatActive")}</p>
           </div>
           <div className="bg-primary/10 rounded-2xl p-4 border border-slate-100 dark:border-slate-700/30">
             <div className="flex items-center gap-2 mb-2">
               <span className="material-symbols-outlined filled-icon text-primary">assignment_ind</span>
             </div>
             <p className="text-2xl font-black">{stats.myMissions}</p>
-            <p className="text-xs text-slate-500 font-medium">My Missions</p>
+            <p className="text-xs text-slate-500 font-medium">{t("rescueQueue.rescuerStatMissions")}</p>
           </div>
           <div className="bg-safe/10 rounded-2xl p-4 border border-slate-100 dark:border-slate-700/30">
             <div className="flex items-center gap-2 mb-2">
               <span className="material-symbols-outlined filled-icon text-safe">check_circle</span>
             </div>
             <p className="text-2xl font-black">{stats.completed}</p>
-            <p className="text-xs text-slate-500 font-medium">Completed</p>
+            <p className="text-xs text-slate-500 font-medium">{t("rescueQueue.rescuerStatCompleted")}</p>
           </div>
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {TABS.map((tab) => (
+          {tabList.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
@@ -625,10 +652,18 @@ export default function RescuerDashboard() {
               {activeTab === "active" ? "emergency" : activeTab === "my-missions" ? "assignment_ind" : "check_circle"}
             </span>
             <p className="text-lg font-bold text-slate-400 dark:text-slate-500">
-              {activeTab === "active" ? "No active SOS requests" : activeTab === "my-missions" ? "No assigned missions" : "No completed missions"}
+              {activeTab === "active"
+                ? t("rescueQueue.rescuerEmptyActiveTitle")
+                : activeTab === "my-missions"
+                  ? t("rescueQueue.rescuerEmptyMissionsTitle")
+                  : t("rescueQueue.rescuerEmptyCompletedTitle")}
             </p>
             <p className="text-sm text-slate-400 dark:text-slate-600 mt-1">
-              {activeTab === "active" ? "All clear — no one needs help right now" : "Accept SOS requests to start a mission"}
+              {activeTab === "active"
+                ? t("rescueQueue.rescuerEmptyActiveHint")
+                : activeTab === "my-missions"
+                  ? t("rescueQueue.rescuerEmptyMissionsHint")
+                  : t("rescueQueue.rescuerEmptyCompletedHint")}
             </p>
           </div>
         ) : (
@@ -636,9 +671,9 @@ export default function RescuerDashboard() {
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 p-3">
               <div className="flex items-center justify-between px-1 pb-2">
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Request Queue ({sortedRequests.length})
+                  {t("rescueQueue.requestQueue").replace("{count}", String(sortedRequests.length))}
                 </p>
-                <p className="text-[11px] text-slate-400">Newest first</p>
+                <p className="text-[11px] text-slate-400">{t("rescueQueue.newestFirst")}</p>
               </div>
               <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
                 {sortedRequests.map((req) => {

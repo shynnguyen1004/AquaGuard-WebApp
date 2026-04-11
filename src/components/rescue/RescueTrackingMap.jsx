@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import useRescueTracking from "../../hooks/useRescueTracking";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 // ── Icon creators ──
 
@@ -97,6 +98,7 @@ export default function RescueTrackingMap({
   onComplete,
   onCancel,
 }) {
+  const { t } = useLanguage();
   const { citizenLocation, rescuerLocation, isConnected, trackingEnded, trackingEndReason } =
     useRescueTracking(requestId, {
       active: true,
@@ -190,11 +192,11 @@ export default function RescueTrackingMap({
           <div className={`size-3 rounded-full ${isConnected ? "bg-safe animate-pulse" : "bg-slate-400"}`} />
           <div>
             <h3 className="text-sm font-black text-slate-900 dark:text-white">
-              🚨 Rescue Tracking
+              {t("trackingMap.title")}
             </h3>
             <p className="text-[10px] text-slate-500 dark:text-slate-400">
-              {isConnected ? "Live — Đang kết nối" : "Đang kết nối lại..."}
-              {trackingEnded && ` • ${trackingEndReason === "cancelled" ? "Đã huỷ mission" : "Đã hoàn thành!"}`}
+              {isConnected ? t("trackingMap.live") : t("trackingMap.reconnecting")}
+              {trackingEnded && ` • ${trackingEndReason === "cancelled" ? t("trackingMap.endedCancelled") : t("trackingMap.endedCompleted")}`}
             </p>
           </div>
         </div>
@@ -243,10 +245,10 @@ export default function RescueTrackingMap({
                 <div className="p-3">
                   <p className="font-black text-sm text-red-600 flex items-center gap-1">
                     <span className="material-symbols-outlined text-base">person</span>
-                    {citizenName || "Citizen"}
+                    {citizenName || t("trackingMap.citizenFallback")}
                   </p>
                   <p className="text-[11px] text-slate-500 mt-1">
-                    Người cần cứu hộ
+                    {t("trackingMap.citizenLabel")}
                   </p>
                   {citizenPhone && (
                     <p className="text-[11px] text-slate-600 mt-1 flex items-center gap-1 font-medium">
@@ -266,10 +268,10 @@ export default function RescueTrackingMap({
                 <div className="p-3">
                   <p className="font-black text-sm text-blue-600 flex items-center gap-1">
                     <span className="material-symbols-outlined text-base">local_shipping</span>
-                    {rescuerName || "Rescuer"}
+                    {rescuerName || t("trackingMap.rescuerFallback")}
                   </p>
                   <p className="text-[11px] text-slate-500 mt-1">
-                    Đội cứu hộ
+                    {t("trackingMap.rescuerLabel")}
                   </p>
                 </div>
               </Popup>
@@ -283,7 +285,7 @@ export default function RescueTrackingMap({
             <span className="material-symbols-outlined text-lg">directions</span>
             <span>{routeInfo.distance} km</span>
             <span className="bg-white/20 px-2 py-0.5 rounded-lg text-xs">
-              ~{routeInfo.duration} phút
+              {t("trackingMap.routeDuration").replace("{n}", String(routeInfo.duration))}
             </span>
           </div>
         )}
@@ -296,12 +298,12 @@ export default function RescueTrackingMap({
                 {trackingEndReason === "cancelled" ? "undo" : "check_circle"}
               </span>
               <h3 className="text-xl font-black text-slate-900 dark:text-white mb-1">
-                {trackingEndReason === "cancelled" ? "Đã huỷ mission" : "Hoàn thành!"}
+                {trackingEndReason === "cancelled" ? t("trackingMap.cancelledTitle") : t("trackingMap.completedTitle")}
               </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 {trackingEndReason === "cancelled"
-                  ? "Case cứu hộ đã được trả về hàng chờ"
-                  : "Nhiệm vụ cứu hộ đã kết thúc"}
+                  ? t("trackingMap.cancelledMessage")
+                  : t("trackingMap.completedMessage")}
               </p>
             </div>
           </div>
@@ -318,7 +320,7 @@ export default function RescueTrackingMap({
                 className="w-full py-3.5 rounded-2xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-100 font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
               >
                 <span className="material-symbols-outlined text-lg">undo</span>
-                Cancel Mission
+                {t("trackingMap.cancelMission")}
               </button>
             )}
             {onComplete && (
@@ -327,7 +329,7 @@ export default function RescueTrackingMap({
                 className="w-full py-3.5 rounded-2xl bg-safe text-white font-bold text-sm flex items-center justify-center gap-2 hover:bg-green-600 transition-colors shadow-lg shadow-safe/30"
               >
                 <span className="material-symbols-outlined text-lg filled-icon">done_all</span>
-                Complete Mission
+                {t("trackingMap.completeMission")}
               </button>
             )}
           </div>

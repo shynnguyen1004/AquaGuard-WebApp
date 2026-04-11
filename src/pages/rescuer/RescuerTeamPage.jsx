@@ -1,24 +1,25 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useAuth } from "../../contexts/AuthContext";
+import { useLanguage } from "../../contexts/LanguageContext";
 import { getStoredToken } from "../../utils/authStorage";
 import { normalizePhone } from "../../utils/phone";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
-function formatDateTime(iso) {
+function formatDateTime(iso, locale) {
   if (!iso) return "--";
-  return new Date(iso).toLocaleString("vi-VN");
+  return new Date(iso).toLocaleString(locale);
 }
 
 /* ── Tabs ── */
 const TABS = [
-  { id: "team",      label: "My Team",   icon: "shield"  },
-  { id: "directory",  label: "Directory", icon: "groups"  },
-  { id: "invites",    label: "Invites",   icon: "mail"    },
+  { id: "team", labelKey: "teamPage.tabsTeam", icon: "shield" },
+  { id: "directory", labelKey: "teamPage.tabsDirectory", icon: "groups" },
+  { id: "invites", labelKey: "teamPage.tabsInvites", icon: "mail" },
 ];
 
 /* ── Confirm Modal ── */
-function ConfirmModal({ title, message, confirmLabel, danger, onConfirm, onCancel, processing }) {
+function ConfirmModal({ title, message, confirmLabel, danger, onConfirm, onCancel, processing, t }) {
   return (
     <div className="fixed inset-0 z-[1000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 space-y-4 shadow-2xl">
@@ -29,12 +30,12 @@ function ConfirmModal({ title, message, confirmLabel, danger, onConfirm, onCance
             onClick={onCancel}
             disabled={processing}
             className="px-4 py-2 rounded-xl text-sm font-semibold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50 transition-all"
-          >Cancel</button>
+          >{t("teamPage.cancel")}</button>
           <button
             onClick={onConfirm}
             disabled={processing}
             className={`px-4 py-2 rounded-xl text-sm font-bold text-white disabled:opacity-50 transition-all ${danger ? "bg-danger hover:bg-danger/90" : "bg-primary hover:bg-primary/90"}`}
-          >{processing ? "Processing..." : confirmLabel}</button>
+          >{processing ? t("teamPage.processing") : confirmLabel}</button>
         </div>
       </div>
     </div>
@@ -42,29 +43,29 @@ function ConfirmModal({ title, message, confirmLabel, danger, onConfirm, onCance
 }
 
 /* ── Edit Group Modal ── */
-function EditGroupModal({ group, onSave, onCancel, processing }) {
+function EditGroupModal({ group, onSave, onCancel, processing, t }) {
   const [name, setName] = useState(group?.name || "");
   const [desc, setDesc] = useState(group?.description || "");
 
   return (
     <div className="fixed inset-0 z-[1000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 space-y-4 shadow-2xl">
-        <h3 className="text-lg font-bold">Edit Group</h3>
+        <h3 className="text-lg font-bold">{t("teamPage.editGroup")}</h3>
         <input
-          type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Group name"
+          type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("teamPage.groupName")}
           className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30"
         />
         <textarea
-          value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Description (optional)" rows={2}
+          value={desc} onChange={(e) => setDesc(e.target.value)} placeholder={t("teamPage.descriptionPlaceholder")} rows={2}
           className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 resize-none"
         />
         <div className="flex gap-2 justify-end">
           <button onClick={onCancel} disabled={processing}
             className="px-4 py-2 rounded-xl text-sm font-semibold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50 transition-all"
-          >Cancel</button>
+          >{t("teamPage.cancel")}</button>
           <button onClick={() => onSave(name.trim(), desc.trim())} disabled={processing || !name.trim()}
             className="px-4 py-2 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 disabled:opacity-50 transition-all"
-          >{processing ? "Saving..." : "Save"}</button>
+          >{processing ? t("teamPage.saving") : t("teamPage.save")}</button>
         </div>
       </div>
     </div>
@@ -97,7 +98,7 @@ function DropdownMenu({ items, onClose }) {
 }
 
 /* ── Member Card ── */
-function MemberCard({ member, isCurrentUser, isLeader, onPromote, onDemote, onRemove }) {
+function MemberCard({ member, isCurrentUser, isLeader, onPromote, onDemote, onRemove, t }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const roleColors = {
@@ -109,14 +110,20 @@ function MemberCard({ member, isCurrentUser, isLeader, onPromote, onDemote, onRe
   const menuItems = [];
   if (isLeader && !isCurrentUser && member.memberRole !== "leader") {
     if (member.memberRole === "member") {
-      menuItems.push({ label: "Promote to Co-Leader", icon: "arrow_upward", action: () => onPromote?.(member.id) });
+      menuItems.push({ label: t("teamPage.promoteToCoLeader"), icon: "arrow_upward", action: () => onPromote?.(member.id) });
     }
     if (member.memberRole === "co_leader") {
-      menuItems.push({ label: "Demote to Member", icon: "arrow_downward", action: () => onDemote?.(member.id) });
+      menuItems.push({ label: t("teamPage.demoteToMember"), icon: "arrow_downward", action: () => onDemote?.(member.id) });
     }
     menuItems.push({ divider: true });
-    menuItems.push({ label: "Remove from Group", icon: "person_remove", action: () => onRemove?.(member.id), danger: true });
+    menuItems.push({ label: t("teamPage.removeFromGroup"), icon: "person_remove", action: () => onRemove?.(member.id), danger: true });
   }
+
+  const roleLabels = {
+    leader: t("teamPage.leader"),
+    co_leader: t("teamPage.coLeader"),
+    member: t("teamPage.member"),
+  };
 
   return (
     <div className={`group relative flex items-center gap-3 rounded-2xl border p-3.5 transition-all duration-200 hover:shadow-md hover:shadow-primary/5 ${
@@ -126,7 +133,7 @@ function MemberCard({ member, isCurrentUser, isLeader, onPromote, onDemote, onRe
     }`}>
       <div className="relative shrink-0">
         <img
-          alt={member.displayName || "Member"}
+          alt={member.displayName || t("teamPage.memberFallback")}
           className="size-10 rounded-full border-2 border-slate-100 dark:border-slate-700 object-cover"
           src={member.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.displayName || "R")}&background=11a0b6&color=fff&bold=true`}
           referrerPolicy="no-referrer"
@@ -136,16 +143,16 @@ function MemberCard({ member, isCurrentUser, isLeader, onPromote, onDemote, onRe
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <p className="font-semibold text-sm truncate">{member.displayName || `Rescuer #${member.id}`}</p>
-          {isCurrentUser && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-safe/15 text-safe border border-safe/20">You</span>}
+          <p className="font-semibold text-sm truncate">{member.displayName || t("teamPage.rescuerFallback").replace("{id}", member.id)}</p>
+          {isCurrentUser && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-safe/15 text-safe border border-safe/20">{t("teamPage.you")}</span>}
         </div>
-        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{member.phoneNumber || member.phone_number || "No phone"}</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{member.phoneNumber || member.phone_number || t("teamPage.noPhone")}</p>
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">
         {member.memberRole && (
           <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-lg border ${roleColors[member.memberRole] || roleColors.member}`}>
-            {member.memberRole.replace("_", " ")}
+            {roleLabels[member.memberRole] || member.memberRole.replace("_", " ")}
           </span>
         )}
         {menuItems.length > 0 && (
@@ -180,7 +187,7 @@ function StatCard({ icon, label, value, color }) {
 }
 
 /* ── Create Group Card ── */
-function CreateGroupCard({ groupForm, setGroupForm, creatingGroup, onSubmit }) {
+function CreateGroupCard({ groupForm, setGroupForm, creatingGroup, onSubmit, t }) {
   return (
     <div className="rounded-2xl border border-dashed border-primary/30 bg-primary/5 dark:bg-primary/5 p-6 space-y-5">
       <div className="flex items-center gap-3">
@@ -188,21 +195,21 @@ function CreateGroupCard({ groupForm, setGroupForm, creatingGroup, onSubmit }) {
           <span className="material-symbols-outlined text-primary text-xl">add_circle</span>
         </div>
         <div>
-          <h3 className="font-bold text-base">Create Your Rescue Group</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Create a team to coordinate SOS missions together</p>
+          <h3 className="font-bold text-base">{t("teamPage.createTitle")}</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{t("teamPage.createSubtitle")}</p>
         </div>
       </div>
       <form onSubmit={onSubmit} className="space-y-3">
         <input type="text" value={groupForm.name} onChange={(e) => setGroupForm((p) => ({ ...p, name: e.target.value }))}
-          placeholder="Team name (e.g. District 10 Flood Response)"
+          placeholder={t("teamPage.teamNamePlaceholder")}
           className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 transition-all" />
         <textarea value={groupForm.description} onChange={(e) => setGroupForm((p) => ({ ...p, description: e.target.value }))}
-          placeholder="Description (optional)" rows={2}
+          placeholder={t("teamPage.descriptionPlaceholder")} rows={2}
           className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30 resize-none transition-all" />
         <button type="submit" disabled={creatingGroup}
           className="w-full inline-flex items-center justify-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-primary/90 active:scale-[0.98] disabled:opacity-50 transition-all">
           <span className="material-symbols-outlined text-base">rocket_launch</span>
-          {creatingGroup ? "Creating..." : "Create Group"}
+          {creatingGroup ? t("teamPage.creating") : t("teamPage.createGroup")}
         </button>
       </form>
     </div>
@@ -212,6 +219,7 @@ function CreateGroupCard({ groupForm, setGroupForm, creatingGroup, onSubmit }) {
 /* ── Main Page ── */
 export default function RescuerTeamPage() {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const [rescuers, setRescuers] = useState([]);
   const [groupData, setGroupData] = useState({ group: null, pendingInvites: [] });
   const [teamStats, setTeamStats] = useState(null);
@@ -234,6 +242,7 @@ export default function RescuerTeamPage() {
   const receivedInvites = groupData.pendingInvites || [];
   const canInvite = activeGroup && ["leader", "co_leader"].includes(activeGroup.memberRole);
   const isLeader = activeGroup?.memberRole === "leader";
+  const dateLocale = language === "vi" ? "vi-VN" : "en-US";
 
   const authHeaders = useCallback(() => {
     const token = getStoredToken();
@@ -257,9 +266,9 @@ export default function RescuerTeamPage() {
       if (groupJson.success) {
         setGroupData(groupJson.data || { group: null, pendingInvites: [] });
       } else {
-        showError(groupJson.message || "Failed to load rescue group data.");
+        showError(groupJson.message || t("teamPage.loadGroupError"));
       }
-    } catch { showError("Failed to load rescue team data."); }
+    } catch { showError(t("teamPage.loadTeamError")); }
     finally { setLoading(false); }
   };
 
@@ -296,13 +305,13 @@ export default function RescuerTeamPage() {
     e.preventDefault();
     const headers = authHeaders();
     const name = groupForm.name.trim();
-    if (!headers || !name) { showError("Please enter a group name."); return; }
+    if (!headers || !name) { showError(t("teamPage.enterGroupName")); return; }
     setCreatingGroup(true); setMessage(""); setError("");
     try {
       const res = await fetch(`${API_BASE}/auth/rescue-groups`, { method: "POST", headers, body: JSON.stringify({ name, description: groupForm.description.trim() }) });
       const json = await res.json();
       if (!json.success) throw new Error(json.message);
-      setGroupData(json.data); setGroupForm({ name: "", description: "" }); showMessage("Rescue group created!");
+      setGroupData(json.data); setGroupForm({ name: "", description: "" }); showMessage(t("teamPage.groupCreated"));
     } catch (err) { showError(err.message); } finally { setCreatingGroup(false); }
   };
 
@@ -311,13 +320,13 @@ export default function RescuerTeamPage() {
     if (!activeGroup) return;
     const headers = authHeaders();
     const phone_number = normalizePhone(invitePhone);
-    if (!headers || !phone_number) { showError("Please enter a phone number."); return; }
+    if (!headers || !phone_number) { showError(t("teamPage.enterPhone")); return; }
     setInvitingMember(true); setMessage(""); setError("");
     try {
       const res = await fetch(`${API_BASE}/auth/rescue-groups/${activeGroup.id}/invite`, { method: "POST", headers, body: JSON.stringify({ phone_number }) });
       const json = await res.json();
       if (!json.success) throw new Error(json.message);
-      setGroupData(json.data); setInvitePhone("+84"); showMessage(`Invitation sent to ${phone_number}`);
+      setGroupData(json.data); setInvitePhone("+84"); showMessage(t("teamPage.invitationSent").replace("{phone}", phone_number));
       // Refresh rescuers to update invite status badges
       fetchPageData();
     } catch (err) { showError(err.message); } finally { setInvitingMember(false); }
@@ -333,7 +342,7 @@ export default function RescuerTeamPage() {
       const res = await fetch(`${API_BASE}/auth/rescue-groups/${activeGroup.id}/invite`, { method: "POST", headers, body: JSON.stringify({ phone_number: rescuer.phoneNumber }) });
       const json = await res.json();
       if (!json.success) throw new Error(json.message);
-      setGroupData(json.data); showMessage(`Invited ${rescuer.displayName || rescuer.phoneNumber}`);
+      setGroupData(json.data); showMessage(t("teamPage.invitedName").replace("{name}", rescuer.displayName || rescuer.phoneNumber));
       fetchPageData();
     } catch (err) { showError(err.message); } finally { setProcessing(false); }
   };
@@ -346,7 +355,7 @@ export default function RescuerTeamPage() {
       const res = await fetch(`${API_BASE}/auth/rescue-group-invites/${inviteId}/${action}`, { method: "POST", headers });
       const json = await res.json();
       if (!json.success) throw new Error(json.message);
-      setGroupData(json.data); showMessage(action === "accept" ? "You joined the rescue group!" : "Invitation declined.");
+      setGroupData(json.data); showMessage(action === "accept" ? t("teamPage.joinedGroup") : t("teamPage.invitationDeclined"));
     } catch (err) { showError(err.message); } finally { setRespondingInviteId(null); }
   };
 
@@ -358,75 +367,75 @@ export default function RescuerTeamPage() {
       const res = await fetch(`${API_BASE}/auth/rescue-groups/${activeGroup.id}`, { method: "PUT", headers, body: JSON.stringify({ name, description }) });
       const json = await res.json();
       if (!json.success) throw new Error(json.message);
-      setGroupData(json.data); setEditModal(false); showMessage("Group info updated.");
+      setGroupData(json.data); setEditModal(false); showMessage(t("teamPage.groupUpdated"));
     } catch (err) { showError(err.message); } finally { setProcessing(false); }
   };
 
   const handlePromote = (userId) => {
-    setConfirmModal({ title: "Promote Member", message: "Promote this member to Co-Leader?", confirmLabel: "Promote", danger: false,
+    setConfirmModal({ title: t("teamPage.promoteTitle"), message: t("teamPage.promoteMessage"), confirmLabel: t("teamPage.promoteConfirm"), danger: false,
       action: async () => {
         const headers = authHeaders();
         try {
           const res = await fetch(`${API_BASE}/auth/rescue-groups/${activeGroup.id}/members/${userId}/role`, { method: "PUT", headers, body: JSON.stringify({ role: "co_leader" }) });
           const json = await res.json();
           if (!json.success) throw new Error(json.message);
-          setGroupData(json.data); showMessage("Member promoted to Co-Leader.");
+          setGroupData(json.data); showMessage(t("teamPage.memberPromoted"));
         } catch (err) { showError(err.message); }
       }
     });
   };
 
   const handleDemote = (userId) => {
-    setConfirmModal({ title: "Demote Member", message: "Demote this Co-Leader to regular member?", confirmLabel: "Demote", danger: false,
+    setConfirmModal({ title: t("teamPage.demoteTitle"), message: t("teamPage.demoteMessage"), confirmLabel: t("teamPage.demoteConfirm"), danger: false,
       action: async () => {
         const headers = authHeaders();
         try {
           const res = await fetch(`${API_BASE}/auth/rescue-groups/${activeGroup.id}/members/${userId}/role`, { method: "PUT", headers, body: JSON.stringify({ role: "member" }) });
           const json = await res.json();
           if (!json.success) throw new Error(json.message);
-          setGroupData(json.data); showMessage("Member demoted.");
+          setGroupData(json.data); showMessage(t("teamPage.memberDemoted"));
         } catch (err) { showError(err.message); }
       }
     });
   };
 
   const handleRemoveMember = (userId) => {
-    setConfirmModal({ title: "Remove Member", message: "Are you sure you want to remove this member from the group?", confirmLabel: "Remove", danger: true,
+    setConfirmModal({ title: t("teamPage.removeTitle"), message: t("teamPage.removeMessage"), confirmLabel: t("teamPage.removeConfirm"), danger: true,
       action: async () => {
         const headers = authHeaders();
         try {
           const res = await fetch(`${API_BASE}/auth/rescue-groups/${activeGroup.id}/members/${userId}`, { method: "DELETE", headers });
           const json = await res.json();
           if (!json.success) throw new Error(json.message);
-          setGroupData(json.data); showMessage("Member removed."); fetchStats(activeGroup.id);
+          setGroupData(json.data); showMessage(t("teamPage.memberRemoved")); fetchStats(activeGroup.id);
         } catch (err) { showError(err.message); }
       }
     });
   };
 
   const handleLeaveGroup = () => {
-    setConfirmModal({ title: "Leave Group", message: "Are you sure you want to leave this rescue group? You can rejoin later if invited.", confirmLabel: "Leave", danger: true,
+    setConfirmModal({ title: t("teamPage.leaveTitle"), message: t("teamPage.leaveMessage"), confirmLabel: t("teamPage.leaveConfirm"), danger: true,
       action: async () => {
         const headers = authHeaders();
         try {
           const res = await fetch(`${API_BASE}/auth/rescue-groups/${activeGroup.id}/leave`, { method: "POST", headers });
           const json = await res.json();
           if (!json.success) throw new Error(json.message);
-          setGroupData(json.data); setTeamStats(null); showMessage("You have left the group.");
+          setGroupData(json.data); setTeamStats(null); showMessage(t("teamPage.leftGroup"));
         } catch (err) { showError(err.message); }
       }
     });
   };
 
   const handleDisbandGroup = () => {
-    setConfirmModal({ title: "Disband Group", message: "This will permanently archive the group and remove all members. This action cannot be undone.", confirmLabel: "Disband", danger: true,
+    setConfirmModal({ title: t("teamPage.disbandTitle"), message: t("teamPage.disbandMessage"), confirmLabel: t("teamPage.disbandConfirm"), danger: true,
       action: async () => {
         const headers = authHeaders();
         try {
           const res = await fetch(`${API_BASE}/auth/rescue-groups/${activeGroup.id}`, { method: "DELETE", headers });
           const json = await res.json();
           if (!json.success) throw new Error(json.message);
-          setGroupData(json.data); setTeamStats(null); showMessage("Group has been disbanded.");
+          setGroupData(json.data); setTeamStats(null); showMessage(t("teamPage.groupDisbanded"));
         } catch (err) { showError(err.message); }
       }
     });
@@ -441,7 +450,7 @@ export default function RescuerTeamPage() {
   /* ── Tab Renderers ── */
   const renderMyTeam = () => {
     if (!activeGroup) {
-      return <CreateGroupCard groupForm={groupForm} setGroupForm={setGroupForm} creatingGroup={creatingGroup} onSubmit={handleCreateGroup} />;
+      return <CreateGroupCard groupForm={groupForm} setGroupForm={setGroupForm} creatingGroup={creatingGroup} onSubmit={handleCreateGroup} t={t} />;
     }
     const members = activeGroup.members || [];
     const pendingOuts = activeGroup.pendingInvites || [];
@@ -461,12 +470,12 @@ export default function RescuerTeamPage() {
                   </div>
                   <div className="min-w-0">
                     <h2 className="text-lg font-bold truncate">{activeGroup.name}</h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{activeGroup.description || "No description"}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{activeGroup.description || t("teamPage.noDescription")}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-lg bg-warning/15 text-warning border border-warning/25">
-                    {activeGroup.memberRole?.replace("_", " ")}
+                    {activeGroup.memberRole === "co_leader" ? t("teamPage.coLeader") : activeGroup.memberRole === "leader" ? t("teamPage.leader") : t("teamPage.member")}
                   </span>
                   <div className="relative">
                     <button onClick={() => setGroupMenuOpen(!groupMenuOpen)}
@@ -478,11 +487,11 @@ export default function RescuerTeamPage() {
                         onClose={() => setGroupMenuOpen(false)}
                         items={[
                           ...(isLeader ? [
-                            { label: "Edit Group", icon: "edit", action: () => setEditModal(true) },
+                            { label: t("teamPage.editGroupAction"), icon: "edit", action: () => setEditModal(true) },
                             { divider: true },
-                            { label: "Disband Group", icon: "delete_forever", action: handleDisbandGroup, danger: true },
+                            { label: t("teamPage.disbandGroupAction"), icon: "delete_forever", action: handleDisbandGroup, danger: true },
                           ] : [
-                            { label: "Leave Group", icon: "logout", action: handleLeaveGroup, danger: true },
+                            { label: t("teamPage.leaveGroupAction"), icon: "logout", action: handleLeaveGroup, danger: true },
                           ]),
                         ]}
                       />
@@ -495,16 +504,16 @@ export default function RescuerTeamPage() {
             {/* Stats Cards */}
             {teamStats && (
               <div className="grid grid-cols-3 gap-3">
-                <StatCard icon="emergency" label="Active Missions" value={teamStats.activeMissions} color="danger" />
-                <StatCard icon="check_circle" label="Completed" value={teamStats.completedMissions} color="safe" />
-                <StatCard icon="groups" label="Team Size" value={teamStats.teamSize} color="primary" />
+                <StatCard icon="emergency" label={t("teamPage.activeMissions")} value={teamStats.activeMissions} color="danger" />
+                <StatCard icon="check_circle" label={t("teamPage.completed")} value={teamStats.completedMissions} color="safe" />
+                <StatCard icon="groups" label={t("teamPage.teamSize")} value={teamStats.teamSize} color="primary" />
               </div>
             )}
 
             {/* Invite form */}
             {canInvite && (
               <div className="rounded-2xl border border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-4">
-                <p className="text-xs text-slate-500 dark:text-slate-400 mb-2.5 font-medium">Invite by phone number</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-2.5 font-medium">{t("teamPage.inviteByPhone")}</p>
                 <form onSubmit={handleInviteByPhone} className="flex items-center gap-2">
                   <div className="relative flex-1">
                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">call</span>
@@ -515,7 +524,7 @@ export default function RescuerTeamPage() {
                   <button type="submit" disabled={invitingMember}
                     className="inline-flex items-center gap-1.5 bg-primary text-white px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-primary/90 active:scale-[0.97] disabled:opacity-50 transition-all whitespace-nowrap">
                     <span className="material-symbols-outlined text-base">person_add</span>
-                    {invitingMember ? "Sending..." : "Invite"}
+                    {invitingMember ? t("teamPage.sending") : t("teamPage.invite")}
                   </button>
                 </form>
               </div>
@@ -524,7 +533,7 @@ export default function RescuerTeamPage() {
             {/* Pending outgoing */}
             {pendingOuts.length > 0 && (
               <div>
-                <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Pending Invites</h3>
+                <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">{t("teamPage.pendingInvites")}</h3>
                 <div className="space-y-2">
                   {pendingOuts.map((inv) => (
                     <div key={inv.id} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-3.5">
@@ -537,7 +546,7 @@ export default function RescuerTeamPage() {
                           {inv.displayName && <p className="text-xs text-slate-500">{inv.phoneNumber}</p>}
                         </div>
                       </div>
-                      <span className="text-[10px] font-bold uppercase px-2 py-1 rounded-lg bg-warning/10 text-warning border border-warning/20 shrink-0">Pending</span>
+                      <span className="text-[10px] font-bold uppercase px-2 py-1 rounded-lg bg-warning/10 text-warning border border-warning/20 shrink-0">{t("teamPage.pending")}</span>
                     </div>
                   ))}
                 </div>
@@ -547,11 +556,11 @@ export default function RescuerTeamPage() {
 
           {/* Right column: members */}
           <div>
-            <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Team Members</h3>
+            <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">{t("teamPage.teamMembers")}</h3>
             <div className="space-y-2">
               {members.map((m) => (
                 <MemberCard key={m.id} member={m} isCurrentUser={m.id === currentRescuerId} isLeader={isLeader}
-                  onPromote={handlePromote} onDemote={handleDemote} onRemove={handleRemoveMember} />
+                  onPromote={handlePromote} onDemote={handleDemote} onRemove={handleRemoveMember} t={t} />
               ))}
             </div>
           </div>
@@ -562,31 +571,31 @@ export default function RescuerTeamPage() {
 
   const renderDirectory = () => (
     <div className="space-y-3">
-      <p className="text-xs text-slate-500 dark:text-slate-400">{directory.length} registered rescuers</p>
+      <p className="text-xs text-slate-500 dark:text-slate-400">{t("teamPage.registeredRescuers").replace("{count}", String(directory.length))}</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
         {directory.map((rescuer) => {
           const isMe = rescuer.id === currentRescuerId;
           const canQuickInvite = canInvite && !isMe && !rescuer.hasActiveGroup && !rescuer.hasPendingInviteFromMe;
           const statusBadge = isMe ? null
-            : rescuer.hasPendingInviteFromMe ? { text: "Invited", color: "bg-warning/10 text-warning border-warning/20" }
-            : rescuer.hasActiveGroup ? { text: "In a team", color: "bg-slate-100 dark:bg-slate-700/50 text-slate-500 border-slate-200 dark:border-slate-600" }
+            : rescuer.hasPendingInviteFromMe ? { text: t("teamPage.invited"), color: "bg-warning/10 text-warning border-warning/20" }
+            : rescuer.hasActiveGroup ? { text: t("teamPage.inTeam"), color: "bg-slate-100 dark:bg-slate-700/50 text-slate-500 border-slate-200 dark:border-slate-600" }
             : null;
 
           return (
             <div key={rescuer.id} className={`flex items-center gap-3 rounded-2xl border p-3.5 transition-all duration-200 ${
               isMe ? "border-primary/30 bg-primary/5" : "border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 hover:border-slate-300 dark:hover:border-slate-600"}`}>
               <div className="relative shrink-0">
-                <img alt={rescuer.displayName || "Rescuer"} className="size-10 rounded-full border-2 border-slate-100 dark:border-slate-700 object-cover"
+                <img alt={rescuer.displayName || t("teamPage.memberFallback")} className="size-10 rounded-full border-2 border-slate-100 dark:border-slate-700 object-cover"
                   src={rescuer.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(rescuer.displayName || "R")}&background=11a0b6&color=fff&bold=true`}
                   referrerPolicy="no-referrer" />
                 {isMe && <div className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full bg-safe border-2 border-white dark:border-slate-800" />}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <p className="font-semibold text-sm truncate">{rescuer.displayName || `Rescuer #${rescuer.id}`}</p>
-                  {isMe && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-safe/15 text-safe border border-safe/20">You</span>}
+                  <p className="font-semibold text-sm truncate">{rescuer.displayName || t("teamPage.rescuerFallback").replace("{id}", rescuer.id)}</p>
+                  {isMe && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-safe/15 text-safe border border-safe/20">{t("teamPage.you")}</span>}
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{rescuer.phoneNumber || "No phone"}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{rescuer.phoneNumber || t("teamPage.noPhone")}</p>
               </div>
               <div className="shrink-0">
                 {statusBadge && (
@@ -596,7 +605,7 @@ export default function RescuerTeamPage() {
                   <button onClick={() => handleQuickInvite(rescuer.id)} disabled={processing}
                     className="inline-flex items-center gap-1 bg-primary text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-primary/90 active:scale-[0.97] disabled:opacity-50 transition-all">
                     <span className="material-symbols-outlined text-sm">person_add</span>
-                    Invite
+                    {t("teamPage.invite")}
                   </button>
                 )}
               </div>
@@ -607,7 +616,7 @@ export default function RescuerTeamPage() {
       {directory.length === 0 && (
         <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 p-8 text-center">
           <span className="material-symbols-outlined text-3xl text-slate-300 dark:text-slate-600 mb-2 block">person_search</span>
-          <p className="text-sm text-slate-500 dark:text-slate-400">No rescuers found</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t("teamPage.noRescuers")}</p>
         </div>
       )}
     </div>
@@ -615,11 +624,11 @@ export default function RescuerTeamPage() {
 
   const renderInvites = () => (
     <div className="space-y-3">
-      <p className="text-xs text-slate-500 dark:text-slate-400">Accept an invitation to join a rescue group.</p>
+      <p className="text-xs text-slate-500 dark:text-slate-400">{t("teamPage.invitesHint")}</p>
       {receivedInvites.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 p-8 text-center">
           <span className="material-symbols-outlined text-3xl text-slate-300 dark:text-slate-600 mb-2 block">inbox</span>
-          <p className="text-sm text-slate-500 dark:text-slate-400">No pending invitations</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t("teamPage.noPendingInvitations")}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -632,19 +641,19 @@ export default function RescuerTeamPage() {
                 <div className="min-w-0 flex-1">
                   <p className="font-bold text-base">{invite.group.name}</p>
                   <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                    Invited by <span className="font-medium text-slate-700 dark:text-slate-300">{invite.inviter.displayName}</span>
+                    {t("teamPage.invitedBy")} <span className="font-medium text-slate-700 dark:text-slate-300">{invite.inviter.displayName}</span>
                   </p>
-                  <p className="text-xs text-slate-400 mt-0.5">{formatDateTime(invite.createdAt)}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{formatDateTime(invite.createdAt, dateLocale)}</p>
                 </div>
               </div>
               <div className="flex gap-2">
                 <button onClick={() => handleInviteResponse(invite.id, "accept")} disabled={respondingInviteId === invite.id}
                   className="flex-1 inline-flex items-center justify-center gap-1.5 bg-primary text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-primary/90 active:scale-[0.97] disabled:opacity-50 transition-all">
-                  <span className="material-symbols-outlined text-base">check_circle</span> Accept
+                  <span className="material-symbols-outlined text-base">check_circle</span> {t("teamPage.accept")}
                 </button>
                 <button onClick={() => handleInviteResponse(invite.id, "decline")} disabled={respondingInviteId === invite.id}
                   className="flex-1 inline-flex items-center justify-center gap-1.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-600 active:scale-[0.97] disabled:opacity-50 transition-all">
-                  <span className="material-symbols-outlined text-base">close</span> Decline
+                  <span className="material-symbols-outlined text-base">close</span> {t("teamPage.decline")}
                 </button>
               </div>
             </div>
@@ -662,9 +671,9 @@ export default function RescuerTeamPage() {
         <div>
           <div className="flex items-center gap-2.5 mb-1">
             <span className="material-symbols-outlined filled-icon text-primary text-2xl">diversity_3</span>
-            <h1 className="text-2xl font-black tracking-tight">Rescue Team</h1>
+            <h1 className="text-2xl font-black tracking-tight">{t("teamPage.title")}</h1>
           </div>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Coordinate rescue operations with your team</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t("teamPage.subtitle")}</p>
         </div>
 
         {/* Toast */}
@@ -687,7 +696,7 @@ export default function RescuerTeamPage() {
                 className={`relative flex items-center gap-1.5 px-4 py-3 text-sm font-semibold transition-colors ${
                   isActive ? "text-primary" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}>
                 <span className={`material-symbols-outlined text-lg ${isActive ? "filled-icon" : ""}`}>{tab.icon}</span>
-                <span className="hidden sm:inline">{tab.label}</span>
+                <span className="hidden sm:inline">{t(tab.labelKey)}</span>
                 {badge > 0 && (
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center ${
                     isActive ? "bg-primary/15 text-primary" : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"}`}>{badge}</span>
@@ -717,11 +726,11 @@ export default function RescuerTeamPage() {
         <ConfirmModal
           title={confirmModal.title} message={confirmModal.message} confirmLabel={confirmModal.confirmLabel}
           danger={confirmModal.danger} processing={processing}
-          onConfirm={executeConfirm} onCancel={() => !processing && setConfirmModal(null)}
+          onConfirm={executeConfirm} onCancel={() => !processing && setConfirmModal(null)} t={t}
         />
       )}
       {editModal && activeGroup && (
-        <EditGroupModal group={activeGroup} processing={processing} onSave={handleEditGroup} onCancel={() => !processing && setEditModal(false)} />
+        <EditGroupModal group={activeGroup} processing={processing} onSave={handleEditGroup} onCancel={() => !processing && setEditModal(false)} t={t} />
       )}
     </div>
   );
