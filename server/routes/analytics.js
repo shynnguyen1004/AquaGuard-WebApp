@@ -26,10 +26,10 @@ router.get("/overview", authMiddleware, requireAdmin, async (req, res) => {
           COUNT(*) FILTER (WHERE status = 'resolved')::int AS resolved
         FROM rescue_requests
       `),
-      // Average response time (created_at → updated_at for in_progress/resolved)
+      // Average response time (created_at → assigned_at for assigned/in_progress/resolved)
       pool.query(`
         SELECT COALESCE(
-          ROUND(EXTRACT(EPOCH FROM AVG(updated_at - created_at)) / 60),
+          ROUND(EXTRACT(EPOCH FROM AVG(COALESCE(assigned_at, updated_at) - created_at)) / 60),
           0
         )::int AS avg_minutes
         FROM rescue_requests
@@ -144,11 +144,12 @@ router.get("/rescue", authMiddleware, requireAdmin, async (req, res) => {
         ORDER BY count DESC
       `),
       // Response performance: fastest, slowest, average (in minutes)
+      // Uses resolved_at when available, falls back to assigned_at or updated_at
       pool.query(`
         SELECT
-          COALESCE(ROUND(EXTRACT(EPOCH FROM MIN(updated_at - created_at)) / 60), 0)::int AS fastest,
-          COALESCE(ROUND(EXTRACT(EPOCH FROM MAX(updated_at - created_at)) / 60), 0)::int AS slowest,
-          COALESCE(ROUND(EXTRACT(EPOCH FROM AVG(updated_at - created_at)) / 60), 0)::int AS average
+          COALESCE(ROUND(EXTRACT(EPOCH FROM MIN(COALESCE(resolved_at, updated_at) - created_at)) / 60), 0)::int AS fastest,
+          COALESCE(ROUND(EXTRACT(EPOCH FROM MAX(COALESCE(resolved_at, updated_at) - created_at)) / 60), 0)::int AS slowest,
+          COALESCE(ROUND(EXTRACT(EPOCH FROM AVG(COALESCE(resolved_at, updated_at) - created_at)) / 60), 0)::int AS average
         FROM rescue_requests
         WHERE status IN ('in_progress', 'resolved') AND assigned_to IS NOT NULL
       `),

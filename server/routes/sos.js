@@ -21,9 +21,22 @@ function broadcastToRoom(req, requestId, message) {
   });
 }
 
+// ── Helper: log a status change to rescue_request_logs ──
+async function logStatusChange(requestId, changedBy, oldStatus, newStatus, note = "") {
+  try {
+    await pool.query(
+      `INSERT INTO rescue_request_logs (request_id, changed_by, old_status, new_status, note)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [requestId, changedBy, oldStatus, newStatus, note]
+    );
+  } catch (err) {
+    console.error("[SOS] Failed to log status change:", err.message);
+  }
+}
+
 /**
  * POST /api/sos
- * Tạo SOS request mới (Citizen) — with GPS + image uploads
+ * Create a new SOS request (Citizen) — with GPS + image uploads
  * Accepts: multipart/form-data with fields + files
  */
 router.post("/", authMiddleware, requireRoles(["citizen"]), upload.array("images", 5), async (req, res) => {
@@ -47,17 +60,12 @@ router.post("/", authMiddleware, requireRoles(["citizen"]), upload.array("images
       console.log(`[SOS] Uploaded ${imageUrls.length} images to Cloudinary`);
     }
 
-    // Lấy tên user từ database
-    const userResult = await pool.query("SELECT display_name FROM users WHERE id = $1", [req.user.id]);
-    const userName = userResult.rows[0]?.display_name || "User";
-
     const result = await pool.query(
-      `INSERT INTO rescue_requests (user_id, user_name, location, description, urgency, images, latitude, longitude)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO rescue_requests (user_id, location, description, urgency, images, latitude, longitude)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
       [
         req.user.id,
-        userName,
         location,
         description,
         urgency || "medium",
@@ -67,7 +75,12 @@ router.post("/", authMiddleware, requireRoles(["citizen"]), upload.array("images
       ]
     );
 
-    return res.status(201).json({ success: true, data: result.rows[0] });
+    const newRequest = result.rows[0];
+
+    // Log the creation
+    await logStatusChange(newRequest.id, req.user.id, null, "pending");
+
+    return res.status(201).json({ success: true, data: newRequest });
   } catch (err) {
     console.error("Create SOS error:", err);
     return res.status(500).json({ success: false, message: "Lỗi server" });
@@ -76,15 +89,24 @@ router.post("/", authMiddleware, requireRoles(["citizen"]), upload.array("images
 
 /**
  * GET /api/sos/my
- * Lấy requests của user hiện tại (Citizen)
+ * Get requests by current user (Citizen view)
  */
 router.get("/my", authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT r.*, u.phone_number as user_phone
+      `SELECT r.*,
+              u.display_name   AS user_name,
+              u.phone_number   AS user_phone,
+              a.display_name   AS assigned_name,
+              g.name           AS assigned_group_name,
+              c.display_name   AS last_cancelled_by_name
        FROM rescue_requests r
-       LEFT JOIN users u ON r.user_id = u.id
-       WHERE r.user_id = $1 ORDER BY r.created_at DESC`,
+       LEFT JOIN users u          ON r.user_id = u.id
+       LEFT JOIN users a          ON r.assigned_to = a.id
+       LEFT JOIN rescue_groups g  ON r.assigned_group_id = g.id
+       LEFT JOIN users c          ON r.last_cancelled_by = c.id
+       WHERE r.user_id = $1
+       ORDER BY r.created_at DESC`,
       [req.user.id]
     );
 
@@ -97,31 +119,34 @@ router.get("/my", authMiddleware, async (req, res) => {
 
 /**
  * GET /api/sos/all
- * Lấy tất cả requests (Rescuer / Admin)
+ * Get all requests (Rescuer / Admin)
+ * Uses JOINs to resolve names instead of denormalized columns
  */
 router.get("/all", authMiddleware, requireRoles(["rescuer", "admin"]), async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT r.*, 
-              u.phone_number as user_phone,
-              u.gender as user_gender,
-              u.date_of_birth as user_date_of_birth,
-              u.address as user_address,
+      `SELECT r.*,
+              -- Citizen info (via JOIN)
+              u.display_name   AS user_name,
+              u.phone_number   AS user_phone,
+              u.gender         AS user_gender,
+              u.date_of_birth  AS user_date_of_birth,
+              u.address        AS user_address,
               CASE
                 WHEN u.date_of_birth IS NULL THEN NULL
                 ELSE DATE_PART('year', AGE(CURRENT_DATE, u.date_of_birth))::int
-              END as user_age,
-              CASE
-                WHEN u.address ILIKE '%hồ chí minh%'
-                  OR u.address ILIKE '%ho chi minh%'
-                  OR u.address ILIKE '%hcm%'
-                  OR u.address ILIKE '%tphcm%'
-                  OR u.address ILIKE '%tp. hcm%'
-                THEN 'ho_chi_minh'
-                ELSE NULL
-              END as user_city
+              END AS user_age,
+              -- Assigned rescuer name (via JOIN)
+              a.display_name   AS assigned_name,
+              -- Assigned group name (via JOIN)
+              g.name           AS assigned_group_name,
+              -- Last canceller name (via JOIN)
+              c.display_name   AS last_cancelled_by_name
        FROM rescue_requests r
-       LEFT JOIN users u ON r.user_id = u.id
+       LEFT JOIN users u          ON r.user_id = u.id
+       LEFT JOIN users a          ON r.assigned_to = a.id
+       LEFT JOIN rescue_groups g  ON r.assigned_group_id = g.id
+       LEFT JOIN users c          ON r.last_cancelled_by = c.id
        ORDER BY r.created_at DESC`
     );
 
@@ -134,7 +159,7 @@ router.get("/all", authMiddleware, requireRoles(["rescuer", "admin"]), async (re
 
 /**
  * GET /api/sos/stats
- * Thống kê số lượng theo status
+ * Status count summary
  */
 router.get("/stats", authMiddleware, async (req, res) => {
   try {
@@ -157,7 +182,7 @@ router.get("/stats", authMiddleware, async (req, res) => {
 
 /**
  * PUT /api/sos/:id/assign
- * Admin gán request pending cho một rescuer (pending -> assigned)
+ * Admin assigns a pending request to a specific rescuer
  */
 router.put("/:id/assign", authMiddleware, requireAdmin, async (req, res) => {
   try {
@@ -185,19 +210,19 @@ router.put("/:id/assign", authMiddleware, requireAdmin, async (req, res) => {
       `UPDATE rescue_requests
        SET status = 'assigned',
            assigned_to = $1,
-           assigned_name = $2,
            assigned_group_id = NULL,
-           assigned_group_name = NULL,
            accepted_mode = 'individual',
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = $3 AND status = 'pending'
+           assigned_at = NOW()
+       WHERE id = $2 AND status = 'pending'
        RETURNING *`,
-      [rescuer.id, rescuer.display_name || "Rescuer", id]
+      [rescuer.id, id]
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: "Request không tồn tại hoặc không còn ở trạng thái pending" });
     }
+
+    await logStatusChange(parseInt(id), req.user.id, "pending", "assigned");
 
     return res.json({ success: true, data: result.rows[0] });
   } catch (err) {
@@ -208,9 +233,9 @@ router.put("/:id/assign", authMiddleware, requireAdmin, async (req, res) => {
 
 /**
  * PUT /api/sos/:id/accept
- * Rescuer chấp nhận request:
- * - pending (chưa ai nhận) -> in_progress
- * - assigned (được admin gán đúng rescuer) -> in_progress
+ * Rescuer accepts a request:
+ * - pending (unassigned) → in_progress
+ * - assigned (matched) → in_progress
  */
 router.put("/:id/accept", authMiddleware, requireRoles(["rescuer"]), async (req, res) => {
   try {
@@ -218,12 +243,7 @@ router.put("/:id/accept", authMiddleware, requireRoles(["rescuer"]), async (req,
     const { latitude, longitude, acceptMode } = req.body;
     const resolvedAcceptMode = acceptMode === "group" ? "group" : "individual";
 
-    // Lấy tên rescuer
-    const userResult = await pool.query("SELECT display_name FROM users WHERE id = $1", [req.user.id]);
-    const rescuerName = userResult.rows[0]?.display_name || "Rescuer";
-
     let assignedGroupId = null;
-    let assignedGroupName = null;
 
     if (resolvedAcceptMode === "group") {
       const groupRes = await pool.query(
@@ -243,16 +263,18 @@ router.put("/:id/accept", authMiddleware, requireRoles(["rescuer"]), async (req,
       }
 
       assignedGroupId = groupRes.rows[0].id;
-      assignedGroupName = groupRes.rows[0].name;
     }
 
     const result = await pool.query(
       `UPDATE rescue_requests
-       SET status = 'in_progress', assigned_to = $1, assigned_name = $2,
-           assigned_group_id = $3, assigned_group_name = $4, accepted_mode = $5,
-           rescuer_latitude = $6, rescuer_longitude = $7,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = $8
+       SET status = 'in_progress',
+           assigned_to = $1,
+           assigned_group_id = $2,
+           accepted_mode = $3,
+           rescuer_latitude = $4,
+           rescuer_longitude = $5,
+           assigned_at = COALESCE(assigned_at, NOW())
+       WHERE id = $6
          AND (
            (status = 'pending' AND (assigned_to IS NULL OR assigned_to = $1))
            OR
@@ -261,9 +283,7 @@ router.put("/:id/accept", authMiddleware, requireRoles(["rescuer"]), async (req,
        RETURNING *`,
       [
         req.user.id,
-        rescuerName,
         assignedGroupId,
-        assignedGroupName,
         resolvedAcceptMode,
         latitude || null,
         longitude || null,
@@ -276,6 +296,12 @@ router.put("/:id/accept", authMiddleware, requireRoles(["rescuer"]), async (req,
     }
 
     const request = result.rows[0];
+
+    await logStatusChange(parseInt(id), req.user.id, "pending", "in_progress");
+
+    // Fetch rescuer name for broadcast
+    const userResult = await pool.query("SELECT display_name FROM users WHERE id = $1", [req.user.id]);
+    const rescuerName = userResult.rows[0]?.display_name || "Rescuer";
 
     // Broadcast tracking_started to the tracking room
     broadcastToRoom(req, parseInt(id), {
@@ -298,34 +324,28 @@ router.put("/:id/accept", authMiddleware, requireRoles(["rescuer"]), async (req,
 
 /**
  * PUT /api/sos/:id/cancel
- * Rescuer trả case đang in_progress về pending
+ * Rescuer releases an in_progress case back to pending
  */
 router.put("/:id/cancel", authMiddleware, requireRoles(["rescuer"]), async (req, res) => {
   try {
     const { id } = req.params;
 
-    const userResult = await pool.query("SELECT display_name FROM users WHERE id = $1", [req.user.id]);
-    const rescuerName = userResult.rows[0]?.display_name || "Rescuer";
-
     const result = await pool.query(
       `UPDATE rescue_requests
        SET status = 'pending',
            assigned_to = NULL,
-           assigned_name = NULL,
            assigned_group_id = NULL,
-           assigned_group_name = NULL,
            accepted_mode = 'individual',
            rescuer_latitude = NULL,
            rescuer_longitude = NULL,
            last_cancelled_by = $1,
-           last_cancelled_by_name = $2,
-           last_cancelled_at = CURRENT_TIMESTAMP,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = $3
+           last_cancelled_at = NOW(),
+           assigned_at = NULL
+       WHERE id = $2
          AND assigned_to = $1
          AND status = 'in_progress'
        RETURNING *`,
-      [req.user.id, rescuerName, id]
+      [req.user.id, id]
     );
 
     if (result.rows.length === 0) {
@@ -334,6 +354,8 @@ router.put("/:id/cancel", authMiddleware, requireRoles(["rescuer"]), async (req,
         message: "Không thể huỷ request này (không phải mission của bạn hoặc request không ở trạng thái in progress)",
       });
     }
+
+    await logStatusChange(parseInt(id), req.user.id, "in_progress", "pending", "Rescuer cancelled");
 
     broadcastToRoom(req, parseInt(id, 10), {
       type: "tracking_cancelled",
@@ -349,7 +371,7 @@ router.put("/:id/cancel", authMiddleware, requireRoles(["rescuer"]), async (req,
 
 /**
  * PUT /api/sos/:id/complete
- * Rescuer hoàn thành request (in_progress → resolved)
+ * Rescuer or Admin completes a request (in_progress → resolved)
  */
 router.put("/:id/complete", authMiddleware, async (req, res) => {
   try {
@@ -363,14 +385,14 @@ router.put("/:id/complete", authMiddleware, async (req, res) => {
     const result = isAdmin
       ? await pool.query(
         `UPDATE rescue_requests
-         SET status = 'resolved', updated_at = CURRENT_TIMESTAMP
+         SET status = 'resolved', resolved_at = NOW()
          WHERE id = $1 AND status = 'in_progress'
          RETURNING *`,
         [id]
       )
       : await pool.query(
         `UPDATE rescue_requests
-         SET status = 'resolved', updated_at = CURRENT_TIMESTAMP
+         SET status = 'resolved', resolved_at = NOW()
          WHERE id = $1 AND assigned_to = $2 AND status = 'in_progress'
          RETURNING *`,
         [id, req.user.id]
@@ -379,6 +401,8 @@ router.put("/:id/complete", authMiddleware, async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: "Không thể hoàn thành request này (không phải mission của bạn hoặc đã hoàn thành)" });
     }
+
+    await logStatusChange(parseInt(id), req.user.id, "in_progress", "resolved");
 
     // Broadcast tracking_ended to the tracking room
     broadcastToRoom(req, parseInt(id), {
