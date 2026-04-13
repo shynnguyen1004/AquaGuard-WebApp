@@ -345,7 +345,7 @@ const vi = {
     minAgo: "phút trước",
     hAgo: "giờ trước",
     unknownLocation: "Vị trí không xác định",
-    urgency: "mức độ",
+    urgency: "",
     assignedTo: "Được giao cho:",
     groupAssigned: "Nhóm xử lý:",
     releasedBy: "Yêu cầu này vừa được trả lại bởi:",
@@ -356,10 +356,10 @@ const vi = {
     assigned: "Đã phân công",
     inProgress: "Đang xử lý",
     resolved: "Đã giải quyết",
-    low: "Thấp",
-    medium: "Trung bình",
-    high: "Cao",
-    critical: "Nghiêm trọng",
+    low: "Mức độ thấp",
+    medium: "Mức độ trung bình",
+    high: "Mức độ cao",
+    critical: "Mức độ nghiêm trọng",
   },
 
   // ── Form yêu cầu cứu hộ ──

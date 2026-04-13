@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Sidebar from "../components/layout/Sidebar";
 import Header from "../components/layout/Header";
 import RightPanel from "../components/layout/RightPanel";
@@ -24,9 +24,11 @@ import { canAccessPage } from "../config/rbac";
 export default function Dashboard() {
   const [activePage, setActivePage] = useState("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState("profile");
   const { user, role, needsRoleSelection, selectRole } = useAuth();
+  const mapControlsRef = useRef(null);
+  const [, forceUpdate] = useState(0);
 
   const getDefaultPageByRole = (currentRole) => {
     if (currentRole === "rescuer") return "rescuer-missions";
@@ -145,12 +147,23 @@ export default function Dashboard() {
 
       default:
         return (
-          <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-            <main className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900/50 relative min-h-[50vh] lg:min-h-0">
+          <div className="flex-1 flex flex-col xl:flex-row overflow-y-auto xl:overflow-hidden">
+            <main className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900/50 relative min-h-[70vh] xl:min-h-0">
               <Header />
-              <FloodMap />
+              <FloodMap
+                onReady={(controls) => {
+                  mapControlsRef.current = controls;
+                  forceUpdate((n) => n + 1);
+                }}
+              />
             </main>
-            <RightPanel onNavigate={handleNavigate} />
+            <RightPanel
+              onNavigate={handleNavigate}
+              onLocateMe={() => mapControlsRef.current?.locateMe()}
+              onToggleFamily={() => mapControlsRef.current?.toggleFamily()}
+              onFlyToMember={(pos) => mapControlsRef.current?.flyTo(pos)}
+              showFamily={mapControlsRef.current?.showFamily ?? true}
+            />
           </div>
         );
     }
@@ -159,18 +172,21 @@ export default function Dashboard() {
   return (
     <div className="flex h-screen w-full flex-col lg:flex-row">
       {/* Mobile Header */}
-      <MobileHeader onMenuToggle={() => setMobileMenuOpen(true)} />
+      <MobileHeader
+        onChatToggle={() => setChatOpen(prev => !prev)}
+        onNavigate={handleNavigate}
+      />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar (desktop: static, mobile: overlay drawer) */}
-        <Sidebar
-          activePage={activePage}
-          onNavigate={handleNavigate}
-          collapsed={sidebarCollapsed}
-          onToggle={() => setSidebarCollapsed(prev => !prev)}
-          mobileOpen={mobileMenuOpen}
-          onMobileClose={() => setMobileMenuOpen(false)}
-        />
+        {/* Sidebar — desktop only */}
+        <div className="hidden lg:flex h-full">
+          <Sidebar
+            activePage={activePage}
+            onNavigate={handleNavigate}
+            collapsed={sidebarCollapsed}
+            onToggle={() => setSidebarCollapsed(prev => !prev)}
+          />
+        </div>
 
         {/* Main content — add bottom padding on mobile for nav bar */}
         <div className="flex-1 flex overflow-hidden pb-16 lg:pb-0">
@@ -182,7 +198,10 @@ export default function Dashboard() {
       <MobileBottomNav activePage={activePage} onNavigate={handleNavigate} />
 
       {/* Chatbot */}
-      <ChatBot />
+      <ChatBot
+        externalOpen={chatOpen}
+        onExternalToggle={(val) => setChatOpen(typeof val === 'function' ? val(chatOpen) : val)}
+      />
 
       {/* Role Selection Modal for first-time users */}
       {needsRoleSelection && (

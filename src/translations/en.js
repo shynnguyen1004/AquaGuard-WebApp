@@ -345,7 +345,7 @@ const en = {
     minAgo: "min ago",
     hAgo: "h ago",
     unknownLocation: "Unknown location",
-    urgency: "urgency",
+    urgency: "",
     assignedTo: "Assigned to:",
     groupAssigned: "Group:",
     releasedBy: "This case was returned by:",
@@ -356,10 +356,10 @@ const en = {
     assigned: "Assigned",
     inProgress: "In Progress",
     resolved: "Resolved",
-    low: "Low",
-    medium: "Medium",
-    high: "High",
-    critical: "Critical",
+    low: "Low urgency",
+    medium: "Medium urgency",
+    high: "High urgency",
+    critical: "Critical urgency",
   },
 
   // ── Rescue Request Form ──

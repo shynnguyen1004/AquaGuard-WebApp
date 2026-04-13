@@ -174,7 +174,7 @@ function parseLocation(location) {
   return null;
 }
 
-export default function FloodMap() {
+export default function FloodMap({ onReady }) {
   const { token } = useAuth();
   const { t, language } = useLanguage();
   const [markers, setMarkers] = useState([]);
@@ -467,6 +467,19 @@ export default function FloodMap() {
     startLiveLocationTracking({ recenter: true, showPermissionAlert: true });
   };
 
+  // Expose controls to parent via onReady callback
+  useEffect(() => {
+    if (onReady) {
+      onReady({
+        locateMe: () => startLiveLocationTracking({ recenter: true, showPermissionAlert: true }),
+        toggleFamily: () => setShowFamily(prev => !prev),
+        flyTo: (pos) => setFlyTo(pos),
+        showFamily,
+        familyMembers,
+      });
+    }
+  }, [onReady, showFamily, familyMembers, startLiveLocationTracking]);
+
   useEffect(() => {
     if (!navigator.geolocation || !navigator.permissions?.query) return;
 
@@ -554,7 +567,7 @@ export default function FloodMap() {
   const windyUrl = `/windy.html?key=${WINDY_API_KEY}&lat=16.054&lon=108.202&zoom=7&overlay=${windyOverlay}`;
 
   return (
-    <div className="flex-1 relative">
+    <div className="flex-1 relative min-h-[60vh] xl:min-h-0">
       <style>{`
         .custom-pin-icon, .family-pin-icon, .my-location-icon { background: none !important; border: none !important; }
         .sos-avatar-marker-icon { background: none !important; border: none !important; }
@@ -621,6 +634,7 @@ export default function FloodMap() {
         }
         .leaflet-popup-content { margin: 0 !important; min-width: 220px; }
         .leaflet-popup-tip { box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important; }
+        .leaflet-control-attribution { display: none !important; }
       `}</style>
 
       {/* Loading overlay */}
@@ -796,6 +810,7 @@ export default function FloodMap() {
           className="w-full h-full z-0"
           zoomControl={true}
           scrollWheelZoom={true}
+          attributionControl={false}
         >
           {/* Fly to user location when triggered */}
           <FlyToLocation position={flyTo} />

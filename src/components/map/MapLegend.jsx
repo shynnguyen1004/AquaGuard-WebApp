@@ -5,32 +5,30 @@ const severityLevels = [
   { color: "#10b981", label: "Safe" },
 ];
 
-function PinIcon({ color }) {
+function Dot({ color }) {
   return (
-    <svg width="10" height="14" viewBox="0 0 32 42" className="flex-shrink-0">
-      <path
-        d="M16 0C7.16 0 0 7.16 0 16c0 12 16 26 16 26s16-14 16-26C32 7.16 24.84 0 16 0z"
-        fill={color}
-      />
-      <circle cx="16" cy="15" r="6" fill="white" opacity="0.9" />
-    </svg>
+    <span
+      className="inline-block size-2 lg:size-2.5 rounded-full shrink-0"
+      style={{ backgroundColor: color }}
+    />
   );
 }
 
 export default function MapLegend() {
   return (
-    <div className="absolute bottom-6 left-3 bg-slate-900/75 backdrop-blur-md px-3.5 py-3 rounded-xl border border-white/10 shadow-xl z-[500]">
-      <h3 className="text-[9px] font-bold uppercase tracking-widest mb-2 text-white/50">
+    <div className="absolute bottom-4 left-2 lg:left-3 bg-white/70 backdrop-blur-sm px-2.5 py-1.5 lg:px-3 lg:py-2.5 rounded-lg lg:rounded-xl border border-black/5 shadow-md z-[500]">
+      <h3 className="text-[7px] lg:text-[8px] font-bold uppercase tracking-widest mb-1 lg:mb-1.5 text-slate-400">
         Flood Severity
       </h3>
-      <div className="space-y-1.5">
+      <div className="flex lg:flex-col gap-2 lg:gap-1">
         {severityLevels.map((level) => (
-          <div key={level.label} className="flex items-center gap-2">
-            <PinIcon color={level.color} />
-            <span className="text-[11px] font-medium text-white/90">{level.label}</span>
+          <div key={level.label} className="flex items-center gap-1 lg:gap-1.5">
+            <Dot color={level.color} />
+            <span className="text-[9px] lg:text-[10px] font-medium text-slate-600">{level.label}</span>
           </div>
         ))}
       </div>
     </div>
   );
 }
+

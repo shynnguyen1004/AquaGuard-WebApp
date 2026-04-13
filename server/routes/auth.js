@@ -173,7 +173,7 @@ async function buildMyRescueGroupPayload(userId) {
  */
 router.post("/register", async (req, res) => {
   try {
-    const { phone_number, password, display_name, role, role_password } = req.body;
+    const { phone_number, password, display_name, role, role_password, gender, date_of_birth } = req.body;
 
     if (!phone_number || !password) {
       return res.status(400).json({
@@ -209,6 +209,28 @@ router.post("/register", async (req, res) => {
       });
     }
 
+    // Validate gender if provided
+    if (gender && !["male", "female", "other"].includes(gender)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid gender value.",
+      });
+    }
+
+    // Validate date_of_birth if provided
+    let parsedDob = null;
+    if (date_of_birth) {
+      const dobStr = String(date_of_birth).trim();
+      const normalizedDob = dobStr.includes("T") ? dobStr.split("T")[0] : dobStr;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedDob)) {
+        return res.status(400).json({ success: false, message: "Invalid date of birth format." });
+      }
+      parsedDob = new Date(`${normalizedDob}T00:00:00`);
+      if (isNaN(parsedDob.getTime()) || parsedDob > new Date()) {
+        return res.status(400).json({ success: false, message: "Invalid date of birth." });
+      }
+    }
+
     // Check if phone already exists
     const existing = await pool.query(
       "SELECT id FROM users WHERE phone_number = $1",
@@ -224,16 +246,18 @@ router.post("/register", async (req, res) => {
     // Hash password
     const password_hash = await bcrypt.hash(password, SALT_ROUNDS);
 
-    // Insert user
+    // Insert user with gender and date_of_birth
     const result = await pool.query(
-      `INSERT INTO users (phone_number, password_hash, display_name, role)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, phone_number, display_name, role, avatar_url, is_active, created_at`,
+      `INSERT INTO users (phone_number, password_hash, display_name, role, gender, date_of_birth)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, phone_number, display_name, role, avatar_url, is_active, created_at, gender, date_of_birth`,
       [
         phone_number,
         password_hash,
         display_name || "User",
         role || "citizen",
+        gender || "",
+        parsedDob ? parsedDob.toISOString().slice(0, 10) : null,
       ]
     );
 

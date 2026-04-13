@@ -23,6 +23,8 @@ export default function LoginPage() {
   const [phoneError, setPhoneError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [requestError, setRequestError] = useState("");
+  const [gender, setGender] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
 
   const normalizedPhone = normalizePhone(phoneNumber);
   const hasPhoneValue = phoneNumber.trim().length > 0;
@@ -134,12 +136,22 @@ export default function LoginPage() {
 
     if (nextPhoneError || nextPasswordError) return;
 
+    // Validate gender and date of birth
+    if (!gender) {
+      setRequestError("Please select your gender.");
+      return;
+    }
+    if (!dateOfBirth) {
+      setRequestError("Please enter your date of birth.");
+      return;
+    }
+
     // Role password will be validated by the backend
     setRolePasswordError("");
 
     setIsSigningIn(true);
     try {
-      await registerWithPhone(normalizedPhone, password, displayName, selectedRole, rolePassword);
+      await registerWithPhone(normalizedPhone, password, displayName, selectedRole, rolePassword, gender, dateOfBirth);
       navigate("/", { replace: true });
     } catch (err) {
       // Show role password error from backend in the right field
@@ -166,6 +178,8 @@ export default function LoginPage() {
     setRolePassword("");
     setRolePasswordError("");
     setSelectedRole("citizen");
+    setGender("");
+    setDateOfBirth("");
   };
 
   const roles = [
@@ -327,7 +341,7 @@ export default function LoginPage() {
                       value={phoneNumber}
                       onChange={handlePhoneNumberChange}
                       onBlur={() => setPhoneError(hasPhoneValue ? validatePhoneNumber(phoneNumber) : "")}
-                      placeholder="+84 xxx xxx xxx"
+                      placeholder="+84 901 234 567"
                       inputMode="tel"
                       autoComplete="tel"
                       aria-invalid={Boolean(phoneError)}
@@ -338,8 +352,12 @@ export default function LoginPage() {
                       }`}
                     />
                   </div>
-                  {phoneError && (
+                  {phoneError ? (
                     <p className="mt-2 text-xs text-danger font-medium">{phoneError}</p>
+                  ) : (
+                    <p className="mt-1.5 text-xs text-slate-500">
+                      Ví dụ: +84 901 234 567 hoặc 0901234567
+                    </p>
                   )}
                 </div>
 
@@ -393,6 +411,56 @@ export default function LoginPage() {
                     <p className="mt-2 text-xs text-danger font-medium">{passwordError}</p>
                   )}
                 </div>
+
+                {/* Gender Selection (register only) */}
+                {phoneMode === "register" && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Gender
+                    </label>
+                    <div className="flex gap-2">
+                      {[
+                        { key: "male", label: "Male", icon: "male" },
+                        { key: "female", label: "Female", icon: "female" },
+                        { key: "other", label: "Other", icon: "transgender" },
+                      ].map((g) => (
+                        <button
+                          key={g.key}
+                          type="button"
+                          onClick={() => setGender(g.key)}
+                          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-all ${gender === g.key
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-white/10 bg-white/5 text-slate-400 hover:text-slate-300 hover:border-white/20"
+                            }`}
+                        >
+                          <span className="material-symbols-outlined text-base">{g.icon}</span>
+                          {g.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Date of Birth (register only) */}
+                {phoneMode === "register" && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Date of Birth
+                    </label>
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">
+                        calendar_month
+                      </span>
+                      <input
+                        type="date"
+                        value={dateOfBirth}
+                        onChange={(e) => setDateOfBirth(e.target.value)}
+                        max={new Date().toISOString().split("T")[0]}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all text-sm [color-scheme:dark]"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Forgot Password link (login only) */}
                 {phoneMode === "login" && (

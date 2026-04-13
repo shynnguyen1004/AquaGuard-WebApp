@@ -126,7 +126,7 @@ export default function Sidebar({ activePage = "dashboard", onNavigate, collapse
         </div>
 
         {/* Navigation */}
-        <nav className={`flex-1 py-4 space-y-1 ${collapsed && !mobileOpen ? "px-2" : "px-4"}`}>
+        <nav className={`flex-1 py-4 space-y-1 overflow-y-auto ${collapsed && !mobileOpen ? "px-2" : "px-4"}`}>
           {navItems.map((item) => (
             <NavItem
               key={item.page}
@@ -141,8 +141,8 @@ export default function Sidebar({ activePage = "dashboard", onNavigate, collapse
           ))}
         </nav>
 
-        {/* Footer */}
-        <div className={`border-t border-slate-200 dark:border-slate-800 ${collapsed && !mobileOpen ? "p-2" : "p-4"}`}>
+        {/* Footer — always at bottom */}
+        <div className={`mt-auto border-t border-slate-200 dark:border-slate-800 ${collapsed && !mobileOpen ? "p-2" : "p-4"}`}>
           {(!collapsed || mobileOpen) ? (
             <>
               <button

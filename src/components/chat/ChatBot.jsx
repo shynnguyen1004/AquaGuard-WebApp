@@ -79,8 +79,10 @@ function getFallback(message) {
   return "I'm having trouble connecting right now. For emergencies, call Police (113), Fire (114), or Ambulance (115). Please try again later!";
 }
 
-export default function ChatBot() {
-  const [isOpen, setIsOpen] = useState(false);
+export default function ChatBot({ externalOpen, onExternalToggle }) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isOpen = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setIsOpen = onExternalToggle || setInternalOpen;
   const [messages, setMessages] = useState([
     {
       from: "bot",
@@ -138,7 +140,7 @@ export default function ChatBot() {
     <>
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-24 right-4 sm:right-6 z-50 w-[340px] sm:w-[380px] max-h-[520px] flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden chat-widget">
+        <div className="fixed inset-0 lg:inset-auto lg:bottom-24 lg:right-6 z-[1100] lg:w-[380px] lg:max-h-[520px] flex flex-col bg-white dark:bg-slate-900 lg:rounded-2xl shadow-2xl lg:border border-slate-200 dark:border-slate-700 overflow-hidden chat-widget">
           <style>{`
             .chat-widget ::-webkit-scrollbar { width: 5px; height: 5px; }
             .chat-widget ::-webkit-scrollbar-track { background: transparent; }
@@ -243,10 +245,10 @@ export default function ChatBot() {
         </div>
       )}
 
-      {/* Floating Button */}
+      {/* Floating Button — desktop only */}
       <button
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`fixed bottom-6 right-4 sm:right-6 z-50 size-14 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 hover:scale-110 ${isOpen
+        className={`fixed bottom-6 right-6 z-[1100] size-14 rounded-full shadow-xl hidden lg:flex items-center justify-center transition-all duration-300 hover:scale-110 ${isOpen
             ? "bg-slate-700 hover:bg-slate-600"
             : "bg-gradient-to-br from-primary to-primary/80 hover:shadow-primary/30 hover:shadow-2xl"
           }`}

@@ -225,15 +225,18 @@ export function AuthProvider({ children }) {
   };
 
   // ── Phone + Password: Register ──
-  const registerWithPhone = async (phone_number, password, display_name, selectedRole, role_password) => {
+  const registerWithPhone = async (phone_number, password, display_name, selectedRole, role_password, gender, date_of_birth) => {
     setError(null);
     setLoading(true);
     try {
       const normalized = normalizePhone(phone_number);
+      const body = { phone_number: normalized, password, display_name, role: selectedRole || "citizen", role_password };
+      if (gender) body.gender = gender;
+      if (date_of_birth) body.date_of_birth = date_of_birth;
       const res = await fetch(`${API_BASE}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone_number: normalized, password, display_name, role: selectedRole || "citizen", role_password }),
+        body: JSON.stringify(body),
       });
 
       const data = await res.json();
