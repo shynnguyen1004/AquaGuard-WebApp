@@ -16,7 +16,7 @@ function resolve(key, obj) {
 
 export function LanguageProvider({ children }) {
   const [language, setLanguage] = useState(
-    () => localStorage.getItem("aquaguard-lang") || "en"
+    () => localStorage.getItem("aquaguard-lang") || "vi"
   );
 
   const changeLanguage = useCallback((lang) => {

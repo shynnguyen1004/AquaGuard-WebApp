@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { useLanguage } from "../contexts/LanguageContext";
 import { normalizePhone, isValidVNPhone } from "../utils/phone";
 
 export default function LoginPage() {
   const { loginWithGoogle, loginWithPhonePassword, registerWithPhone, error, clearError, loading } = useAuth();
+  const { t, language, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const [isSigningIn, setIsSigningIn] = useState(false);
 
@@ -33,8 +35,8 @@ export default function LoginPage() {
   const isRegisterDisabled = isSigningIn || loading || !isPhoneValid || password.length < 6;
 
   const validatePhoneNumber = (value) => {
-    if (!value.trim()) return "Please enter your phone number.";
-    if (!isValidVNPhone(value)) return "Please enter a valid Vietnamese phone number.";
+    if (!value.trim()) return t("loginPage.phoneRequired");
+    if (!isValidVNPhone(value)) return t("loginPage.phoneInvalid");
     return "";
   };
 
@@ -47,7 +49,7 @@ export default function LoginPage() {
     clearError();
 
     if (rawValue !== sanitizedValue) {
-      setPhoneError("Phone numbers can only contain digits and valid formatting characters.");
+      setPhoneError(t("loginPage.phoneInvalidChars"));
       return;
     }
 
@@ -61,7 +63,7 @@ export default function LoginPage() {
       return;
     }
 
-    setPhoneError("Please enter a valid Vietnamese phone number.");
+    setPhoneError(t("loginPage.phoneInvalid"));
   };
 
   const handlePasswordChange = (e) => {
@@ -76,7 +78,7 @@ export default function LoginPage() {
     }
 
     if (phoneMode === "register" && nextPassword.length < 6) {
-      setPasswordError("Password must be at least 6 characters.");
+      setPasswordError(t("loginPage.passwordTooShort"));
       return;
     }
 
@@ -100,7 +102,7 @@ export default function LoginPage() {
   const handlePhoneLogin = async (e) => {
     e.preventDefault();
     const nextPhoneError = validatePhoneNumber(phoneNumber);
-    const nextPasswordError = password ? "" : "Please enter your password.";
+    const nextPasswordError = password ? "" : t("loginPage.passwordRequired");
 
     setPhoneError(nextPhoneError);
     setPasswordError(nextPasswordError);
@@ -124,9 +126,9 @@ export default function LoginPage() {
     e.preventDefault();
     const nextPhoneError = validatePhoneNumber(phoneNumber);
     const nextPasswordError = !password
-      ? "Please enter your password."
+      ? t("loginPage.passwordRequired")
       : password.length < 6
-        ? "Password must be at least 6 characters."
+        ? t("loginPage.passwordTooShort")
         : "";
 
     setPhoneError(nextPhoneError);
@@ -138,11 +140,11 @@ export default function LoginPage() {
 
     // Validate gender and date of birth
     if (!gender) {
-      setRequestError("Please select your gender.");
+      setRequestError(t("loginPage.genderRequired"));
       return;
     }
     if (!dateOfBirth) {
-      setRequestError("Please enter your date of birth.");
+      setRequestError(t("loginPage.dobRequired"));
       return;
     }
 
@@ -183,13 +185,30 @@ export default function LoginPage() {
   };
 
   const roles = [
-    { key: "citizen", label: "Citizen", icon: "person" },
-    { key: "rescuer", label: "Rescuer", icon: "local_fire_department", requiresPassword: true },
-    { key: "admin", label: "Admin", icon: "admin_panel_settings", requiresPassword: true },
+    { key: "citizen", label: t("loginPage.citizen"), icon: "person" },
+    { key: "rescuer", label: t("loginPage.rescuer"), icon: "local_fire_department", requiresPassword: true },
   ];
+
+  const toggleLanguage = () => {
+    setLanguage(language === "vi" ? "en" : "vi");
+  };
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background-dark relative">
+      {/* Language Toggle Button — top right */}
+      <button
+        onClick={toggleLanguage}
+        className="absolute top-5 right-5 z-50 flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/[0.07] backdrop-blur-xl border border-white/10 hover:bg-white/[0.12] hover:border-white/20 transition-all group"
+        title={language === "vi" ? "Switch to English" : "Chuyển sang Tiếng Việt"}
+      >
+        <span className="material-symbols-outlined text-lg text-slate-300 group-hover:text-white transition-colors">
+          translate
+        </span>
+        <span className="text-xs font-bold text-slate-300 group-hover:text-white transition-colors uppercase tracking-wider">
+          {language === "vi" ? "EN" : "VI"}
+        </span>
+      </button>
+
       {/* Animated Background */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -left-40 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse" />
@@ -212,19 +231,18 @@ export default function LoginPage() {
             <img alt="AquaGuard" src="/images/dark_mode_logo.png" />
           </div>
           <h2 className="text-4xl font-bold text-white leading-tight mb-4">
-            Management System
+            {t("loginPage.brandingTitle")}
             <br />
-            <span className="text-primary">for Flood Disasters</span>
+            <span className="text-primary">{t("loginPage.brandingHighlight")}</span>
           </h2>
           <p className="text-slate-400 text-lg leading-relaxed mb-8">
-            Monitor water levels, receive early warnings, coordinate rescue
-            efforts, and protect communities in real-time.
+            {t("loginPage.brandingDesc")}
           </p>
           <div className="space-y-4">
             {[
-              { icon: "map", text: "Real-time Flood Map" },
-              { icon: "emergency", text: "Rapid Rescue Coordination" },
-              { icon: "notifications_active", text: "24/7 Early Warnings" },
+              { icon: "map", text: t("loginPage.featureMap") },
+              { icon: "emergency", text: t("loginPage.featureRescue") },
+              { icon: "notifications_active", text: t("loginPage.featureWarnings") },
             ].map((feature) => (
               <div key={feature.icon} className="flex items-center gap-3 text-slate-300">
                 <div className="size-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
@@ -250,12 +268,12 @@ export default function LoginPage() {
 
             <div className="text-center mb-8">
               <h3 className="text-2xl font-bold text-white mb-2">
-                {phoneMode === "register" ? "Create Account" : "Welcome Back"}
+                {phoneMode === "register" ? t("loginPage.createAccount") : t("loginPage.welcomeBack")}
               </h3>
               <p className="text-slate-400 text-sm">
                 {phoneMode === "register"
-                  ? "Register with your phone number"
-                  : "Sign in to access the management system"}
+                  ? t("loginPage.registerSubtitle")
+                  : t("loginPage.signInSubtitle")}
               </p>
             </div>
 
@@ -272,7 +290,7 @@ export default function LoginPage() {
                     }}
                     className="text-xs text-danger/70 hover:text-danger mt-1 underline"
                   >
-                    Close
+                    {t("loginPage.close")}
                   </button>
                 </div>
               </div>
@@ -289,7 +307,7 @@ export default function LoginPage() {
                     : "text-slate-500 hover:text-slate-300"
                     }`}
                 >
-                  Login
+                  {t("loginPage.loginTab")}
                 </button>
                 <button
                   onClick={() => switchPhoneMode("register")}
@@ -298,7 +316,7 @@ export default function LoginPage() {
                     : "text-slate-500 hover:text-slate-300"
                     }`}
                 >
-                  Register
+                  {t("loginPage.registerTab")}
                 </button>
               </div>
 
@@ -310,7 +328,7 @@ export default function LoginPage() {
                 {phoneMode === "register" && (
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Display Name
+                      {t("loginPage.displayName")}
                     </label>
                     <div className="relative">
                       <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">
@@ -320,7 +338,7 @@ export default function LoginPage() {
                         type="text"
                         value={displayName}
                         onChange={(e) => setDisplayName(e.target.value)}
-                        placeholder="Your name"
+                        placeholder={t("loginPage.displayNamePlaceholder")}
                         className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all text-sm"
                       />
                     </div>
@@ -330,7 +348,7 @@ export default function LoginPage() {
                 {/* Phone Number */}
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Phone Number
+                    {t("loginPage.phoneNumber")}
                   </label>
                   <div className="relative">
                     <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">
@@ -356,7 +374,7 @@ export default function LoginPage() {
                     <p className="mt-2 text-xs text-danger font-medium">{phoneError}</p>
                   ) : (
                     <p className="mt-1.5 text-xs text-slate-500">
-                      Ví dụ: +84 901 234 567 hoặc 0901234567
+                      {t("loginPage.phoneHint")}
                     </p>
                   )}
                 </div>
@@ -364,7 +382,7 @@ export default function LoginPage() {
                 {/* Password */}
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Password
+                    {t("loginPage.password")}
                   </label>
                   <div className="relative">
                     <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">
@@ -376,20 +394,18 @@ export default function LoginPage() {
                       onChange={handlePasswordChange}
                       onBlur={() => {
                         if (!password) {
-                          setPasswordError(phoneMode === "login"
-                            ? "Please enter your password."
-                            : "Please enter your password.");
+                          setPasswordError(t("loginPage.passwordRequired"));
                           return;
                         }
 
                         if (phoneMode === "register" && password.length < 6) {
-                          setPasswordError("Password must be at least 6 characters.");
+                          setPasswordError(t("loginPage.passwordTooShort"));
                           return;
                         }
 
                         setPasswordError("");
                       }}
-                      placeholder={phoneMode === "register" ? "Min 6 characters" : "Enter your password"}
+                      placeholder={phoneMode === "register" ? t("loginPage.passwordMinChars") : t("loginPage.passwordPlaceholder")}
                       aria-invalid={Boolean(passwordError)}
                       className={`w-full bg-white/5 border rounded-xl pl-11 pr-11 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition-all text-sm ${
                         passwordError
@@ -416,13 +432,13 @@ export default function LoginPage() {
                 {phoneMode === "register" && (
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Gender
+                      {t("loginPage.gender")}
                     </label>
                     <div className="flex gap-2">
                       {[
-                        { key: "male", label: "Male", icon: "male" },
-                        { key: "female", label: "Female", icon: "female" },
-                        { key: "other", label: "Other", icon: "transgender" },
+                        { key: "male", label: t("loginPage.male"), icon: "male" },
+                        { key: "female", label: t("loginPage.female"), icon: "female" },
+                        { key: "other", label: t("loginPage.other"), icon: "transgender" },
                       ].map((g) => (
                         <button
                           key={g.key}
@@ -445,7 +461,7 @@ export default function LoginPage() {
                 {phoneMode === "register" && (
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Date of Birth
+                      {t("loginPage.dateOfBirth")}
                     </label>
                     <div className="relative">
                       <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">
@@ -469,7 +485,7 @@ export default function LoginPage() {
                       href="/forgot-password"
                       className="text-xs text-primary hover:underline font-medium"
                     >
-                      Forgot password?
+                      {t("loginPage.forgotPassword")}
                     </a>
                   </div>
                 )}
@@ -478,7 +494,7 @@ export default function LoginPage() {
                 {phoneMode === "register" && (
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Role
+                      {t("loginPage.role")}
                     </label>
                     <div className="flex gap-2">
                       {roles.map((r) => (
@@ -502,13 +518,13 @@ export default function LoginPage() {
                       <div className="mt-3 p-3 bg-warning/5 rounded-xl border border-warning/20">
                         <label className="block text-xs font-bold text-warning mb-2 flex items-center gap-1.5">
                           <span className="material-symbols-outlined text-sm">lock</span>
-                          Role Password Required
+                          {t("loginPage.rolePasswordRequired")}
                         </label>
                         <input
                           type="password"
                           value={rolePassword}
                           onChange={(e) => { setRolePassword(e.target.value); setRolePasswordError(""); }}
-                          placeholder="Enter role password"
+                          placeholder={t("loginPage.rolePasswordPlaceholder")}
                           className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-warning/50 focus:ring-1 focus:ring-warning/30 transition-all"
                         />
                         {rolePasswordError && (
@@ -531,14 +547,14 @@ export default function LoginPage() {
                   {isSigningIn ? (
                     <>
                       <div className="size-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                      <span>{phoneMode === "register" ? "Creating account..." : "Signing in..."}</span>
+                      <span>{phoneMode === "register" ? t("loginPage.creatingAccount") : t("loginPage.signingIn")}</span>
                     </>
                   ) : (
                     <>
                       <span className="material-symbols-outlined text-xl">
                         {phoneMode === "register" ? "person_add" : "login"}
                       </span>
-                      <span>{phoneMode === "register" ? "Create Account" : "Sign In"}</span>
+                      <span>{phoneMode === "register" ? t("loginPage.createAccount") : t("loginPage.signIn")}</span>
                     </>
                   )}
                 </button>
@@ -548,22 +564,22 @@ export default function LoginPage() {
               <p className="text-center text-sm text-slate-500 mt-4">
                 {phoneMode === "login" ? (
                   <>
-                    Don't have an account?{" "}
+                    {t("loginPage.noAccount")}{" "}
                     <button
                       onClick={() => switchPhoneMode("register")}
                       className="text-primary hover:underline font-medium"
                     >
-                      Register
+                      {t("loginPage.register")}
                     </button>
                   </>
                 ) : (
                   <>
-                    Already have an account?{" "}
+                    {t("loginPage.haveAccount")}{" "}
                     <button
                       onClick={() => switchPhoneMode("login")}
                       className="text-primary hover:underline font-medium"
                     >
-                      Login
+                      {t("loginPage.login")}
                     </button>
                   </>
                 )}
@@ -573,7 +589,7 @@ export default function LoginPage() {
             {/* Divider */}
             <div className="flex items-center gap-3 my-6">
               <div className="flex-1 h-px bg-white/10" />
-              <span className="text-xs text-slate-500 font-medium whitespace-nowrap">or continue with</span>
+              <span className="text-xs text-slate-500 font-medium whitespace-nowrap">{t("loginPage.orContinueWith")}</span>
               <div className="flex-1 h-px bg-white/10" />
             </div>
 
@@ -589,14 +605,14 @@ export default function LoginPage() {
                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
               </svg>
-              <span>Sign in with Google</span>
+              <span>{t("loginPage.signInWithGoogle")}</span>
             </button>
 
           </div>
 
           {/* Footer */}
           <p className="text-center text-xs text-slate-600 mt-6">
-            © 2026 AquaGuard Emergency System. All rights reserved.
+            {t("loginPage.footer")}
           </p>
         </div>
       </div>
