@@ -2,47 +2,26 @@ import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { api } from "../../services/api";
 
-const TABS = ["actions", "alerts", "family"];
+const TAB_KEYS = ["actions", "alerts", "family"];
 
-const SAFETY_COLORS = {
-  safe: { bg: "#10b981", label: "Safe" },
-  danger: { bg: "#ef4444", label: "Danger" },
-  injured: { bg: "#f97316", label: "Injured" },
-  unknown: { bg: "#64748b", label: "Unknown" },
+const SAFETY_COLOR_BG = {
+  safe: "#10b981",
+  danger: "#ef4444",
+  injured: "#f97316",
+  unknown: "#64748b",
 };
 
-const SEVERITY_BADGE = {
-  urgent: { bg: "#dc2626", text: "#fff", label: "Urgent" },
-  monitoring: { bg: "#f59e0b", text: "#000", label: "Monitoring" },
-  advisory: { bg: "#2dd4a8", text: "#000", label: "Advisory" },
+const SEVERITY_BADGE_BG = {
+  urgent: { bg: "#dc2626", text: "#fff" },
+  monitoring: { bg: "#f59e0b", text: "#000" },
+  advisory: { bg: "#2dd4a8", text: "#000" },
 };
 
-// Hardcoded alerts (no API yet — structured for future API binding)
-const STATIC_ALERTS = [
-  {
-    id: "a1",
-    icon: "tsunami",
-    title: "Heavy Rainfall Expected",
-    description: "Level 3 alert in Da Nang. Expected in next 2 hours.",
-    severity: "urgent",
-    active: true,
-  },
-  {
-    id: "a2",
-    icon: "waves",
-    title: "River Water Level Rising",
-    description: "Han River levels rising at 15cm/hour.",
-    severity: "monitoring",
-    active: true,
-  },
-  {
-    id: "a3",
-    icon: "thunderstorm",
-    title: "Power Outage Risk",
-    description: "Central district grid may be suspended for safety.",
-    severity: "advisory",
-    active: false,
-  },
+// Hardcoded alerts using translation keys (structured for future API binding)
+const STATIC_ALERT_DEFS = [
+  { id: "a1", icon: "tsunami", titleKey: "rightPanel.alertHeavyRainfallTitle", descKey: "rightPanel.alertHeavyRainfallDesc", severity: "urgent",    active: true  },
+  { id: "a2", icon: "waves",   titleKey: "rightPanel.alertRiverRisingTitle",  descKey: "rightPanel.alertRiverRisingDesc",  severity: "monitoring", active: true  },
+  { id: "a3", icon: "thunderstorm", titleKey: "rightPanel.alertPowerOutageTitle", descKey: "rightPanel.alertPowerOutageDesc", severity: "advisory",  active: false },
 ];
 
 // ── Skeleton Shimmer ──
@@ -79,27 +58,27 @@ function ActionsTab({ onNavigate, onLocateMe, onToggleFamily, showFamily }) {
   const actions = [
     {
       icon: "group",
-      label: t("quickActions.family") || "Family",
-      desc: showFamily ? "Visible on map" : "Show on map",
+      label: t("quickActions.family"),
+      desc: showFamily ? t("rightPanel.familyVisibleOnMap") : t("rightPanel.familyShowOnMap"),
       onClick: onToggleFamily,
       active: showFamily,
     },
     {
       icon: "home_pin",
-      label: t("quickActions.shelter") || "Shelter",
-      desc: t("quickActions.shelterDesc") || "Find nearest",
+      label: t("quickActions.shelter"),
+      desc: t("quickActions.shelterDesc"),
       onClick: () => onNavigate?.("safety"),
     },
     {
       icon: "my_location",
-      label: t("floodMap.myLocation") || "My Location",
-      desc: "Update GPS",
+      label: t("floodMap.myLocation"),
+      desc: t("rightPanel.updateGPS"),
       onClick: onLocateMe,
     },
     {
       icon: "menu_book",
-      label: "Protocols",
-      desc: "Safety guides",
+      label: t("rightPanel.protocols"),
+      desc: t("rightPanel.safetyGuides"),
       onClick: () => onNavigate?.("safety"),
     },
   ];
@@ -114,7 +93,7 @@ function ActionsTab({ onNavigate, onLocateMe, onToggleFamily, showFamily }) {
         <span className="material-symbols-outlined filled-icon text-xl group-hover:animate-pulse">
           sos
         </span>
-        <span className="tracking-wide">{t("rightPanel.sos") || "SOS"} — Emergency</span>
+        <span className="tracking-wide">{t("rightPanel.sosEmergency")}</span>
       </button>
 
       {/* 2x2 Action Grid */}
@@ -153,13 +132,14 @@ function ActionsTab({ onNavigate, onLocateMe, onToggleFamily, showFamily }) {
 //  TAB: ALERTS
 // ══════════════════════════════════════
 function AlertsTab() {
+  const { t } = useLanguage();
   const [alerts, setAlerts] = useState(null);
 
   // Simulate loading (fake 300ms) + prepare for future API
   useEffect(() => {
     const timer = setTimeout(() => {
       // TODO: Replace with api.get("/alerts") when API is available
-      setAlerts(STATIC_ALERTS);
+      setAlerts(STATIC_ALERT_DEFS);
     }, 300);
     return () => clearTimeout(timer);
   }, []);
@@ -182,19 +162,20 @@ function AlertsTab() {
       {/* Header with LIVE indicator */}
       <div className="flex items-center justify-between">
         <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[#8891a8]">
-          Active Alerts
+          {t("rightPanel.activeAlerts")}
         </span>
         {hasActiveAlerts && (
           <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-primary">
             <span className="size-1.5 rounded-full animate-pulse bg-primary" />
-            LIVE
+            {t("rightPanel.live")}
           </span>
         )}
       </div>
 
       {/* Alert Cards */}
       {alerts.map((alert) => {
-        const sev = SEVERITY_BADGE[alert.severity] || SEVERITY_BADGE.advisory;
+        const sev = SEVERITY_BADGE_BG[alert.severity] || SEVERITY_BADGE_BG.advisory;
+        const severityLabelKey = `rightPanel.severity${alert.severity.charAt(0).toUpperCase() + alert.severity.slice(1)}`;
         return (
           <div
             key={alert.id}
@@ -216,10 +197,10 @@ function AlertsTab() {
             {/* Content */}
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-bold leading-tight text-slate-800 dark:text-[#e8eaf0]">
-                {alert.title}
+                {t(alert.titleKey)}
               </p>
               <p className="text-[11px] mt-1 leading-relaxed line-clamp-2 text-slate-500 dark:text-[#8891a8]">
-                {alert.description}
+                {t(alert.descKey)}
               </p>
               <div className="mt-2 flex items-center gap-1.5">
                 <span
@@ -230,7 +211,7 @@ function AlertsTab() {
                   className="text-[10px] font-bold uppercase"
                   style={{ color: sev.bg }}
                 >
-                  {sev.label}
+                  {t(severityLabelKey)}
                 </span>
               </div>
             </div>
@@ -245,7 +226,7 @@ function AlertsTab() {
 //  TAB: FAMILY
 // ══════════════════════════════════════
 function FamilyTab({ onFlyToMember, onNavigate }) {
-  const { language } = useLanguage();
+  const { t } = useLanguage();
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -312,7 +293,7 @@ function FamilyTab({ onFlyToMember, onNavigate }) {
           cloud_off
         </span>
         <p className="text-sm font-bold text-slate-500 dark:text-[#8891a8]">
-          {language === "vi" ? "Không thể tải dữ liệu" : "Failed to load"}
+          {t("rightPanel.failedToLoad")}
         </p>
         <p className="text-xs mt-1 max-w-[200px] text-slate-400 dark:text-[#4a5068]">
           {error}
@@ -321,7 +302,7 @@ function FamilyTab({ onFlyToMember, onNavigate }) {
           onClick={() => { setLoading(true); fetchMembers(); }}
           className="mt-4 px-4 py-2 rounded-lg text-xs font-bold transition-all hover:brightness-110 bg-primary text-white"
         >
-          {language === "vi" ? "Thử lại" : "Retry"}
+          {t("rightPanel.retry")}
         </button>
       </div>
     );
@@ -335,19 +316,17 @@ function FamilyTab({ onFlyToMember, onNavigate }) {
           group_add
         </span>
         <p className="text-sm font-bold text-slate-500 dark:text-[#8891a8]">
-          {language === "vi" ? "Chưa có thành viên" : "No family members"}
+          {t("rightPanel.noFamilyMembers")}
         </p>
         <p className="text-xs mt-1 max-w-[200px] text-slate-400 dark:text-[#4a5068]">
-          {language === "vi"
-            ? "Kết nối với gia đình để theo dõi an toàn"
-            : "Connect with family to track safety"}
+          {t("rightPanel.connectFamily")}
         </p>
         <button
           onClick={() => onNavigate?.("settings:family")}
           className="mt-4 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all hover:brightness-110 bg-primary text-white"
         >
           <span className="material-symbols-outlined text-sm">person_add</span>
-          {language === "vi" ? "Thêm người thân" : "Add Member"}
+          {t("rightPanel.addMember")}
         </button>
       </div>
     );
@@ -357,11 +336,12 @@ function FamilyTab({ onFlyToMember, onNavigate }) {
   return (
     <div className="p-4 space-y-2">
       <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[#8891a8]">
-        {members.length} {language === "vi" ? "thành viên" : "members"}
+        {members.length} {t("rightPanel.members")}
       </span>
 
       {members.map((member) => {
-        const safety = SAFETY_COLORS[member.safetyStatus] || SAFETY_COLORS.unknown;
+        const safetyBg = SAFETY_COLOR_BG[member.safetyStatus] || SAFETY_COLOR_BG.unknown;
+        const safetyLabelKey = `rightPanel.safetyStatus${(member.safetyStatus || "unknown").charAt(0).toUpperCase() + (member.safetyStatus || "unknown").slice(1)}`;
         const hasLocation = member.latitude && member.longitude;
 
         return (
@@ -374,13 +354,13 @@ function FamilyTab({ onFlyToMember, onNavigate }) {
             {/* Avatar initials */}
             <div
               className="size-10 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 relative"
-              style={{ backgroundColor: safety.bg }}
+              style={{ backgroundColor: safetyBg }}
             >
               {getInitials(member.displayName)}
               {/* Status dot */}
               <span
                 className="absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-white dark:border-[#1e2333]"
-                style={{ backgroundColor: safety.bg }}
+                style={{ backgroundColor: safetyBg }}
               />
             </div>
 
@@ -398,11 +378,11 @@ function FamilyTab({ onFlyToMember, onNavigate }) {
                 <span
                   className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
                   style={{
-                    backgroundColor: `${safety.bg}20`,
-                    color: safety.bg,
+                    backgroundColor: `${safetyBg}20`,
+                    color: safetyBg,
                   }}
                 >
-                  {safety.label}
+                  {t(safetyLabelKey)}
                 </span>
               </div>
             </div>
@@ -430,6 +410,7 @@ export default function RightPanel({
   onFlyToMember,
   showFamily,
 }) {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState("actions");
 
   return (
@@ -438,10 +419,10 @@ export default function RightPanel({
     >
       {/* Tab Bar */}
       <div className="flex shrink-0 border-b border-slate-200 dark:border-[#252a38]">
-        {TABS.map((tab) => (
+        {TAB_KEYS.map((tab) => (
           <TabButton
             key={tab}
-            label={tab.charAt(0).toUpperCase() + tab.slice(1)}
+            label={t(`rightPanel.tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`)}
             active={activeTab === tab}
             onClick={() => setActiveTab(tab)}
           />

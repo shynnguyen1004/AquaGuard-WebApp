@@ -34,7 +34,7 @@ export default function AlertCard({ icon, iconColor, title, description, status,
         <div className="mt-2 flex items-center gap-1.5">
           <span
             className={`size-1.5 rounded-full ${colors.dot} ${
-              status === "Urgent" ? "animate-pulse" : ""
+              statusColor === "danger" ? "animate-pulse" : ""
             }`}
           />
           <span
