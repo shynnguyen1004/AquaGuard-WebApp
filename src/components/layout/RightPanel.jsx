@@ -2,18 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { api } from "../../services/api";
 
-// ── Dark theme tokens ──
-const T = {
-  panelBg: "#171b26",
-  cardBg: "#1e2333",
-  border: "#252a38",
-  textPrimary: "#e8eaf0",
-  textSecondary: "#8891a8",
-  textMuted: "#4a5068",
-  accent: "#11a0b6",
-  sosRed: "#dc2626",
-};
-
 const TABS = ["actions", "alerts", "family"];
 
 const SAFETY_COLORS = {
@@ -61,8 +49,7 @@ const STATIC_ALERTS = [
 function Skeleton({ className = "" }) {
   return (
     <div
-      className={`animate-pulse rounded-lg ${className}`}
-      style={{ backgroundColor: T.border }}
+      className={`animate-pulse rounded-lg bg-slate-200 dark:bg-[#252a38] ${className}`}
     />
   );
 }
@@ -72,13 +59,11 @@ function TabButton({ label, active, onClick }) {
   return (
     <button
       onClick={onClick}
-      style={{
-        color: active ? T.accent : T.textMuted,
-        borderBottomColor: active ? T.accent : "transparent",
-        borderBottomWidth: "2px",
-        borderBottomStyle: "solid",
-      }}
-      className="flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all duration-200 hover:opacity-80"
+      className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all duration-200 hover:opacity-80 border-b-2 ${
+        active
+          ? "text-primary border-primary"
+          : "text-slate-400 dark:text-[#4a5068] border-transparent"
+      }`}
     >
       {label}
     </button>
@@ -124,8 +109,7 @@ function ActionsTab({ onNavigate, onLocateMe, onToggleFamily, showFamily }) {
       {/* SOS Button */}
       <button
         onClick={() => onNavigate?.("sos")}
-        style={{ backgroundColor: T.sosRed }}
-        className="w-full py-3.5 rounded-xl text-white font-black text-sm flex items-center justify-center gap-2.5 shadow-lg hover:brightness-110 transition-all active:scale-[0.98] group"
+        className="w-full py-3.5 rounded-xl bg-red-600 text-white font-black text-sm flex items-center justify-center gap-2.5 shadow-lg hover:brightness-110 transition-all active:scale-[0.98] group"
       >
         <span className="material-symbols-outlined filled-icon text-xl group-hover:animate-pulse">
           sos
@@ -139,28 +123,23 @@ function ActionsTab({ onNavigate, onLocateMe, onToggleFamily, showFamily }) {
           <button
             key={a.icon}
             onClick={a.onClick}
-            style={{
-              backgroundColor: a.active ? `${T.accent}15` : T.cardBg,
-              borderColor: a.active ? `${T.accent}40` : T.border,
-            }}
-            className="flex flex-col items-center gap-1.5 p-3.5 rounded-xl border transition-all duration-200 hover:scale-[1.02] hover:brightness-110 group"
+            className={`flex flex-col items-center gap-1.5 p-3.5 rounded-xl border transition-all duration-200 hover:scale-[1.02] hover:brightness-110 group ${
+              a.active
+                ? "bg-primary/10 border-primary/30 dark:bg-primary/15 dark:border-primary/40"
+                : "bg-slate-50 dark:bg-[#1e2333] border-slate-200 dark:border-[#252a38]"
+            }`}
           >
             <span
-              className="material-symbols-outlined text-2xl transition-transform group-hover:scale-110"
-              style={{ color: a.active ? T.accent : T.textSecondary }}
+              className={`material-symbols-outlined text-2xl transition-transform group-hover:scale-110 ${
+                a.active ? "text-primary" : "text-slate-400 dark:text-[#8891a8]"
+              }`}
             >
               {a.icon}
             </span>
-            <span
-              className="text-[11px] font-bold"
-              style={{ color: T.textPrimary }}
-            >
+            <span className="text-[11px] font-bold text-slate-800 dark:text-[#e8eaf0]">
               {a.label}
             </span>
-            <span
-              className="text-[9px] leading-tight"
-              style={{ color: T.textMuted }}
-            >
+            <span className="text-[9px] leading-tight text-slate-400 dark:text-[#4a5068]">
               {a.desc}
             </span>
           </button>
@@ -202,19 +181,12 @@ function AlertsTab() {
     <div className="p-4 space-y-3">
       {/* Header with LIVE indicator */}
       <div className="flex items-center justify-between">
-        <span
-          className="text-xs font-bold uppercase tracking-wider"
-          style={{ color: T.textSecondary }}
-        >
+        <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[#8891a8]">
           Active Alerts
         </span>
         {hasActiveAlerts && (
-          <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider"
-            style={{ color: T.accent }}>
-            <span
-              className="size-1.5 rounded-full animate-pulse"
-              style={{ backgroundColor: T.accent }}
-            />
+          <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+            <span className="size-1.5 rounded-full animate-pulse bg-primary" />
             LIVE
           </span>
         )}
@@ -226,11 +198,7 @@ function AlertsTab() {
         return (
           <div
             key={alert.id}
-            style={{
-              backgroundColor: T.cardBg,
-              borderColor: T.border,
-            }}
-            className="p-3.5 rounded-xl border flex gap-3 transition-all hover:brightness-105"
+            className="p-3.5 rounded-xl border flex gap-3 transition-all hover:brightness-105 bg-slate-50 dark:bg-[#1e2333] border-slate-200 dark:border-[#252a38]"
           >
             {/* Icon */}
             <div
@@ -247,16 +215,10 @@ function AlertsTab() {
 
             {/* Content */}
             <div className="flex-1 min-w-0">
-              <p
-                className="text-[13px] font-bold leading-tight"
-                style={{ color: T.textPrimary }}
-              >
+              <p className="text-[13px] font-bold leading-tight text-slate-800 dark:text-[#e8eaf0]">
                 {alert.title}
               </p>
-              <p
-                className="text-[11px] mt-1 leading-relaxed line-clamp-2"
-                style={{ color: T.textSecondary }}
-              >
+              <p className="text-[11px] mt-1 leading-relaxed line-clamp-2 text-slate-500 dark:text-[#8891a8]">
                 {alert.description}
               </p>
               <div className="mt-2 flex items-center gap-1.5">
@@ -346,22 +308,18 @@ function FamilyTab({ onFlyToMember, onNavigate }) {
   if (error) {
     return (
       <div className="p-4 flex flex-col items-center justify-center py-12 text-center">
-        <span
-          className="material-symbols-outlined text-4xl mb-3"
-          style={{ color: T.textMuted }}
-        >
+        <span className="material-symbols-outlined text-4xl mb-3 text-slate-300 dark:text-[#4a5068]">
           cloud_off
         </span>
-        <p className="text-sm font-bold" style={{ color: T.textSecondary }}>
+        <p className="text-sm font-bold text-slate-500 dark:text-[#8891a8]">
           {language === "vi" ? "Không thể tải dữ liệu" : "Failed to load"}
         </p>
-        <p className="text-xs mt-1 max-w-[200px]" style={{ color: T.textMuted }}>
+        <p className="text-xs mt-1 max-w-[200px] text-slate-400 dark:text-[#4a5068]">
           {error}
         </p>
         <button
           onClick={() => { setLoading(true); fetchMembers(); }}
-          className="mt-4 px-4 py-2 rounded-lg text-xs font-bold transition-all hover:brightness-110"
-          style={{ backgroundColor: T.accent, color: "#000" }}
+          className="mt-4 px-4 py-2 rounded-lg text-xs font-bold transition-all hover:brightness-110 bg-primary text-white"
         >
           {language === "vi" ? "Thử lại" : "Retry"}
         </button>
@@ -373,24 +331,20 @@ function FamilyTab({ onFlyToMember, onNavigate }) {
   if (members.length === 0) {
     return (
       <div className="p-4 flex flex-col items-center justify-center py-12 text-center">
-        <span
-          className="material-symbols-outlined text-5xl mb-3"
-          style={{ color: T.textMuted }}
-        >
+        <span className="material-symbols-outlined text-5xl mb-3 text-slate-300 dark:text-[#4a5068]">
           group_add
         </span>
-        <p className="text-sm font-bold" style={{ color: T.textSecondary }}>
+        <p className="text-sm font-bold text-slate-500 dark:text-[#8891a8]">
           {language === "vi" ? "Chưa có thành viên" : "No family members"}
         </p>
-        <p className="text-xs mt-1 max-w-[200px]" style={{ color: T.textMuted }}>
+        <p className="text-xs mt-1 max-w-[200px] text-slate-400 dark:text-[#4a5068]">
           {language === "vi"
             ? "Kết nối với gia đình để theo dõi an toàn"
             : "Connect with family to track safety"}
         </p>
         <button
           onClick={() => onNavigate?.("settings:family")}
-          className="mt-4 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all hover:brightness-110"
-          style={{ backgroundColor: T.accent, color: "#000" }}
+          className="mt-4 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all hover:brightness-110 bg-primary text-white"
         >
           <span className="material-symbols-outlined text-sm">person_add</span>
           {language === "vi" ? "Thêm người thân" : "Add Member"}
@@ -402,10 +356,7 @@ function FamilyTab({ onFlyToMember, onNavigate }) {
   // Members list
   return (
     <div className="p-4 space-y-2">
-      <span
-        className="text-xs font-bold uppercase tracking-wider"
-        style={{ color: T.textSecondary }}
-      >
+      <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[#8891a8]">
         {members.length} {language === "vi" ? "thành viên" : "members"}
       </span>
 
@@ -418,8 +369,7 @@ function FamilyTab({ onFlyToMember, onNavigate }) {
             key={member.id}
             onClick={() => handleMemberClick(member)}
             disabled={!hasLocation}
-            style={{ backgroundColor: T.cardBg, borderColor: T.border }}
-            className="w-full flex items-center gap-3 p-3 rounded-xl border transition-all hover:brightness-110 disabled:opacity-60 disabled:cursor-default text-left group"
+            className="w-full flex items-center gap-3 p-3 rounded-xl border transition-all hover:brightness-110 disabled:opacity-60 disabled:cursor-default text-left group bg-slate-50 dark:bg-[#1e2333] border-slate-200 dark:border-[#252a38]"
           >
             {/* Avatar initials */}
             <div
@@ -429,25 +379,19 @@ function FamilyTab({ onFlyToMember, onNavigate }) {
               {getInitials(member.displayName)}
               {/* Status dot */}
               <span
-                className="absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2"
-                style={{
-                  backgroundColor: safety.bg,
-                  borderColor: T.cardBg,
-                }}
+                className="absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-white dark:border-[#1e2333]"
+                style={{ backgroundColor: safety.bg }}
               />
             </div>
 
             {/* Info */}
             <div className="flex-1 min-w-0">
-              <p
-                className="text-[13px] font-bold truncate"
-                style={{ color: T.textPrimary }}
-              >
+              <p className="text-[13px] font-bold truncate text-slate-800 dark:text-[#e8eaf0]">
                 {member.displayName}
               </p>
               <div className="flex items-center gap-2 mt-0.5">
                 {member.relation && (
-                  <span className="text-[10px]" style={{ color: T.textMuted }}>
+                  <span className="text-[10px] text-slate-400 dark:text-[#4a5068]">
                     {member.relation}
                   </span>
                 )}
@@ -465,10 +409,7 @@ function FamilyTab({ onFlyToMember, onNavigate }) {
 
             {/* Arrow indicator when clickable */}
             {hasLocation && (
-              <span
-                className="material-symbols-outlined text-sm transition-transform group-hover:translate-x-0.5"
-                style={{ color: T.textMuted }}
-              >
+              <span className="material-symbols-outlined text-sm transition-transform group-hover:translate-x-0.5 text-slate-300 dark:text-[#4a5068]">
                 chevron_right
               </span>
             )}
@@ -493,17 +434,10 @@ export default function RightPanel({
 
   return (
     <aside
-      className="w-full xl:w-72 xl:min-w-[288px] shrink-0 border-t xl:border-t-0 xl:border-l flex flex-col overflow-hidden"
-      style={{
-        backgroundColor: T.panelBg,
-        borderColor: T.border,
-      }}
+      className="w-full xl:w-72 xl:min-w-[288px] shrink-0 border-t xl:border-t-0 xl:border-l flex flex-col overflow-hidden bg-white dark:bg-[#171b26] border-slate-200 dark:border-[#252a38]"
     >
       {/* Tab Bar */}
-      <div
-        className="flex shrink-0"
-        style={{ borderBottom: `1px solid ${T.border}` }}
-      >
+      <div className="flex shrink-0 border-b border-slate-200 dark:border-[#252a38]">
         {TABS.map((tab) => (
           <TabButton
             key={tab}

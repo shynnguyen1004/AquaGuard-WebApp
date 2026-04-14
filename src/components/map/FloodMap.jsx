@@ -12,14 +12,14 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api
 
 const WINDY_API_KEY = import.meta.env.VITE_WINDY_API_KEY || "";
 
-// Windy overlay options
+// Windy overlay options (labels are translation keys)
 const WINDY_OVERLAYS = [
-  { key: "rain", label: "Mưa", icon: "rainy", color: "#3b82f6" },
-  { key: "wind", label: "Gió", icon: "air", color: "#38bdf8" },
-  { key: "clouds", label: "Mây", icon: "cloud", color: "#94a3b8" },
-  { key: "temp", label: "Nhiệt độ", icon: "thermostat", color: "#f97316" },
-  { key: "pressure", label: "Áp suất", icon: "speed", color: "#a78bfa" },
-  { key: "waves", label: "Sóng biển", icon: "waves", color: "#06b6d4" },
+  { key: "rain", labelKey: "floodMap.overlayRain", icon: "rainy", color: "#3b82f6" },
+  { key: "wind", labelKey: "floodMap.overlayWind", icon: "air", color: "#38bdf8" },
+  { key: "clouds", labelKey: "floodMap.overlayClouds", icon: "cloud", color: "#94a3b8" },
+  { key: "temp", labelKey: "floodMap.overlayTemp", icon: "thermostat", color: "#f97316" },
+  { key: "pressure", labelKey: "floodMap.overlayPressure", icon: "speed", color: "#a78bfa" },
+  { key: "waves", labelKey: "floodMap.overlayWaves", icon: "waves", color: "#06b6d4" },
 ];
 
 // Custom colored pin icon using inline SVG
@@ -631,10 +631,30 @@ export default function FloodMap({ onReady }) {
           border-radius: 16px !important; 
           padding: 0 !important;
           box-shadow: 0 10px 40px rgba(0,0,0,0.15) !important;
+          background: white !important;
+        }
+        .dark .leaflet-popup-content-wrapper {
+          background: #1e293b !important;
         }
         .leaflet-popup-content { margin: 0 !important; min-width: 220px; }
-        .leaflet-popup-tip { box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important; }
+        .leaflet-popup-tip {
+          box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+          background: white !important;
+        }
+        .dark .leaflet-popup-tip {
+          background: #1e293b !important;
+        }
         .leaflet-control-attribution { display: none !important; }
+        .leaflet-control-zoom a {
+          background: white !important;
+          color: #334155 !important;
+          border-color: #e2e8f0 !important;
+        }
+        .dark .leaflet-control-zoom a {
+          background: #1e293b !important;
+          color: #cbd5e1 !important;
+          border-color: #334155 !important;
+        }
       `}</style>
 
       {/* Loading overlay */}
@@ -712,7 +732,7 @@ export default function FloodMap({ onReady }) {
                       >
                         {layer.icon}
                       </span>
-                      <span className="flex-1 text-left">{layer.label}</span>
+                      <span className="flex-1 text-left">{t(layer.labelKey)}</span>
                       {isActive && (
                         <span className="material-symbols-outlined text-sm text-primary">
                           check_circle
@@ -827,7 +847,7 @@ export default function FloodMap({ onReady }) {
               icon={createPinIcon(marker.color)}
             >
               <Popup>
-                <div className="p-4">
+                <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl">
                   <div className="flex items-center gap-2 mb-2">
                     <span
                       className="inline-block size-3 rounded-full"
@@ -861,7 +881,7 @@ export default function FloodMap({ onReady }) {
               icon={getSOSIcon(p.stage, p.avatarUrl)}
             >
               <Popup>
-                <div className="p-3 max-w-[240px]">
+                <div className="p-3 max-w-[240px] bg-white dark:bg-slate-800 rounded-2xl">
                   <div className="flex items-start gap-3">
                     <img
                       src={p.avatarUrl}
@@ -870,7 +890,7 @@ export default function FloodMap({ onReady }) {
                       referrerPolicy="no-referrer"
                     />
                     <div className="min-w-0">
-                      <p className="font-black text-sm truncate">
+                      <p className="font-black text-sm truncate text-slate-900 dark:text-white">
                         {p.userName}
                       </p>
                       <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
@@ -878,7 +898,7 @@ export default function FloodMap({ onReady }) {
                         <span className="truncate">{p.location || t("floodMap.unknownLocation")}</span>
                       </div>
                       {p.urgency && (
-                        <div className="mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                        <div className="mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
                           {t("floodMap.urgency")}: {p.urgency}
                         </div>
                       )}
@@ -886,7 +906,7 @@ export default function FloodMap({ onReady }) {
                   </div>
 
                   {p.description && (
-                    <p className="text-[11px] text-slate-600 mt-2 line-clamp-3">
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-2 line-clamp-3">
                       {p.description}
                     </p>
                   )}
@@ -917,10 +937,10 @@ export default function FloodMap({ onReady }) {
           {myLocation && (
             <Marker position={[myLocation.lat, myLocation.lng]} icon={myLocationIcon}>
               <Popup>
-                <div className="p-3">
+                <div className="p-3 bg-white dark:bg-slate-800 rounded-2xl">
                   <p className="font-black text-sm text-blue-600 flex items-center gap-1">
                     <span className="material-symbols-outlined text-base">my_location</span>
-                    Vị trí của tôi
+                    {t("floodMap.myLocationLabel")}
                   </p>
                   <p className="text-[11px] text-slate-500 mt-1">
                     {myLocation.lat.toFixed(5)}, {myLocation.lng.toFixed(5)}
@@ -938,19 +958,19 @@ export default function FloodMap({ onReady }) {
               icon={createFamilyIcon(member.safetyStatus)}
             >
               <Popup>
-                <div className="p-4 min-w-[200px]">
+                <div className="p-4 min-w-[200px] bg-white dark:bg-slate-800 rounded-2xl">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="size-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: familySafetyColors[member.safetyStatus]?.bg || '#94a3b8' }}>
                       {(member.displayName || '?').split(' ').map(w => w[0]).join('').slice(0, 2)}
                     </div>
                     <div>
-                      <p className="font-black text-sm text-slate-900">{member.displayName}</p>
-                      <p className="text-[10px] text-slate-500">{member.relation || 'Người thân'}</p>
+                      <p className="font-black text-sm text-slate-900 dark:text-white">{member.displayName}</p>
+                      <p className="text-[10px] text-slate-500">{member.relation || t("floodMap.relative")}</p>
                     </div>
                   </div>
                   <div className="space-y-1">
                     <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: familySafetyColors[member.safetyStatus]?.bg || '#94a3b8' }}>
-                      {familySafetyColors[member.safetyStatus]?.label || 'Chưa rõ'}
+                      {familySafetyColors[member.safetyStatus]?.label || t("floodMap.unknownLocation")}
                     </span>
                     {member.healthNote && (
                       <p className="text-[11px] text-slate-500 flex items-center gap-1">
@@ -971,7 +991,7 @@ export default function FloodMap({ onReady }) {
                         className="mt-2 w-full flex items-center justify-center gap-1 px-3 py-1.5 bg-blue-500 text-white text-[11px] font-bold rounded-lg hover:bg-blue-600 transition-colors"
                       >
                         <span className="material-symbols-outlined text-sm">directions</span>
-                        Chỉ đường
+                        {t("floodMap.directions")}
                       </button>
                     )}
                   </div>
