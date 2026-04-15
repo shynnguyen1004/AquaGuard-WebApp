@@ -53,6 +53,9 @@ const vi = {
     passwordTooShort: "Mật khẩu phải có ít nhất 6 ký tự.",
     genderRequired: "Vui lòng chọn giới tính.",
     dobRequired: "Vui lòng nhập ngày sinh.",
+    next: "Tiếp theo",
+    back: "Quay lại",
+    summary: "Tóm tắt",
   },
 
   // ── Trang Cài đặt ──

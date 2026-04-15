@@ -53,6 +53,9 @@ const en = {
     passwordTooShort: "Password must be at least 6 characters.",
     genderRequired: "Please select your gender.",
     dobRequired: "Please enter your date of birth.",
+    next: "Next",
+    back: "Back",
+    summary: "Summary",
   },
 
   // ── Settings Page ──

@@ -9,6 +9,7 @@ export default function LoginPage() {
   const { t, language, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [registerStep, setRegisterStep] = useState(1);
 
   // Phone sub-mode: "login" | "register"
   // Phone sub-mode: "login" | "register"
@@ -171,6 +172,7 @@ export default function LoginPage() {
 
   const switchPhoneMode = (mode) => {
     setPhoneMode(mode);
+    setRegisterStep(1);
     clearError();
     setRequestError("");
     setPhoneError("");
@@ -182,6 +184,44 @@ export default function LoginPage() {
     setSelectedRole("citizen");
     setGender("");
     setDateOfBirth("");
+  };
+
+  // Step validation for multi-step register
+  const canProceedStep1 = isPhoneValid && password.length >= 6 && !phoneError && !passwordError;
+  const canProceedStep2 = gender !== "" && dateOfBirth !== "";
+
+  const handleNextStep = () => {
+    if (registerStep === 1) {
+      // Validate step 1 fields
+      const nextPhoneError = validatePhoneNumber(phoneNumber);
+      const nextPasswordError = !password
+        ? t("loginPage.passwordRequired")
+        : password.length < 6
+          ? t("loginPage.passwordTooShort")
+          : "";
+      setPhoneError(nextPhoneError);
+      setPasswordError(nextPasswordError);
+      if (nextPhoneError || nextPasswordError) return;
+      setRegisterStep(2);
+    } else if (registerStep === 2) {
+      // Validate step 2 fields
+      if (!gender) {
+        setRequestError(t("loginPage.genderRequired"));
+        return;
+      }
+      if (!dateOfBirth) {
+        setRequestError(t("loginPage.dobRequired"));
+        return;
+      }
+      setRequestError("");
+      setRegisterStep(3);
+    }
+  };
+
+  const handlePrevStep = () => {
+    setRequestError("");
+    clearError();
+    setRegisterStep((s) => Math.max(1, s - 1));
   };
 
   const roles = [
@@ -258,16 +298,16 @@ export default function LoginPage() {
       </div>
 
       {/* Right Side — Login Form */}
-      <div className="flex-1 flex items-center justify-center relative z-10 px-6">
-        <div className="w-full max-w-md">
-          <div className="bg-white/[0.03] backdrop-blur-2xl border border-white/10 rounded-3xl p-10 shadow-2xl">
+      <div className="flex-1 flex items-center justify-center relative z-10 px-4 sm:px-6 overflow-y-auto">
+        <div className="w-full max-w-md py-6 sm:py-10 my-auto">
+          <div className="bg-white/[0.03] backdrop-blur-2xl border border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl">
             {/* Mobile logo */}
             <div className="lg:hidden flex items-center justify-center mb-8">
               <img src="/images/dark_mode_logo.png" alt="AquaGuard" className="h-30 w-auto" />
             </div>
 
-            <div className="text-center mb-8">
-              <h3 className="text-2xl font-bold text-white mb-2">
+            <div className="text-center mb-5 sm:mb-8">
+              <h3 className="text-xl sm:text-2xl font-bold text-white mb-1.5">
                 {phoneMode === "register" ? t("loginPage.createAccount") : t("loginPage.welcomeBack")}
               </h3>
               <p className="text-slate-400 text-sm">
@@ -320,166 +360,117 @@ export default function LoginPage() {
                 </button>
               </div>
 
-              <form
-                onSubmit={phoneMode === "login" ? handlePhoneLogin : handlePhoneRegister}
-                className="space-y-4"
-              >
-                {/* Display Name (register only) */}
-                {phoneMode === "register" && (
+              {/* ── Step Indicator (register only) ── */}
+              {phoneMode === "register" && (
+                <div className="flex items-center gap-2 mb-6">
+                  {[1, 2, 3].map((step) => (
+                    <div key={step} className="flex-1 flex items-center gap-2">
+                      <div
+                        className={`size-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
+                          registerStep === step
+                            ? "bg-primary text-white shadow-lg shadow-primary/30 scale-110"
+                            : registerStep > step
+                              ? "bg-primary/20 text-primary"
+                              : "bg-white/5 text-slate-500 border border-white/10"
+                        }`}
+                      >
+                        {registerStep > step ? (
+                          <span className="material-symbols-outlined text-sm">check</span>
+                        ) : (
+                          step
+                        )}
+                      </div>
+                      {step < 3 && (
+                        <div className={`flex-1 h-0.5 rounded-full transition-all duration-300 ${
+                          registerStep > step ? "bg-primary/40" : "bg-white/10"
+                        }`} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* ── LOGIN FORM ── */}
+              {phoneMode === "login" && (
+                <form onSubmit={handlePhoneLogin} className="space-y-4">
+                  {/* Phone Number */}
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
-                      {t("loginPage.displayName")}
+                      {t("loginPage.phoneNumber")}
                     </label>
                     <div className="relative">
                       <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">
-                        badge
+                        phone
                       </span>
                       <input
-                        type="text"
-                        value={displayName}
-                        onChange={(e) => setDisplayName(e.target.value)}
-                        placeholder={t("loginPage.displayNamePlaceholder")}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all text-sm"
+                        type="tel"
+                        value={phoneNumber}
+                        onChange={handlePhoneNumberChange}
+                        onBlur={() => setPhoneError(hasPhoneValue ? validatePhoneNumber(phoneNumber) : "")}
+                        placeholder="+84 901 234 567"
+                        inputMode="tel"
+                        autoComplete="tel"
+                        aria-invalid={Boolean(phoneError)}
+                        className={`w-full bg-white/5 border rounded-xl pl-11 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition-all text-sm ${
+                          phoneError
+                            ? "border-danger/60 focus:border-danger/60 focus:ring-danger/30"
+                            : "border-white/10 focus:border-primary/50 focus:ring-primary/30"
+                        }`}
                       />
                     </div>
+                    {phoneError ? (
+                      <p className="mt-2 text-xs text-danger font-medium">{phoneError}</p>
+                    ) : (
+                      <p className="mt-1.5 text-xs text-slate-500">
+                        {t("loginPage.phoneHint")}
+                      </p>
+                    )}
                   </div>
-                )}
 
-                {/* Phone Number */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    {t("loginPage.phoneNumber")}
-                  </label>
-                  <div className="relative">
-                    <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">
-                      phone
-                    </span>
-                    <input
-                      type="tel"
-                      value={phoneNumber}
-                      onChange={handlePhoneNumberChange}
-                      onBlur={() => setPhoneError(hasPhoneValue ? validatePhoneNumber(phoneNumber) : "")}
-                      placeholder="+84 901 234 567"
-                      inputMode="tel"
-                      autoComplete="tel"
-                      aria-invalid={Boolean(phoneError)}
-                      className={`w-full bg-white/5 border rounded-xl pl-11 pr-4 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition-all text-sm ${
-                        phoneError
-                          ? "border-danger/60 focus:border-danger/60 focus:ring-danger/30"
-                          : "border-white/10 focus:border-primary/50 focus:ring-primary/30"
-                      }`}
-                    />
-                  </div>
-                  {phoneError ? (
-                    <p className="mt-2 text-xs text-danger font-medium">{phoneError}</p>
-                  ) : (
-                    <p className="mt-1.5 text-xs text-slate-500">
-                      {t("loginPage.phoneHint")}
-                    </p>
-                  )}
-                </div>
-
-                {/* Password */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    {t("loginPage.password")}
-                  </label>
-                  <div className="relative">
-                    <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">
-                      lock
-                    </span>
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={handlePasswordChange}
-                      onBlur={() => {
-                        if (!password) {
-                          setPasswordError(t("loginPage.passwordRequired"));
-                          return;
-                        }
-
-                        if (phoneMode === "register" && password.length < 6) {
-                          setPasswordError(t("loginPage.passwordTooShort"));
-                          return;
-                        }
-
-                        setPasswordError("");
-                      }}
-                      placeholder={phoneMode === "register" ? t("loginPage.passwordMinChars") : t("loginPage.passwordPlaceholder")}
-                      aria-invalid={Boolean(passwordError)}
-                      className={`w-full bg-white/5 border rounded-xl pl-11 pr-11 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition-all text-sm ${
-                        passwordError
-                          ? "border-danger/60 focus:border-danger/60 focus:ring-danger/30"
-                          : "border-white/10 focus:border-primary/50 focus:ring-primary/30"
-                      }`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-lg">
-                        {showPassword ? "visibility_off" : "visibility"}
-                      </span>
-                    </button>
-                  </div>
-                  {passwordError && (
-                    <p className="mt-2 text-xs text-danger font-medium">{passwordError}</p>
-                  )}
-                </div>
-
-                {/* Gender Selection (register only) */}
-                {phoneMode === "register" && (
+                  {/* Password */}
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">
-                      {t("loginPage.gender")}
-                    </label>
-                    <div className="flex gap-2">
-                      {[
-                        { key: "male", label: t("loginPage.male"), icon: "male" },
-                        { key: "female", label: t("loginPage.female"), icon: "female" },
-                        { key: "other", label: t("loginPage.other"), icon: "transgender" },
-                      ].map((g) => (
-                        <button
-                          key={g.key}
-                          type="button"
-                          onClick={() => setGender(g.key)}
-                          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-all ${gender === g.key
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-white/10 bg-white/5 text-slate-400 hover:text-slate-300 hover:border-white/20"
-                            }`}
-                        >
-                          <span className="material-symbols-outlined text-base">{g.icon}</span>
-                          {g.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Date of Birth (register only) */}
-                {phoneMode === "register" && (
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      {t("loginPage.dateOfBirth")}
+                      {t("loginPage.password")}
                     </label>
                     <div className="relative">
                       <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">
-                        calendar_month
+                        lock
                       </span>
                       <input
-                        type="date"
-                        value={dateOfBirth}
-                        onChange={(e) => setDateOfBirth(e.target.value)}
-                        max={new Date().toISOString().split("T")[0]}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3.5 text-white placeholder-slate-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all text-sm [color-scheme:dark]"
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={handlePasswordChange}
+                        onBlur={() => {
+                          if (!password) {
+                            setPasswordError(t("loginPage.passwordRequired"));
+                            return;
+                          }
+                          setPasswordError("");
+                        }}
+                        placeholder={t("loginPage.passwordPlaceholder")}
+                        aria-invalid={Boolean(passwordError)}
+                        className={`w-full bg-white/5 border rounded-xl pl-11 pr-11 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition-all text-sm ${
+                          passwordError
+                            ? "border-danger/60 focus:border-danger/60 focus:ring-danger/30"
+                            : "border-white/10 focus:border-primary/50 focus:ring-primary/30"
+                        }`}
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-lg">
+                          {showPassword ? "visibility_off" : "visibility"}
+                        </span>
+                      </button>
                     </div>
+                    {passwordError && (
+                      <p className="mt-2 text-xs text-danger font-medium">{passwordError}</p>
+                    )}
                   </div>
-                )}
 
-                {/* Forgot Password link (login only) */}
-                {phoneMode === "login" && (
+                  {/* Forgot Password link */}
                   <div className="flex justify-end -mt-1">
                     <a
                       href="/forgot-password"
@@ -488,77 +479,325 @@ export default function LoginPage() {
                       {t("loginPage.forgotPassword")}
                     </a>
                   </div>
-                )}
 
-                {/* Role Selection (register only) */}
-                {phoneMode === "register" && (
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      {t("loginPage.role")}
-                    </label>
-                    <div className="flex gap-2">
-                      {roles.map((r) => (
-                        <button
-                          key={r.key}
-                          type="button"
-                          onClick={() => { setSelectedRole(r.key); setRolePassword(""); setRolePasswordError(""); }}
-                          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-all ${selectedRole === r.key
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-white/10 bg-white/5 text-slate-400 hover:text-slate-300 hover:border-white/20"
-                            }`}
-                        >
-                          <span className="material-symbols-outlined text-base">{r.icon}</span>
-                          {r.label}
-                        </button>
-                      ))}
-                    </div>
+                  {/* Submit */}
+                  <button
+                    type="submit"
+                    disabled={isLoginDisabled}
+                    className="w-full flex items-center justify-center gap-3 bg-primary hover:bg-primary/90 text-white font-semibold py-3.5 px-6 rounded-2xl transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSigningIn ? (
+                      <>
+                        <div className="size-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                        <span>{t("loginPage.signingIn")}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-xl">login</span>
+                        <span>{t("loginPage.signIn")}</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
 
-                    {/* Role Password (for admin & rescuer) */}
-                    {roles.find((r) => r.key === selectedRole)?.requiresPassword && (
-                      <div className="mt-3 p-3 bg-warning/5 rounded-xl border border-warning/20">
-                        <label className="block text-xs font-bold text-warning mb-2 flex items-center gap-1.5">
-                          <span className="material-symbols-outlined text-sm">lock</span>
-                          {t("loginPage.rolePasswordRequired")}
+              {/* ── REGISTER FORM (multi-step) ── */}
+              {phoneMode === "register" && (
+                <form onSubmit={handlePhoneRegister} className="space-y-4">
+
+                  {/* ── Step 1: Credentials ── */}
+                  {registerStep === 1 && (
+                    <>
+                      {/* Display Name */}
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          {t("loginPage.displayName")}
                         </label>
-                        <input
-                          type="password"
-                          value={rolePassword}
-                          onChange={(e) => { setRolePassword(e.target.value); setRolePasswordError(""); }}
-                          placeholder={t("loginPage.rolePasswordPlaceholder")}
-                          className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-warning/50 focus:ring-1 focus:ring-warning/30 transition-all"
-                        />
-                        {rolePasswordError && (
-                          <p className="text-xs text-danger font-medium mt-1.5 flex items-center gap-1">
-                            <span className="material-symbols-outlined text-xs">error</span>
-                            {rolePasswordError}
+                        <div className="relative">
+                          <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">
+                            badge
+                          </span>
+                          <input
+                            type="text"
+                            value={displayName}
+                            onChange={(e) => setDisplayName(e.target.value)}
+                            placeholder={t("loginPage.displayNamePlaceholder")}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Phone Number */}
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          {t("loginPage.phoneNumber")}
+                        </label>
+                        <div className="relative">
+                          <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">
+                            phone
+                          </span>
+                          <input
+                            type="tel"
+                            value={phoneNumber}
+                            onChange={handlePhoneNumberChange}
+                            onBlur={() => setPhoneError(hasPhoneValue ? validatePhoneNumber(phoneNumber) : "")}
+                            placeholder="+84 901 234 567"
+                            inputMode="tel"
+                            autoComplete="tel"
+                            aria-invalid={Boolean(phoneError)}
+                            className={`w-full bg-white/5 border rounded-xl pl-11 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition-all text-sm ${
+                              phoneError
+                                ? "border-danger/60 focus:border-danger/60 focus:ring-danger/30"
+                                : "border-white/10 focus:border-primary/50 focus:ring-primary/30"
+                            }`}
+                          />
+                        </div>
+                        {phoneError ? (
+                          <p className="mt-2 text-xs text-danger font-medium">{phoneError}</p>
+                        ) : (
+                          <p className="mt-1.5 text-xs text-slate-500">
+                            {t("loginPage.phoneHint")}
                           </p>
                         )}
                       </div>
-                    )}
-                  </div>
-                )}
 
-                {/* Submit Button */}
-                <button
-                  type="submit"
-                  disabled={phoneMode === "login" ? isLoginDisabled : isRegisterDisabled}
-                  className="w-full flex items-center justify-center gap-3 bg-primary hover:bg-primary/90 text-white font-semibold py-4 px-6 rounded-2xl transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSigningIn ? (
-                    <>
-                      <div className="size-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                      <span>{phoneMode === "register" ? t("loginPage.creatingAccount") : t("loginPage.signingIn")}</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="material-symbols-outlined text-xl">
-                        {phoneMode === "register" ? "person_add" : "login"}
-                      </span>
-                      <span>{phoneMode === "register" ? t("loginPage.createAccount") : t("loginPage.signIn")}</span>
+                      {/* Password */}
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          {t("loginPage.password")}
+                        </label>
+                        <div className="relative">
+                          <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">
+                            lock
+                          </span>
+                          <input
+                            type={showPassword ? "text" : "password"}
+                            value={password}
+                            onChange={handlePasswordChange}
+                            onBlur={() => {
+                              if (!password) {
+                                setPasswordError(t("loginPage.passwordRequired"));
+                                return;
+                              }
+                              if (password.length < 6) {
+                                setPasswordError(t("loginPage.passwordTooShort"));
+                                return;
+                              }
+                              setPasswordError("");
+                            }}
+                            placeholder={t("loginPage.passwordMinChars")}
+                            aria-invalid={Boolean(passwordError)}
+                            className={`w-full bg-white/5 border rounded-xl pl-11 pr-11 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition-all text-sm ${
+                              passwordError
+                                ? "border-danger/60 focus:border-danger/60 focus:ring-danger/30"
+                                : "border-white/10 focus:border-primary/50 focus:ring-primary/30"
+                            }`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-lg">
+                              {showPassword ? "visibility_off" : "visibility"}
+                            </span>
+                          </button>
+                        </div>
+                        {passwordError && (
+                          <p className="mt-2 text-xs text-danger font-medium">{passwordError}</p>
+                        )}
+                      </div>
+
+                      {/* Next button */}
+                      <button
+                        type="button"
+                        onClick={handleNextStep}
+                        disabled={!canProceedStep1}
+                        className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white font-semibold py-3.5 px-6 rounded-2xl transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <span>{t("loginPage.next")}</span>
+                        <span className="material-symbols-outlined text-xl">arrow_forward</span>
+                      </button>
                     </>
                   )}
-                </button>
-              </form>
+
+                  {/* ── Step 2: Personal Info ── */}
+                  {registerStep === 2 && (
+                    <>
+                      {/* Gender Selection */}
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          {t("loginPage.gender")}
+                        </label>
+                        <div className="flex gap-2">
+                          {[
+                            { key: "male", label: t("loginPage.male"), icon: "male" },
+                            { key: "female", label: t("loginPage.female"), icon: "female" },
+                            { key: "other", label: t("loginPage.other"), icon: "transgender" },
+                          ].map((g) => (
+                            <button
+                              key={g.key}
+                              type="button"
+                              onClick={() => setGender(g.key)}
+                              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border text-sm font-medium transition-all ${gender === g.key
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-white/10 bg-white/5 text-slate-400 hover:text-slate-300 hover:border-white/20"
+                                }`}
+                            >
+                              <span className="material-symbols-outlined text-base">{g.icon}</span>
+                              {g.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Date of Birth */}
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          {t("loginPage.dateOfBirth")}
+                        </label>
+                        <div className="relative">
+                          <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">
+                            calendar_month
+                          </span>
+                          <input
+                            type="date"
+                            value={dateOfBirth}
+                            onChange={(e) => setDateOfBirth(e.target.value)}
+                            max={new Date().toISOString().split("T")[0]}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all text-sm [color-scheme:dark]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Back / Next buttons */}
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={handlePrevStep}
+                          className="flex-1 flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 font-semibold py-3.5 px-4 rounded-2xl transition-all"
+                        >
+                          <span className="material-symbols-outlined text-xl">arrow_back</span>
+                          <span>{t("loginPage.back")}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleNextStep}
+                          disabled={!canProceedStep2}
+                          className="flex-1 flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white font-semibold py-3.5 px-4 rounded-2xl transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <span>{t("loginPage.next")}</span>
+                          <span className="material-symbols-outlined text-xl">arrow_forward</span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {/* ── Step 3: Role & Submit ── */}
+                  {registerStep === 3 && (
+                    <>
+                      {/* Role Selection */}
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          {t("loginPage.role")}
+                        </label>
+                        <div className="flex gap-2">
+                          {roles.map((r) => (
+                            <button
+                              key={r.key}
+                              type="button"
+                              onClick={() => { setSelectedRole(r.key); setRolePassword(""); setRolePasswordError(""); }}
+                              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium transition-all ${selectedRole === r.key
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-white/10 bg-white/5 text-slate-400 hover:text-slate-300 hover:border-white/20"
+                                }`}
+                            >
+                              <span className="material-symbols-outlined text-base">{r.icon}</span>
+                              {r.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Role Password (for admin & rescuer) */}
+                        {roles.find((r) => r.key === selectedRole)?.requiresPassword && (
+                          <div className="mt-3 p-3 bg-warning/5 rounded-xl border border-warning/20">
+                            <label className="block text-xs font-bold text-warning mb-2 flex items-center gap-1.5">
+                              <span className="material-symbols-outlined text-sm">lock</span>
+                              {t("loginPage.rolePasswordRequired")}
+                            </label>
+                            <input
+                              type="password"
+                              value={rolePassword}
+                              onChange={(e) => { setRolePassword(e.target.value); setRolePasswordError(""); }}
+                              placeholder={t("loginPage.rolePasswordPlaceholder")}
+                              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-warning/50 focus:ring-1 focus:ring-warning/30 transition-all"
+                            />
+                            {rolePasswordError && (
+                              <p className="text-xs text-danger font-medium mt-1.5 flex items-center gap-1">
+                                <span className="material-symbols-outlined text-xs">error</span>
+                                {rolePasswordError}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Summary of previous steps */}
+                      <div className="p-3 bg-white/[0.03] rounded-xl border border-white/5 space-y-1.5">
+                        <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-2">{t("loginPage.summary")}</p>
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="material-symbols-outlined text-primary text-base">phone</span>
+                          <span className="text-slate-300">{phoneNumber}</span>
+                        </div>
+                        {displayName && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="material-symbols-outlined text-primary text-base">badge</span>
+                            <span className="text-slate-300">{displayName}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="material-symbols-outlined text-primary text-base">{gender === "male" ? "male" : gender === "female" ? "female" : "transgender"}</span>
+                          <span className="text-slate-300">
+                            {gender === "male" ? t("loginPage.male") : gender === "female" ? t("loginPage.female") : t("loginPage.other")}
+                          </span>
+                          <span className="text-slate-600 mx-1">•</span>
+                          <span className="material-symbols-outlined text-primary text-base">calendar_month</span>
+                          <span className="text-slate-300">{dateOfBirth}</span>
+                        </div>
+                      </div>
+
+                      {/* Back / Submit buttons */}
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={handlePrevStep}
+                          className="flex-1 flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 font-semibold py-3.5 px-4 rounded-2xl transition-all"
+                        >
+                          <span className="material-symbols-outlined text-xl">arrow_back</span>
+                          <span>{t("loginPage.back")}</span>
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isRegisterDisabled}
+                          className="flex-1 flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white font-semibold py-3.5 px-4 rounded-2xl transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isSigningIn ? (
+                            <>
+                              <div className="size-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                              <span>{t("loginPage.creatingAccount")}</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="material-symbols-outlined text-xl">person_add</span>
+                              <span>{t("loginPage.createAccount")}</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </form>
+              )}
 
               {/* Switch login/register */}
               <p className="text-center text-sm text-slate-500 mt-4">
