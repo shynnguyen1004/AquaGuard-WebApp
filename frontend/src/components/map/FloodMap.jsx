@@ -306,7 +306,7 @@ export default function FloodMap({ onReady }) {
       method: "PUT",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ latitude: loc.lat, longitude: loc.lng }),
-    }).catch(() => {});
+    }).catch(() => { });
   }, [token]);
 
   const startLiveLocationTracking = useCallback(({
@@ -645,15 +645,57 @@ export default function FloodMap({ onReady }) {
           background: #1e293b !important;
         }
         .leaflet-control-attribution { display: none !important; }
+
+        /* ── Modern rounded zoom controls ── */
+        .leaflet-control-zoom {
+          border: none !important;
+          border-radius: 16px !important;
+          overflow: hidden !important;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.06) !important;
+          backdrop-filter: blur(12px) !important;
+        }
         .leaflet-control-zoom a {
-          background: white !important;
+          background: rgba(255,255,255,0.95) !important;
           color: #334155 !important;
-          border-color: #e2e8f0 !important;
+          border: none !important;
+          width: 40px !important;
+          height: 40px !important;
+          line-height: 40px !important;
+          font-size: 18px !important;
+          font-weight: 600 !important;
+          transition: all 0.2s ease !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+        }
+        .leaflet-control-zoom a:hover {
+          background: rgba(255,255,255,1) !important;
+          color: #11a0b6 !important;
+          transform: scale(1.05);
+        }
+        .leaflet-control-zoom a:active {
+          transform: scale(0.95);
+        }
+        .leaflet-control-zoom-in {
+          border-radius: 16px 16px 0 0 !important;
+          border-bottom: 1px solid rgba(0,0,0,0.06) !important;
+        }
+        .leaflet-control-zoom-out {
+          border-radius: 0 0 16px 16px !important;
+        }
+        .dark .leaflet-control-zoom {
+          box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 1px 4px rgba(0,0,0,0.15) !important;
         }
         .dark .leaflet-control-zoom a {
-          background: #1e293b !important;
+          background: rgba(30,41,59,0.95) !important;
           color: #cbd5e1 !important;
-          border-color: #334155 !important;
+        }
+        .dark .leaflet-control-zoom a:hover {
+          background: rgba(30,41,59,1) !important;
+          color: #11a0b6 !important;
+        }
+        .dark .leaflet-control-zoom-in {
+          border-bottom-color: rgba(255,255,255,0.08) !important;
         }
       `}</style>
 
@@ -677,20 +719,10 @@ export default function FloodMap({ onReady }) {
       )}
 
       {/* Weather Layer Toggle Panel */}
-      <div className={`absolute top-4 z-[1000] ${showWindy ? "left-4" : "right-4"}`}>
-        <button
-          onClick={() => setWeatherPanelOpen(!weatherPanelOpen)}
-          className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${showWindy
-            ? "bg-primary text-white shadow-primary/30"
-            : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-            } hover:scale-105`}
-          title={t("floodMap.windyLayers")}
-        >
-          <span className="material-symbols-outlined text-xl">layers</span>
-        </button>
-
+      <div className="absolute top-4 right-4 z-[1000] flex items-start gap-2">
+        {/* Dropdown panel - appears to the left of the button */}
         {weatherPanelOpen && (
-          <div className="mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-3 min-w-[220px]">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-3 min-w-[220px]">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">
               {t("floodMap.windyLayers")}
             </p>
@@ -745,50 +777,60 @@ export default function FloodMap({ onReady }) {
             )}
           </div>
         )}
+
+        {/* Layer toggle button - always stays at top-right */}
+        <button
+          onClick={() => setWeatherPanelOpen(!weatherPanelOpen)}
+          className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all flex-shrink-0 ${showWindy
+            ? "bg-primary text-white shadow-primary/30"
+            : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+            } hover:scale-105`}
+          title={t("floodMap.windyLayers")}
+        >
+          <span className="material-symbols-outlined text-xl">layers</span>
+        </button>
       </div>
 
       {/* Family Toggle Button */}
-      {!showWindy && (
-        <div className="absolute top-16 right-4 z-[1000] flex flex-col gap-2">
-          <button
-            onClick={() => setShowFamily(!showFamily)}
-            className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${showFamily
-              ? "bg-emerald-500 text-white shadow-emerald-500/30"
-              : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-              } hover:scale-105`}
-            title={showFamily ? t("floodMap.hideFamily") : t("floodMap.showFamily")}
-          >
-            <span className="material-symbols-outlined text-xl">group</span>
-          </button>
+      <div className="absolute top-16 right-4 z-[1000] flex flex-col gap-2">
+        <button
+          onClick={() => setShowFamily(!showFamily)}
+          className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${showFamily
+            ? "bg-emerald-500 text-white shadow-emerald-500/30"
+            : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+            } hover:scale-105`}
+          title={showFamily ? t("floodMap.hideFamily") : t("floodMap.showFamily")}
+        >
+          <span className="material-symbols-outlined text-xl">group</span>
+        </button>
 
-          {/* GPS Location Button */}
-          <button
-            onClick={handleLocateMe}
-            disabled={locating}
-            className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${myLocation
-              ? "bg-blue-500 text-white shadow-blue-500/30"
-              : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-              } hover:scale-105 disabled:opacity-50`}
-            title={t("floodMap.myLocation")}
-          >
-            <span className={`material-symbols-outlined text-xl ${locating ? 'animate-spin' : ''}`}>
-              {locating ? "progress_activity" : "my_location"}
-            </span>
-          </button>
+        {/* GPS Location Button */}
+        <button
+          onClick={handleLocateMe}
+          disabled={locating}
+          className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${myLocation
+            ? "bg-blue-500 text-white shadow-blue-500/30"
+            : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+            } hover:scale-105 disabled:opacity-50`}
+          title={t("floodMap.myLocation")}
+        >
+          <span className={`material-symbols-outlined text-xl ${locating ? 'animate-spin' : ''}`}>
+            {locating ? "progress_activity" : "my_location"}
+          </span>
+        </button>
 
-          {/* Flood Zones Toggle */}
-          <button
-            onClick={() => setShowFloodZones(!showFloodZones)}
-            className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${showFloodZones
-              ? "bg-amber-500 text-white shadow-amber-500/30"
-              : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-              } hover:scale-105`}
-            title={showFloodZones ? t("floodMap.hideFloodZones") : t("floodMap.showFloodZones")}
-          >
-            <span className="material-symbols-outlined text-xl">flood</span>
-          </button>
-        </div>
-      )}
+        {/* Flood Zones Toggle */}
+        <button
+          onClick={() => setShowFloodZones(!showFloodZones)}
+          className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${showFloodZones
+            ? "bg-amber-500 text-white shadow-amber-500/30"
+            : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+            } hover:scale-105`}
+          title={showFloodZones ? t("floodMap.hideFloodZones") : t("floodMap.showFloodZones")}
+        >
+          <span className="material-symbols-outlined text-xl">flood</span>
+        </button>
+      </div>
 
       {/* Route info banner */}
       {routeTo && myLocation && (

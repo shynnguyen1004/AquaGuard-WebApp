@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AquaGuard — High-Level Architecture Diagram Test</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ 
+            startOnLoad: true, 
+            theme: 'default',
+            flowchart: { 
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+    </script>
+    <style>
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background: #f8fafc; 
+            padding: 40px; 
+            margin: 0;
+        }
+        h2 { color: #1e293b; border-bottom: 2px solid #3b82f6; padding-bottom: 8px; }
+        .diagram-container { 
+            background: white; 
+            border-radius: 12px; 
+            padding: 30px; 
+            margin: 20px 0; 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+
+<h2>2.1 High-Level Architecture Diagram</h2>
+<div class="diagram-container">
+<pre class="mermaid">
+flowchart TB
+    subgraph CLIENT["🖥️ CLIENT TIER"]
+        direction TB
+        BROWSER["🌐 Web Browser\n(Chrome, Firefox, Safari)"]
+        subgraph SPA["📱 Single Page Application\n(Vite Build → Static dist/)"]
+            REACT["⚛️ React 19 + Vite 6\nJWT stored in localStorage"]
+            LEAFLET["🗺️ React Leaflet\n(Interactive Map)"]
+            FIREBASE_SDK["🔥 Firebase SDK\n(Firestore client)"]
+        end
+    end
+
+    subgraph INFRA["🏗️ INFRASTRUCTURE TIER\n(Docker Compose)"]
+        direction TB
+        subgraph NGINX_LAYER["🔀 Nginx Reverse Proxy\n:80 / :443 — SSL Termination"]
+            NGINX["Nginx Alpine\n• /* → Static files (dist/)\n• /api/* → Backend :5001\n• /ws → Backend :5001\n  (Upgrade: websocket)"]
+        end
+    end
+
+    subgraph SERVER["⚙️ APPLICATION TIER\n(Node.js Container)"]
+        direction TB
+        subgraph REQUEST_PIPELINE["📡 Request Pipeline"]
+            direction LR
+            CORS_MW["🌐 CORS"] --> RATE_LIMIT["⏱️ Rate\nLimiter"] --> AUTH_MW["🔑 JWT\nVerify"] --> MULTER["📎 Multer\n(Upload)"]
+        end
+        subgraph API_LAYER["🚀 Express.js REST API :5001"]
+            AUTH_ROUTE["🔐 /api/auth\nLogin → Issue JWT (7d)\nRegister → OTP → JWT\nProfile, RBAC"]
+            SOS_ROUTE["🆘 /api/sos\nCreate, Assign\nAccept, Complete"]
+            FAMILY_ROUTE["👨‍👩‍👧 /api/family\nConnect, Track\nLocation, Status"]
+            ANALYTICS_ROUTE["📊 /api/analytics\nKPI, Trends"]
+            GROQ_PROXY["🤖 /api/chat\n(Groq Proxy)\nAPI key on server"]
+        end
+        subgraph WS_LAYER["🔌 WebSocket Server (ws library)"]
+            WS_SERVER["GPS Tracking\n• join_tracking\n• location_update\n• heartbeat (30s)"]
+        end
+    end
+
+    subgraph DATA["💾 DATA TIER"]
+        direction TB
+        POSTGRES[("🐘 PostgreSQL 16\n(Docker — Internal Network)\n━━━━━━━━━━━\n📌 Primary relational data\n• Users, Auth, RBAC\n• SOS requests & logs\n• Family connections\n• Rescue groups\n• Notifications\n• Audit logs\n━━━━━━━━━━━\nACID · SQL JOINs · Aggregates")]
+        FIRESTORE[("🔥 Firebase Firestore\n(Google Cloud — Managed)\n━━━━━━━━━━━\n📌 Real-time geo data\n• flood_zones collection\n• Polygon coordinates\n• Severity & color\n━━━━━━━━━━━\nonSnapshot() · NoSQL\nEventual consistency")]
+    end
+
+    subgraph EXTERNAL["☁️ EXTERNAL SERVICES"]
+        direction TB
+        subgraph EXT_SERVER["🔒 Server-Side\n(API keys secured on backend)"]
+            TWILIO["📱 Twilio Verify\n(SMS OTP)"]
+            CLOUDINARY["☁️ Cloudinary\n(Image CDN)"]
+            GROQ_API["🤖 Groq AI\n(LLM API)"]
+        end
+        subgraph EXT_CLIENT["🌐 Client-Side\n(Public API keys in VITE env)"]
+            OWM["🌤️ OpenWeatherMap\n(Weather Tiles)"]
+            GOOGLE_MAPS["📍 Google Maps\n(Geocoding)"]
+            WINDY["💨 Windy\n(Wind Forecast)"]
+        end
+    end
+
+    %% Client → Infrastructure
+    BROWSER --> SPA
+    SPA -->|"HTTPS\nREST API"| NGINX
+    SPA -->|"WSS\n(Upgrade: websocket)"| NGINX
+
+    %% Nginx routing
+    NGINX -->|"/api/* → Proxy"| CORS_MW
+    NGINX -->|"/ws → Proxy\n(Connection: Upgrade)"| WS_SERVER
+
+    %% Middleware pipeline → Routes
+    MULTER --> API_LAYER
+
+    %% Routes → Data
+    API_LAYER -->|"SQL Queries\n(pg connection pool)"| POSTGRES
+    WS_SERVER -->|"UPDATE location\n(throttled: 5s)"| POSTGRES
+
+    %% Client → External (direct — public keys only)
+    FIREBASE_SDK <-->|"onSnapshot()\nReal-time subscribe"| FIRESTORE
+    LEAFLET -->|"Tile URL\n(public key)"| OWM
+    LEAFLET -->|"Geocoding API\n(public key)"| GOOGLE_MAPS
+    LEAFLET -->|"Forecast API\n(public key)"| WINDY
+
+    %% Server → External (secret keys secured)
+    API_LAYER -->|"Send/Verify\nOTP SMS"| TWILIO
+    API_LAYER -->|"Image Upload\n(multer → stream)"| CLOUDINARY
+    GROQ_PROXY -->|"LLM Chat\n(API key server-side)"| GROQ_API
+
+    %% Styles
+    style CLIENT fill:#dbeafe,stroke:#2563eb,stroke-width:3px
+    style INFRA fill:#fefce8,stroke:#ca8a04,stroke-width:3px
+    style SERVER fill:#fef3c7,stroke:#d97706,stroke-width:3px
+    style DATA fill:#d1fae5,stroke:#059669,stroke-width:3px
+    style EXTERNAL fill:#f3e8ff,stroke:#9333ea,stroke-width:3px
+    style NGINX fill:#fbbf24,color:#000,stroke:#d97706,stroke-width:2px
+    style REQUEST_PIPELINE fill:#fff7ed,stroke:#f97316,stroke-width:1px
+    style API_LAYER fill:#f0fdf4,stroke:#22c55e,stroke-width:2px
+    style WS_LAYER fill:#fff1f2,stroke:#f43f5e,stroke-width:2px
+    style POSTGRES fill:#3b82f6,color:#fff,stroke:#1d4ed8,stroke-width:2px
+    style FIRESTORE fill:#ef4444,color:#fff,stroke:#b91c1c,stroke-width:2px
+    style EXT_SERVER fill:#fef3c7,stroke:#d97706,stroke-width:1px
+    style EXT_CLIENT fill:#ecfdf5,stroke:#10b981,stroke-width:1px
+    style GROQ_PROXY fill:#a78bfa,color:#fff,stroke:#7c3aed,stroke-width:2px
+</pre>
+</div>
+
+<h2>2.2 Authentication Flow</h2>
+<div class="diagram-container">
+<pre class="mermaid">
+flowchart LR
+    subgraph CLIENT_AUTH["🖥️ Client"]
+        LOGIN_FORM["📱 Login Form\n(Phone + Password)"]
+        REG_FORM["📝 Register Form\n(Phone + Password + OTP)"]
+        LS["💾 localStorage\n• aquaguard_token (JWT)\n• aquaguard_role\n• aquaguard_user"]
+    end
+
+    subgraph SERVER_AUTH["⚙️ Backend"]
+        AUTH_EP["🔐 /api/auth/login\n/api/auth/register"]
+        VERIFY["🔑 bcrypt.compare()\nPassword verification"]
+        JWT_SIGN["📜 jwt.sign()\nPayload: {id, role}\nExpiry: 7 days"]
+        OTP_FLOW["📱 Twilio OTP\n(Register only)"]
+    end
+
+    subgraph DB_AUTH["💾 PostgreSQL"]
+        USERS_TBL[("users\npassword_hash\nrole, is_active")]
+    end
+
+    LOGIN_FORM -->|"POST {phone, password}"| AUTH_EP
+    REG_FORM -->|"POST {phone, password, name}\n+ OTP verify"| AUTH_EP
+    AUTH_EP --> VERIFY
+    AUTH_EP --> OTP_FLOW
+    VERIFY <-->|"SELECT password_hash\nWHERE phone = ?"| USERS_TBL
+    OTP_FLOW -->|"Twilio SMS"| REG_FORM
+    VERIFY --> JWT_SIGN
+    JWT_SIGN -->|"Response:\n{token, user, role}"| LS
+    LS -->|"All subsequent requests:\nAuthorization: Bearer token"| AUTH_EP
+
+    style CLIENT_AUTH fill:#dbeafe,stroke:#2563eb,stroke-width:2px
+    style SERVER_AUTH fill:#fef3c7,stroke:#d97706,stroke-width:2px
+    style DB_AUTH fill:#d1fae5,stroke:#10b981,stroke-width:2px
+    style JWT_SIGN fill:#22c55e,color:#fff,stroke:#15803d,stroke-width:2px
+</pre>
+</div>
+
+<h2>2.3 Deployment & Infrastructure</h2>
+<div class="diagram-container">
+<pre class="mermaid">
+flowchart TB
+    subgraph PROD["🚀 Production Deployment (VPS / Cloud)"]
+        subgraph DOCKER_PROD["🐳 Docker Compose"]
+            NGX_P["🔀 Nginx Alpine\n:80 / :443\n• SSL termination\n• Serve static dist/\n• Proxy /api & /ws"]
+            FE_P["📱 Frontend Container\nNginx serving\nVite build output (dist/)\n— No CDN, local static"]
+            BE_P["⚙️ Backend Container\nNode.js (production)\nExpress + WebSocket"]
+            PG_P[("🐘 PostgreSQL 16\nInternal network only\nPort NOT exposed\nPersistent volume")]
+        end
+    end
+
+    subgraph DEV["💻 Development Environment"]
+        subgraph DOCKER_DEV["🐳 Docker Compose"]
+            FE_D["📱 Vite Dev Server\n:5173 (Hot Reload)"]
+            BE_D["⚙️ Node --watch\n:5001 (Hot Reload)"]
+            PG_D[("🐘 PostgreSQL\n:5433 → :5432\nExposed for debugging")]
+        end
+    end
+
+    subgraph CLOUD["☁️ Managed Cloud Services"]
+        GCP["🔥 Google Cloud\nFirebase Firestore"]
+        TWL["📱 Twilio\nSMS Gateway"]
+        CLD["☁️ Cloudinary\nImage CDN"]
+    end
+
+    NGX_P --> FE_P
+    NGX_P --> BE_P
+    BE_P --> PG_P
+    BE_P --> TWL
+    BE_P --> CLD
+    FE_P -.->|"Client SDK"| GCP
+
+    style PROD fill:#d1fae5,stroke:#059669,stroke-width:3px
+    style DEV fill:#dbeafe,stroke:#2563eb,stroke-width:2px
+    style CLOUD fill:#f3e8ff,stroke:#9333ea,stroke-width:2px
+    style PG_P fill:#3b82f6,color:#fff,stroke:#1d4ed8,stroke-width:2px
+</pre>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AquaGuard — User Story Cards</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #ffffff;
+      --surface: #f8fafc;
+      --surface-2: #e2e8f0;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #cbd5e1;
+      --accent: #2563eb;
+
+      /* Importance colors */
+      --high: #dc2626;
+      --high-bg: rgba(239,68,68,0.08);
+      --high-border: rgba(239,68,68,0.3);
+      --medium: #d97706;
+      --medium-bg: rgba(245,158,11,0.08);
+      --medium-border: rgba(245,158,11,0.3);
+      --low: #2563eb;
+      --low-bg: rgba(59,130,246,0.08);
+      --low-border: rgba(59,130,246,0.3);
+
+      /* Epic colors */
+      --epic1: #8b5cf6;
+      --epic2: #ef4444;
+      --epic3: #f97316;
+      --epic4: #eab308;
+      --epic5: #22c55e;
+      --epic6: #06b6d4;
+      --epic7: #6366f1;
+      --epic8: #0ea5e9;
+      --epic9: #f43f5e;
+      --epic10: #a855f7;
+      --epic11: #ec4899;
+      --epic12: #14b8a6;
+      --epic13: #64748b;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 2rem;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+    .header h1 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #1e40af, #0891b2, #059669);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+    }
+    .header p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    /* ── Summary Dashboard ── */
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2.5rem;
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      padding: 1.2rem 1rem;
+      text-align: center;
+    }
+    .stat-card .stat-value {
+      font-size: 2rem;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 0.25rem;
+    }
+    .stat-card .stat-label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .stat-card.high .stat-value { color: var(--high); }
+    .stat-card.medium .stat-value { color: var(--medium); }
+    .stat-card.low .stat-value { color: var(--low); }
+    .stat-card.total .stat-value { color: var(--accent); }
+    .stat-card.effort .stat-value { color: #22c55e; }
+
+    /* ── Legend ── */
+    .legend {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin-bottom: 2.5rem;
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+    .legend-dot.h { background: var(--high); }
+    .legend-dot.m { background: var(--medium); }
+    .legend-dot.l { background: var(--low); }
+
+    /* ── Epic Section ── */
+    .epic-section {
+      margin-bottom: 2.5rem;
+    }
+    .epic-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 2px solid var(--surface-2);
+      cursor: pointer;
+      user-select: none;
+    }
+    .epic-header:hover { opacity: 0.85; }
+    .epic-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      flex: 1;
+    }
+    .epic-badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.25rem 0.6rem;
+      border-radius: 9999px;
+      color: white;
+    }
+    .epic-chevron {
+      font-size: 1.2rem;
+      color: var(--text-muted);
+      transition: transform 0.2s;
+    }
+    .epic-chevron.open { transform: rotate(90deg); }
+
+    /* ── Card Grid ── */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 1rem;
+      overflow: hidden;
+      transition: max-height 0.4s ease;
+    }
+
+    /* ── Story Card ── */
+    .story-card {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 1.25rem;
+      border-left: 4px solid transparent;
+      transition: transform 0.15s, box-shadow 0.15s;
+      position: relative;
+    }
+    .story-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    }
+    .story-card.importance-H { border-left-color: var(--high); background: var(--high-bg); }
+    .story-card.importance-M { border-left-color: var(--medium); background: var(--medium-bg); }
+    .story-card.importance-L { border-left-color: var(--low); background: var(--low-bg); }
+
+    /* Card header */
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+    .story-id {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.3px;
+    }
+    .card-badges {
+      display: flex;
+      gap: 0.4rem;
+    }
+    .badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      letter-spacing: 0.3px;
+    }
+    .badge-est {
+      background: rgba(37,99,235,0.1);
+      color: #1d4ed8;
+      border: 1px solid rgba(37,99,235,0.25);
+    }
+    .badge-imp-H {
+      background: rgba(220,38,38,0.1);
+      color: #b91c1c;
+      border: 1px solid var(--high-border);
+    }
+    .badge-imp-M {
+      background: rgba(217,119,6,0.1);
+      color: #92400e;
+      border: 1px solid var(--medium-border);
+    }
+    .badge-imp-L {
+      background: rgba(37,99,235,0.1);
+      color: #1d4ed8;
+      border: 1px solid var(--low-border);
+    }
+
+    /* Card body */
+    .card-role {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-bottom: 0.3rem;
+      font-style: italic;
+    }
+    .card-want {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.35rem;
+      line-height: 1.4;
+    }
+    .card-so {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+    .card-so em {
+      color: #4338ca;
+      font-style: normal;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      body { padding: 1rem; }
+      .header h1 { font-size: 1.6rem; }
+      .card-grid { grid-template-columns: 1fr; }
+      .summary { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    @media print {
+      .story-card { break-inside: avoid; border: 1px solid #e2e8f0; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>AquaGuard — User Story Cards</h1>
+    <p>Flood Alert & Rescue Web Platform · v1.0.0 · 2026-04-15 · Fibonacci Estimation</p>
+  </div>
+
+  <!-- Summary Dashboard -->
+  <div class="summary">
+    <div class="stat-card total">
+      <div class="stat-value">59</div>
+      <div class="stat-label">Total Stories</div>
+    </div>
+    <div class="stat-card total">
+      <div class="stat-value">13</div>
+      <div class="stat-label">Epics</div>
+    </div>
+    <div class="stat-card high">
+      <div class="stat-value">32</div>
+      <div class="stat-label">High Priority</div>
+    </div>
+    <div class="stat-card medium">
+      <div class="stat-value">23</div>
+      <div class="stat-label">Medium Priority</div>
+    </div>
+    <div class="stat-card low">
+      <div class="stat-value">4</div>
+      <div class="stat-label">Low Priority</div>
+    </div>
+    <div class="stat-card effort">
+      <div class="stat-value">199</div>
+      <div class="stat-label">Total Effort (SP)</div>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot h"></div> High importance</div>
+    <div class="legend-item"><div class="legend-dot m"></div> Medium importance</div>
+    <div class="legend-item"><div class="legend-dot l"></div> Low importance</div>
+    <div class="legend-item">Est = Story Points (Fibonacci)</div>
+  </div>
+
+  <!-- ════════════════ EPIC 1 ════════════════ -->
+  <div class="epic-section">
+    <div class="epic-header" onclick="toggleEpic(this)">
+      <span class="epic-title">EPIC 1: Authentication & Account Management</span>
+      <span class="epic-badge" style="background:var(--epic1)">9 stories · 29 SP</span>
+      <span class="epic-chevron open">▶</span>
+    </div>
+    <div class="card-grid">
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-01</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 5</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>new user</strong></div>
+        <div class="card-want">I want to register an account using my phone number</div>
+        <div class="card-so">So that <em>I can access the AquaGuard platform</em></div>
+      </div>
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-02</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 3</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>registered user</strong></div>
+        <div class="card-want">I want to log in with my phone number and password</div>
+        <div class="card-so">So that <em>I can securely access my dashboard</em></div>
+      </div>
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-03</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 5</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>user</strong></div>
+        <div class="card-want">I want to sign in using my Google account</div>
+        <div class="card-so">So that <em>I can access the platform quickly</em></div>
+      </div>
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-04</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 3</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>first-time Google user</strong></div>
+        <div class="card-want">I want to select my role during onboarding</div>
+        <div class="card-so">So that <em>the system displays the correct dashboard for me</em></div>
+      </div>
+
+      <div class="story-card importance-M">
+        <div class="card-header">
+          <span class="story-id">#US-05</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 3</span>
+            <span class="badge badge-imp-M">MED</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>registered user</strong></div>
+        <div class="card-want">I want to update my profile information</div>
+        <div class="card-so">So that <em>my personal data stays current</em></div>
+      </div>
+
+      <div class="story-card importance-M">
+        <div class="card-header">
+          <span class="story-id">#US-06</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 2</span>
+            <span class="badge badge-imp-M">MED</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>registered user</strong></div>
+        <div class="card-want">I want to change my password</div>
+        <div class="card-so">So that <em>I can maintain account security</em></div>
+      </div>
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-07</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 5</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>user who forgot my password</strong></div>
+        <div class="card-want">I want to reset it via OTP verification</div>
+        <div class="card-so">So that <em>I can regain access to my account</em></div>
+      </div>
+
+      <div class="story-card importance-L">
+        <div class="card-header">
+          <span class="story-id">#US-08</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 2</span>
+            <span class="badge badge-imp-L">LOW</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>registered user</strong></div>
+        <div class="card-want">I want to upload a profile avatar</div>
+        <div class="card-so">So that <em>other users can recognise me visually</em></div>
+      </div>
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-09</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 1</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>registered user</strong></div>
+        <div class="card-want">I want to log out of my session</div>
+        <div class="card-so">So that <em>my account remains secure on shared devices</em></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════ EPIC 2 ════════════════ -->
+  <div class="epic-section">
+    <div class="epic-header" onclick="toggleEpic(this)">
+      <span class="epic-title">EPIC 2: SOS & Rescue Requests (Citizen)</span>
+      <span class="epic-badge" style="background:var(--epic2)">6 stories · 29 SP</span>
+      <span class="epic-chevron open">▶</span>
+    </div>
+    <div class="card-grid">
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-10</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 8</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>citizen in danger</strong></div>
+        <div class="card-want">I want to submit an SOS rescue request with my location</div>
+        <div class="card-so">So that <em>rescue teams can locate me immediately</em></div>
+      </div>
+
+      <div class="story-card importance-M">
+        <div class="card-header">
+          <span class="story-id">#US-11</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 3</span>
+            <span class="badge badge-imp-M">MED</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>citizen</strong></div>
+        <div class="card-want">I want to attach photos to my SOS request</div>
+        <div class="card-so">So that <em>rescuers can assess the situation visually</em></div>
+      </div>
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-12</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 2</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>citizen</strong></div>
+        <div class="card-want">I want to set the urgency level on my SOS request</div>
+        <div class="card-so">So that <em>critical cases receive priority attention</em></div>
+      </div>
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-13</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 5</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>citizen</strong></div>
+        <div class="card-want">I want to track the real-time status of my SOS request</div>
+        <div class="card-so">So that <em>I know when help is on the way</em></div>
+      </div>
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-14</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 8</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>citizen</strong></div>
+        <div class="card-want">I want to view the rescuer's live location on the map</div>
+        <div class="card-so">So that <em>I can estimate their arrival time</em></div>
+      </div>
+
+      <div class="story-card importance-M">
+        <div class="card-header">
+          <span class="story-id">#US-15</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 3</span>
+            <span class="badge badge-imp-M">MED</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>citizen</strong></div>
+        <div class="card-want">I want to view my past SOS requests</div>
+        <div class="card-so">So that <em>I can review my rescue history</em></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════ EPIC 3 ════════════════ -->
+  <div class="epic-section">
+    <div class="epic-header" onclick="toggleEpic(this)">
+      <span class="epic-title">EPIC 3: Rescue Operations (Rescuer)</span>
+      <span class="epic-badge" style="background:var(--epic3)">6 stories · 26 SP</span>
+      <span class="epic-chevron open">▶</span>
+    </div>
+    <div class="card-grid">
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-16</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 3</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>rescuer</strong></div>
+        <div class="card-want">I want to view all pending rescue requests</div>
+        <div class="card-so">So that <em>I can identify citizens who need help</em></div>
+      </div>
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-17</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 5</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>rescuer</strong></div>
+        <div class="card-want">I want to accept a rescue mission individually</div>
+        <div class="card-so">So that <em>I can begin navigating to the citizen</em></div>
+      </div>
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-18</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 5</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>rescuer</strong></div>
+        <div class="card-want">I want to accept a rescue mission as a team</div>
+        <div class="card-so">So that <em>my group is assigned to the operation collectively</em></div>
+      </div>
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-19</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 8</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>rescuer</strong></div>
+        <div class="card-want">I want to broadcast my live location during a mission</div>
+        <div class="card-so">So that <em>the citizen can track my approach on the map</em></div>
+      </div>
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-20</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 2</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>rescuer</strong></div>
+        <div class="card-want">I want to mark a rescue mission as completed</div>
+        <div class="card-so">So that <em>the request is resolved in the system</em></div>
+      </div>
+
+      <div class="story-card importance-M">
+        <div class="card-header">
+          <span class="story-id">#US-21</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 3</span>
+            <span class="badge badge-imp-M">MED</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>rescuer</strong></div>
+        <div class="card-want">I want to cancel an accepted mission</div>
+        <div class="card-so">So that <em>it returns to the queue for another rescuer</em></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════ EPIC 4 ════════════════ -->
+  <div class="epic-section">
+    <div class="epic-header" onclick="toggleEpic(this)">
+      <span class="epic-title">EPIC 4: Rescue Team Management</span>
+      <span class="epic-badge" style="background:var(--epic4)">8 stories · 17 SP</span>
+      <span class="epic-chevron open">▶</span>
+    </div>
+    <div class="card-grid">
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-22</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 3</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>rescuer</strong></div>
+        <div class="card-want">I want to create a rescue group with a name</div>
+        <div class="card-so">So that <em>I can coordinate missions with my team</em></div>
+      </div>
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-23</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 3</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>team leader</strong></div>
+        <div class="card-want">I want to invite a rescuer by phone number</div>
+        <div class="card-so">So that <em>they can join my rescue group</em></div>
+      </div>
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-24</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 2</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As an <strong>invited rescuer</strong></div>
+        <div class="card-want">I want to accept a group invitation</div>
+        <div class="card-so">So that <em>I become a member of the rescue team</em></div>
+      </div>
+
+      <div class="story-card importance-M">
+        <div class="card-header">
+          <span class="story-id">#US-25</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 1</span>
+            <span class="badge badge-imp-M">MED</span>
+          </div>
+        </div>
+        <div class="card-role">As an <strong>invited rescuer</strong></div>
+        <div class="card-want">I want to decline a group invitation</div>
+        <div class="card-so">So that <em>I remain unaffiliated with that team</em></div>
+      </div>
+
+      <div class="story-card importance-M">
+        <div class="card-header">
+          <span class="story-id">#US-26</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 2</span>
+            <span class="badge badge-imp-M">MED</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>team leader</strong></div>
+        <div class="card-want">I want to remove a member from my group</div>
+        <div class="card-so">So that <em>the team roster stays accurate</em></div>
+      </div>
+
+      <div class="story-card importance-M">
+        <div class="card-header">
+          <span class="story-id">#US-27</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 2</span>
+            <span class="badge badge-imp-M">MED</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>team leader</strong></div>
+        <div class="card-want">I want to promote a member to a higher role</div>
+        <div class="card-so">So that <em>they gain additional team responsibilities</em></div>
+      </div>
+
+      <div class="story-card importance-M">
+        <div class="card-header">
+          <span class="story-id">#US-28</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 2</span>
+            <span class="badge badge-imp-M">MED</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>rescuer</strong></div>
+        <div class="card-want">I want to leave my current rescue group</div>
+        <div class="card-so">So that <em>I can operate independently</em></div>
+      </div>
+
+      <div class="story-card importance-L">
+        <div class="card-header">
+          <span class="story-id">#US-29</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 2</span>
+            <span class="badge badge-imp-L">LOW</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>team leader</strong></div>
+        <div class="card-want">I want to edit my group's name and description</div>
+        <div class="card-so">So that <em>the team profile reflects its current purpose</em></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════ EPIC 5 ════════════════ -->
+  <div class="epic-section">
+    <div class="epic-header" onclick="toggleEpic(this)">
+      <span class="epic-title">EPIC 5: Family Safety Tracking</span>
+      <span class="epic-badge" style="background:var(--epic5)">7 stories · 19 SP</span>
+      <span class="epic-chevron open">▶</span>
+    </div>
+    <div class="card-grid">
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-30</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 3</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>citizen</strong></div>
+        <div class="card-want">I want to send a family connection request</div>
+        <div class="card-so">So that <em>I can track family members during a flood</em></div>
+      </div>
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-31</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 2</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>citizen</strong></div>
+        <div class="card-want">I want to accept a family connection request</div>
+        <div class="card-so">So that <em>we can see each other's safety status</em></div>
+      </div>
+
+      <div class="story-card importance-M">
+        <div class="card-header">
+          <span class="story-id">#US-32</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 1</span>
+            <span class="badge badge-imp-M">MED</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>citizen</strong></div>
+        <div class="card-want">I want to reject a family connection request</div>
+        <div class="card-so">So that <em>I control who can view my location</em></div>
+      </div>
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-33</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 5</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>citizen</strong></div>
+        <div class="card-want">I want to view my family members' locations on the map</div>
+        <div class="card-so">So that <em>I can verify their safety during a flood</em></div>
+      </div>
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-34</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 2</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>citizen</strong></div>
+        <div class="card-want">I want to update my own safety status</div>
+        <div class="card-so">So that <em>my family knows I am safe</em></div>
+      </div>
+
+      <div class="story-card importance-M">
+        <div class="card-header">
+          <span class="story-id">#US-35</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 1</span>
+            <span class="badge badge-imp-M">MED</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>citizen</strong></div>
+        <div class="card-want">I want to remove a family connection</div>
+        <div class="card-so">So that <em>the person can no longer see my location</em></div>
+      </div>
+
+      <div class="story-card importance-M">
+        <div class="card-header">
+          <span class="story-id">#US-36</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 5</span>
+            <span class="badge badge-imp-M">MED</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>citizen</strong></div>
+        <div class="card-want">I want to view driving directions to a family member</div>
+        <div class="card-so">So that <em>I can reach them during an emergency</em></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════ EPIC 6 ════════════════ -->
+  <div class="epic-section">
+    <div class="epic-header" onclick="toggleEpic(this)">
+      <span class="epic-title">EPIC 6: Live Flood Map</span>
+      <span class="epic-badge" style="background:var(--epic6)">4 stories · 15 SP</span>
+      <span class="epic-chevron open">▶</span>
+    </div>
+    <div class="card-grid">
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-37</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 8</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>citizen</strong></div>
+        <div class="card-want">I want to view the live flood map with zone markers</div>
+        <div class="card-so">So that <em>I can identify dangerous areas near me</em></div>
+      </div>
+
+      <div class="story-card importance-M">
+        <div class="card-header">
+          <span class="story-id">#US-38</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 3</span>
+            <span class="badge badge-imp-M">MED</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>user</strong></div>
+        <div class="card-want">I want to toggle weather overlay on the map</div>
+        <div class="card-so">So that <em>I can see current weather conditions</em></div>
+      </div>
+
+      <div class="story-card importance-L">
+        <div class="card-header">
+          <span class="story-id">#US-39</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 2</span>
+            <span class="badge badge-imp-L">LOW</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>user</strong></div>
+        <div class="card-want">I want to switch between map tile layers</div>
+        <div class="card-so">So that <em>I can choose the best visual representation</em></div>
+      </div>
+
+      <div class="story-card importance-M">
+        <div class="card-header">
+          <span class="story-id">#US-40</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 2</span>
+            <span class="badge badge-imp-M">MED</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>user</strong></div>
+        <div class="card-want">I want to click on a flood zone marker for details</div>
+        <div class="card-so">So that <em>I can learn the severity and water level</em></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════ EPIC 7 ════════════════ -->
+  <div class="epic-section">
+    <div class="epic-header" onclick="toggleEpic(this)">
+      <span class="epic-title">EPIC 7: Admin — User & System Management</span>
+      <span class="epic-badge" style="background:var(--epic7)">4 stories · 14 SP</span>
+      <span class="epic-chevron open">▶</span>
+    </div>
+    <div class="card-grid">
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-41</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 3</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As an <strong>admin</strong></div>
+        <div class="card-want">I want to view all registered users in a list</div>
+        <div class="card-so">So that <em>I can monitor the platform's user base</em></div>
+      </div>
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-42</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 3</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As an <strong>admin</strong></div>
+        <div class="card-want">I want to change a user's role</div>
+        <div class="card-so">So that <em>I can promote citizens to rescuers</em></div>
+      </div>
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-43</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 5</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As an <strong>admin</strong></div>
+        <div class="card-want">I want to view system analytics on a dashboard</div>
+        <div class="card-so">So that <em>I can make informed operational decisions</em></div>
+      </div>
+
+      <div class="story-card importance-M">
+        <div class="card-header">
+          <span class="story-id">#US-44</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 3</span>
+            <span class="badge badge-imp-M">MED</span>
+          </div>
+        </div>
+        <div class="card-role">As an <strong>admin</strong></div>
+        <div class="card-want">I want to view the audit log of system actions</div>
+        <div class="card-so">So that <em>I can trace changes for accountability</em></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════ EPIC 8 ════════════════ -->
+  <div class="epic-section">
+    <div class="epic-header" onclick="toggleEpic(this)">
+      <span class="epic-title">EPIC 8: Admin — Flood Zone Management</span>
+      <span class="epic-badge" style="background:var(--epic8)">4 stories · 15 SP</span>
+      <span class="epic-chevron open">▶</span>
+    </div>
+    <div class="card-grid">
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-45</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 5</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As an <strong>admin</strong></div>
+        <div class="card-want">I want to create a new flood zone on the map editor</div>
+        <div class="card-so">So that <em>citizens are warned about newly flooded areas</em></div>
+      </div>
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-46</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 3</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As an <strong>admin</strong></div>
+        <div class="card-want">I want to edit an existing flood zone's severity</div>
+        <div class="card-so">So that <em>the map reflects current flood conditions</em></div>
+      </div>
+
+      <div class="story-card importance-M">
+        <div class="card-header">
+          <span class="story-id">#US-47</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 2</span>
+            <span class="badge badge-imp-M">MED</span>
+          </div>
+        </div>
+        <div class="card-role">As an <strong>admin</strong></div>
+        <div class="card-want">I want to delete a resolved flood zone</div>
+        <div class="card-so">So that <em>the map only shows active hazard areas</em></div>
+      </div>
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-48</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 5</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As an <strong>admin</strong></div>
+        <div class="card-want">I want flood zone changes to sync in real-time</div>
+        <div class="card-so">So that <em>all users see the latest map data instantly</em></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════ EPIC 9 ════════════════ -->
+  <div class="epic-section">
+    <div class="epic-header" onclick="toggleEpic(this)">
+      <span class="epic-title">EPIC 9: Admin — Rescue Mission Oversight</span>
+      <span class="epic-badge" style="background:var(--epic9)">2 stories · 5 SP</span>
+      <span class="epic-chevron open">▶</span>
+    </div>
+    <div class="card-grid">
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-49</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 3</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As an <strong>admin</strong></div>
+        <div class="card-want">I want to assign a rescuer to a pending SOS request</div>
+        <div class="card-so">So that <em>urgent cases are handled promptly</em></div>
+      </div>
+
+      <div class="story-card importance-M">
+        <div class="card-header">
+          <span class="story-id">#US-50</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 2</span>
+            <span class="badge badge-imp-M">MED</span>
+          </div>
+        </div>
+        <div class="card-role">As an <strong>admin</strong></div>
+        <div class="card-want">I want to force-complete a stuck rescue request</div>
+        <div class="card-so">So that <em>the system accurately reflects resolved cases</em></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════ EPIC 10 ════════════════ -->
+  <div class="epic-section">
+    <div class="epic-header" onclick="toggleEpic(this)">
+      <span class="epic-title">EPIC 10: Admin — News & Announcements</span>
+      <span class="epic-badge" style="background:var(--epic10)">1 story · 5 SP</span>
+      <span class="epic-chevron open">▶</span>
+    </div>
+    <div class="card-grid">
+
+      <div class="story-card importance-M">
+        <div class="card-header">
+          <span class="story-id">#US-51</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 5</span>
+            <span class="badge badge-imp-M">MED</span>
+          </div>
+        </div>
+        <div class="card-role">As an <strong>admin</strong></div>
+        <div class="card-want">I want to publish a news article with a cover image</div>
+        <div class="card-so">So that <em>users receive important flood-related updates</em></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════ EPIC 11 ════════════════ -->
+  <div class="epic-section">
+    <div class="epic-header" onclick="toggleEpic(this)">
+      <span class="epic-title">EPIC 11: Notifications</span>
+      <span class="epic-badge" style="background:var(--epic11)">2 stories · 6 SP</span>
+      <span class="epic-chevron open">▶</span>
+    </div>
+    <div class="card-grid">
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-52</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 5</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>user</strong></div>
+        <div class="card-want">I want to receive notifications for important events</div>
+        <div class="card-so">So that <em>I stay informed about rescue updates</em></div>
+      </div>
+
+      <div class="story-card importance-M">
+        <div class="card-header">
+          <span class="story-id">#US-53</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 1</span>
+            <span class="badge badge-imp-M">MED</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>user</strong></div>
+        <div class="card-want">I want to mark a notification as read</div>
+        <div class="card-so">So that <em>I can distinguish new alerts from old ones</em></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════ EPIC 12 ════════════════ -->
+  <div class="epic-section">
+    <div class="epic-header" onclick="toggleEpic(this)">
+      <span class="epic-title">EPIC 12: Chatbot & Safety</span>
+      <span class="epic-badge" style="background:var(--epic12)">3 stories · 12 SP</span>
+      <span class="epic-chevron open">▶</span>
+    </div>
+    <div class="card-grid">
+
+      <div class="story-card importance-M">
+        <div class="card-header">
+          <span class="story-id">#US-54</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 8</span>
+            <span class="badge badge-imp-M">MED</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>citizen</strong></div>
+        <div class="card-want">I want to ask the chatbot a flood-safety question</div>
+        <div class="card-so">So that <em>I receive immediate guidance during an emergency</em></div>
+      </div>
+
+      <div class="story-card importance-M">
+        <div class="card-header">
+          <span class="story-id">#US-55</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 3</span>
+            <span class="badge badge-imp-M">MED</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>user</strong></div>
+        <div class="card-want">I want to browse safety protocol guides</div>
+        <div class="card-so">So that <em>I know how to protect myself during a flood</em></div>
+      </div>
+
+      <div class="story-card importance-H">
+        <div class="card-header">
+          <span class="story-id">#US-56</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 1</span>
+            <span class="badge badge-imp-H">HIGH</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>user</strong></div>
+        <div class="card-want">I want to view emergency contact numbers</div>
+        <div class="card-so">So that <em>I can call for help outside the app</em></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════ EPIC 13 ════════════════ -->
+  <div class="epic-section">
+    <div class="epic-header" onclick="toggleEpic(this)">
+      <span class="epic-title">EPIC 13: Settings & Preferences</span>
+      <span class="epic-badge" style="background:var(--epic13)">3 stories · 7 SP</span>
+      <span class="epic-chevron open">▶</span>
+    </div>
+    <div class="card-grid">
+
+      <div class="story-card importance-L">
+        <div class="card-header">
+          <span class="story-id">#US-57</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 2</span>
+            <span class="badge badge-imp-L">LOW</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>user</strong></div>
+        <div class="card-want">I want to switch between dark and light theme</div>
+        <div class="card-so">So that <em>I can customise the interface to my preference</em></div>
+      </div>
+
+      <div class="story-card importance-M">
+        <div class="card-header">
+          <span class="story-id">#US-58</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 3</span>
+            <span class="badge badge-imp-M">MED</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>user</strong></div>
+        <div class="card-want">I want to switch the application language</div>
+        <div class="card-so">So that <em>I can use the platform in my preferred language</em></div>
+      </div>
+
+      <div class="story-card importance-M">
+        <div class="card-header">
+          <span class="story-id">#US-59</span>
+          <div class="card-badges">
+            <span class="badge badge-est">Est: 2</span>
+            <span class="badge badge-imp-M">MED</span>
+          </div>
+        </div>
+        <div class="card-role">As a <strong>user</strong></div>
+        <div class="card-want">I want to update my GPS location manually</div>
+        <div class="card-so">So that <em>the system knows my current position</em></div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    function toggleEpic(header) {
+      const grid = header.nextElementSibling;
+      const chevron = header.querySelector('.epic-chevron');
+      if (grid.style.display === 'none') {
+        grid.style.display = 'grid';
+        chevron.classList.add('open');
+      } else {
+        grid.style.display = 'none';
+        chevron.classList.remove('open');
+      }
+    }
+  </script>
+
+</body>
+</html>

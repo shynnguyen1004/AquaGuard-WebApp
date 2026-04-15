@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AquaGuard BPMN Level 2 Documentation</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            background-color: #f4f7f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            background: white;
+            padding: 40px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+
+        h1 {
+            color: #1a5f7a;
+            text-align: center;
+            border-bottom: 2px solid #1a5f7a;
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            color: #2c3e50;
+            margin-top: 40px;
+            background: #eef2f3;
+            padding: 10px 15px;
+            border-left: 5px solid #1a5f7a;
+        }
+
+        .mermaid {
+            background: white;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+
+        .footer {
+            margin-top: 50px;
+            text-align: center;
+            font-size: 0.9em;
+            color: #999;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>AquaGuard - BPMN Level 2 Processes</h1>
+        <p style="text-align: center;">Business Process Documentation for EPICS 8th Project</p>
+
+        <section>
+            <h2>1. User Authentication & RBAC</h2>
+            <div class="mermaid">
+                flowchart TB
+                subgraph Pool_Auth [AUTHENTICATION & RBAC PROCESS]
+                direction TB
+                subgraph Lane_User [User]
+                Start1((Start)) --> ReqReg[Input Registration Info]
+                ReqReg --> ClickReg[Click Register]
+                InLogin[Input Phone & Password] --> ClickLogin[Click Login]
+                Redirected{{Access Granted}} --> End1((End))
+                end
+
+                subgraph Lane_System1 [AquaGuard System]
+                ClickReg --> Validate[Validate & Hash Password]
+                Validate --> SaveDB[(Store User & Role in DB)]
+                SaveDB --> SuccessMsg[Success Notification]
+                SuccessMsg -.-> InLogin
+                ClickLogin --> AuthCheck{Verify JWT & Role}
+                AuthCheck -- Valid --> RoleDist[Redirect to Dashboard]
+                AuthCheck -- Invalid --> FailMsg[Login Error]
+                FailMsg -.-> InLogin
+                RoleDist --> Redirected
+                end
+                end
+            </div>
+        </section>
+
+        <section>
+            <h2>2. SOS Emergency & Rescue Operations</h2>
+            <div class="mermaid">
+                flowchart TB
+                subgraph Pool_SOS [SOS & RESCUE PROCESS]
+                direction TB
+                subgraph Lane_Citizen [Citizen]
+                Start2((Emergency)) --> SOSBtn[Press SOS Button]
+                SOSBtn --> SendLoc[Send GPS & People Count]
+                Waiting{{Waiting for Rescue}} --> Rescued{{Rescued}}
+                Rescued --> End2((Safe))
+                end
+
+                subgraph Lane_System2 [AquaGuard Platform]
+                SendLoc --> CreateSOS[Create Rescue Request - Pending]
+                CreateSOS --> SearchRes[Scan Nearest Rescuer]
+                SearchRes --> NotifyRes[Push Notification]
+                NotifyRes -.-> AcceptCheck
+                Accepted -- Yes --> UpdateStatus[Status: Accepted]
+                UpdateStatus --> Tracking[Enable Tracking Map]
+                CompleteBtn -- Yes --> Resolved[Status: Resolved]
+                Resolved --> Rescued
+                end
+
+                subgraph Lane_Rescuer [Rescuer]
+                AcceptCheck{Accept Request?}
+                AcceptCheck -- No --> SearchRes
+                AcceptCheck -- Yes --> Accepted[Navigate via Map]
+                Accepted --> Reach[Arrival & Rescue]
+                Reach --> CompleteBtn{Confirm Completion?}
+                end
+                end
+            </div>
+        </section>
+
+        <section>
+            <h2>3. Community Reporting & Verification</h2>
+            <div class="mermaid">
+                flowchart TB
+                subgraph Pool_Report [COMMUNITY REPORTING]
+                direction TB
+                subgraph Lane_Citizen3 [Citizen]
+                Start3((Flood Spotted)) --> InputRep[Capture Photo & Select Issue]
+                InputRep --> SubmitRep[Submit Report]
+                SubmitRep --> WaitVerify{{Awaiting Verification}}
+                WaitVerify --> Visible{{Pinned on Live Map}}
+                end
+
+                subgraph Lane_System3 [AquaGuard Platform]
+                SubmitRep --> UploadImg[Store Image & GPS]
+                UploadImg --> StoreRep[Store Report - Unverified]
+                StoreRep --> NotifyAdmin[Alert Admin]
+                VerifyCheck -- Approved --> SetVisible[Status: Verified]
+                SetVisible --> PublishMap[Publish to Live Map]
+                PublishMap --> Visible
+                end
+
+                subgraph Lane_Admin3 [Admin / Authority]
+                NotifyAdmin --> ReviewRep[Review Verification]
+                ReviewRep --> VerifyCheck{Valid Report?}
+                VerifyCheck -- No --> DeleteRep[Reject/Delete]
+                end
+                end
+            </div>
+        </section>
+
+        <section>
+            <h2>4. Flood Zone Management & Alerts</h2>
+            <div class="mermaid">
+                flowchart TB
+                subgraph Pool_Map [FLOOD ZONE & ALERT MGMT]
+                direction TB
+                subgraph Lane_Admin4 [Admin]
+                Start4((Flood Update)) --> EditMap[Draw/Edit Flood Polygon]
+                EditMap --> UpdateZone[Save Changes]
+                UpdateZone --> Urgent{Urgent Situation?}
+                Urgent -- Yes --> WriteAlert[Draft Alert Content]
+                WriteAlert --> SendAll[Broadcast Alert]
+                end
+
+                subgraph Lane_System4 [AquaGuard Platform]
+                UpdateZone --> SyncDB[Update FloodZone DB]
+                SyncDB --> Realtime[Sync Map to Clients]
+                SendAll --> PushFCM[Push Notification via Firebase]
+                PushFCM --> ReceivePush
+                end
+
+                subgraph Lane_AllUsers [All Users]
+                Realtime --> MapUpdated{{Live Map Color Update}}
+                ReceivePush{{Receive Emergency Notification}}
+                ReceivePush --> End4((Informed))
+                end
+                end
+            </div>
+        </section>
+
+        <div class="footer">
+            &copy; 2026 AquaGuard Project Team - Engineering Projects in Community Service (EPICS 8th)
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({ startOnLoad: true, theme: 'neutral' });
+    </script>
+</body>
+
+</html>
