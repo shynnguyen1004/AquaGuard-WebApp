@@ -4,6 +4,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { getFirebaseAuth, getGoogleProvider, getFirebaseDb } from "../config/firebase";
 import { normalizePhone } from "../utils/phone";
 import { ROLES } from "../config/rbac";
+import { syncLocationAfterAuth } from "../utils/locationSync";
 import {
   clearAuthStorage,
   getStoredToken,
@@ -139,6 +140,9 @@ export function AuthProvider({ children }) {
         setRole(resolvedRole);
         saveRoleToStorage(resolvedRole, "local");
         saveUserToStorage(restoredUser, "local");
+
+        // Sync GPS location on session restore
+        syncLocationAfterAuth(idToken);
       } else {
         // No session at all — but don't clear phone-auth session
         const phoneUser = loadUserFromStorage();
@@ -202,6 +206,9 @@ export function AuthProvider({ children }) {
       setRole(resolvedRole);
       saveRoleToStorage(resolvedRole, "local");
       saveUserToStorage(userData, "local");
+
+      // Sync GPS location after Google login
+      syncLocationAfterAuth(idToken);
       return userData;
     } catch (err) {
       if (err.code !== "auth/popup-closed-by-user") {
@@ -258,6 +265,9 @@ export function AuthProvider({ children }) {
       setUser(userData);
       updateRole(userData.role);
       saveUserToStorage(userData, "session");
+
+      // Sync GPS location after registration
+      syncLocationAfterAuth(data.data.accessToken);
       return userData;
     } catch (err) {
       setError(err.message);
@@ -307,6 +317,9 @@ export function AuthProvider({ children }) {
       setUser(userData);
       updateRole(userData.role);
       saveUserToStorage(userData, "session");
+
+      // Sync GPS location after phone login
+      syncLocationAfterAuth(data.data.accessToken);
       return userData;
     } catch (err) {
       const message = mapAuthRequestError(err);
