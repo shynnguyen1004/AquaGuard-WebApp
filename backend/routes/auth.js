@@ -149,6 +149,9 @@ async function buildMyRescueGroupPayload(userId) {
 
   return {
     group,
+    canAcceptMission: activeGroup
+      ? ["leader", "co_leader"].includes(activeGroup.member_role)
+      : false,
     pendingInvites: receivedInvitesRes.rows.map((row) => ({
       id: row.id,
       status: row.status,

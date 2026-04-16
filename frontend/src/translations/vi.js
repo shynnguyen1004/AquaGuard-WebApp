@@ -339,6 +339,7 @@ const vi = {
     overlayPressure: "Áp suất",
     overlayWaves: "Sóng biển",
     relative: "Người thân",
+    saved: "Đã cứu",
   },
 
   reportsFeed: {
@@ -570,6 +571,11 @@ const vi = {
     rescuerEmptyCompletedTitle: "Chưa có nhiệm vụ hoàn thành",
     rescuerEmptyCompletedHint: "Các nhiệm vụ đã hoàn thành sẽ hiển thị tại đây",
     newestFirst: "Mới nhất trước",
+    noTeamBanner: "Bạn cần tạo hoặc tham gia nhóm cứu hộ trước khi nhận nhiệm vụ.",
+    notLeaderBanner: "Chỉ trưởng nhóm hoặc phó nhóm mới có thể nhận nhiệm vụ cứu hộ.",
+    goToTeamPage: "Đi đến trang đội cứu hộ",
+    cannotAcceptNoTeam: "Không thể nhận — Bạn chưa có nhóm cứu hộ",
+    cannotAcceptNotLeader: "Không thể nhận — Bạn cần là trưởng nhóm hoặc phó nhóm",
   },
 
   // ── Trang Đội cứu hộ ──

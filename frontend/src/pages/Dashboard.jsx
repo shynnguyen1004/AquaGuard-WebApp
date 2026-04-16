@@ -43,6 +43,16 @@ export default function Dashboard() {
     }
   }, [role, activePage]);
 
+  // Listen for cross-component navigation events (e.g. from RescuerDashboard)
+  useEffect(() => {
+    const handler = (e) => {
+      const page = e.detail?.page;
+      if (page) handleNavigate(page);
+    };
+    window.addEventListener("app_navigate", handler);
+    return () => window.removeEventListener("app_navigate", handler);
+  }, [role]);
+
   // Guard navigation — redirect to dashboard if the user can't access the page
   // Supports "settings:family" format to open Settings with a specific tab
   const handleNavigate = (page) => {

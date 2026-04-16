@@ -115,9 +115,14 @@ const SOS_STAGE_COLOR = {
   resolved: "#10b981",
 };
 
-function createSOSAvatarIcon({ stage, avatarUrl }) {
+function createSOSAvatarIcon({ stage, avatarUrl, savedLabel }) {
   const color = SOS_STAGE_COLOR[stage] || SOS_STAGE_COLOR.pending;
   const colorNoHash = color.replace("#", "");
+
+  // Show a "saved" badge below the avatar for resolved pins
+  const savedBadge = stage === "resolved" && savedLabel
+    ? `<div class="sos-avatar-marker__saved">${savedLabel}</div>`
+    : "";
 
   // A lightweight HTML icon so we can show avatar via <img>.
   const html = `
@@ -126,15 +131,16 @@ function createSOSAvatarIcon({ stage, avatarUrl }) {
       <div class="sos-avatar-marker__avatar">
         <img src="${avatarUrl}" alt="" referrerpolicy="no-referrer" />
       </div>
+      ${savedBadge}
     </div>
   `;
 
   return L.divIcon({
     html,
     className: "sos-avatar-marker-icon",
-    iconSize: [38, 38],
-    iconAnchor: [19, 19],
-    popupAnchor: [0, -19],
+    iconSize: [38, 50],
+    iconAnchor: [19, 25],
+    popupAnchor: [0, -25],
   });
 }
 
@@ -199,17 +205,17 @@ export default function FloodMap({ onReady }) {
 
   const [sosPins, setSosPins] = useState([]);
   const sosIconCacheRef = useRef(new Map()); // `${stage}|${avatarUrl}` -> Leaflet icon
-  const prevSosStatusByIdRef = useRef(new Map()); // requestId -> last raw status
-  const resolvedUntilByIdRef = useRef(new Map()); // requestId -> expireAt (ms)
+
+  const savedLabel = t("floodMap.saved") || "Đã cứu";
 
   const getSOSIcon = useCallback((stage, avatarUrl) => {
     const key = `${stage}|${avatarUrl}`;
     const cached = sosIconCacheRef.current.get(key);
     if (cached) return cached;
-    const icon = createSOSAvatarIcon({ stage, avatarUrl });
+    const icon = createSOSAvatarIcon({ stage, avatarUrl, savedLabel });
     sosIconCacheRef.current.set(key, icon);
     return icon;
-  }, []);
+  }, [savedLabel]);
 
   const pollSosRequests = useCallback(async () => {
     if (!token) return;
@@ -220,7 +226,6 @@ export default function FloodMap({ onReady }) {
       const json = await res.json();
       if (!json?.success) return;
 
-      const now = Date.now();
       const nextPins = [];
 
       for (const req of json.data || []) {
@@ -231,34 +236,14 @@ export default function FloodMap({ onReady }) {
 
         const rawStatus = req.status;
 
-        // pending -> đỏ nhấp nháy; in_progress (accept) -> vàng; resolved (complete) -> xanh (tạm thời)
+        // pending -> đỏ nhấp nháy; in_progress (accept) -> vàng; resolved (complete) -> xanh (vĩnh viễn)
         let stage = "pending";
         if (rawStatus === "pending") stage = "pending";
         else if (rawStatus === "in_progress") stage = "assigned";
         else if (rawStatus === "resolved") stage = "resolved";
 
-        if (stage === "resolved") {
-          const prev = prevSosStatusByIdRef.current.get(requestId);
-
-          // Important:
-          // On first page load, `prev` is empty, but the DB may already contain
-          // `resolved` requests. We do NOT want to show green pins on refresh.
-          // Only show green when we detect a transition to `resolved` within this session.
-          if (prev === undefined) {
-            prevSosStatusByIdRef.current.set(requestId, rawStatus);
-            continue; // skip rendering resolved pins on initial load
-          }
-
-          if (prev !== "resolved") {
-            resolvedUntilByIdRef.current.set(requestId, now + 2500);
-          }
-          const expireAt = resolvedUntilByIdRef.current.get(requestId) || 0;
-          if (now > expireAt) {
-            prevSosStatusByIdRef.current.set(requestId, rawStatus);
-            resolvedUntilByIdRef.current.delete(requestId);
-            continue; // already expired
-          }
-        }
+        // Skip cancelled requests
+        if (rawStatus === "cancelled") continue;
 
         const userName = req.user_name || req.userName || t("roles.user");
         const avatarUrl = getAvatarUrlForName(userName, stage);
@@ -277,8 +262,6 @@ export default function FloodMap({ onReady }) {
           createdAt: req.created_at,
           rawStatus,
         });
-
-        prevSosStatusByIdRef.current.set(requestId, rawStatus);
       }
 
       setSosPins(nextPins);
@@ -620,6 +603,23 @@ export default function FloodMap({ onReady }) {
           background: #10b981;
         }
 
+        .sos-avatar-marker__saved {
+          position: absolute;
+          bottom: -2px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: #10b981;
+          color: white;
+          font-size: 8px;
+          font-weight: 800;
+          padding: 1px 6px;
+          border-radius: 6px;
+          white-space: nowrap;
+          line-height: 1.3;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+          border: 1.5px solid white;
+          letter-spacing: 0.3px;
+        }
         .sos-avatar-marker__avatar img {
           width: 100%;
           height: 100%;
@@ -953,10 +953,17 @@ export default function FloodMap({ onReady }) {
                     </p>
                   )}
 
-                  <div className="text-[10px] text-slate-400 mt-2">
-                    {p.rawStatus}
-                    {p.createdAt ? ` • ${new Date(p.createdAt).toLocaleTimeString(language === "vi" ? "vi-VN" : "en-US")}` : ""}
-                    {p.assignedName ? ` • ${p.assignedName}` : ""}
+                  <div className="text-[10px] text-slate-400 mt-2 flex items-center gap-1.5 flex-wrap">
+                    {p.stage === "resolved" ? (
+                      <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[10px]">
+                        <span className="material-symbols-outlined text-[11px]">check_circle</span>
+                        {t("floodMap.saved")}
+                      </span>
+                    ) : (
+                      <span>{p.rawStatus}</span>
+                    )}
+                    {p.createdAt ? <span>• {new Date(p.createdAt).toLocaleTimeString(language === "vi" ? "vi-VN" : "en-US")}</span> : ""}
+                    {p.assignedName ? <span>• {p.assignedName}</span> : ""}
                   </div>
                 </div>
               </Popup>

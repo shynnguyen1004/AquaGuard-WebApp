@@ -339,6 +339,7 @@ const en = {
     overlayPressure: "Pressure",
     overlayWaves: "Waves",
     relative: "Family member",
+    saved: "Saved",
   },
 
   reportsFeed: {
@@ -570,6 +571,11 @@ const en = {
     rescuerEmptyCompletedTitle: "No completed missions",
     rescuerEmptyCompletedHint: "Completed missions will appear here",
     newestFirst: "Newest first",
+    noTeamBanner: "You need to create or join a rescue team before accepting missions.",
+    notLeaderBanner: "Only team leaders or co-leaders can accept rescue missions.",
+    goToTeamPage: "Go to rescue team page",
+    cannotAcceptNoTeam: "Cannot accept — You are not in a rescue team",
+    cannotAcceptNotLeader: "Cannot accept — You must be a team leader or co-leader",
   },
 
   // ── Rescuer Team Page ──

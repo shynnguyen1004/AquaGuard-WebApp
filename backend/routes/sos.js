@@ -243,6 +243,36 @@ router.put("/:id/accept", authMiddleware, requireRoles(["rescuer"]), async (req,
     const { latitude, longitude, acceptMode } = req.body;
     const resolvedAcceptMode = acceptMode === "group" ? "group" : "individual";
 
+    // ── Guard: Only leader / co_leader of an active team may accept ──
+    const teamRoleRes = await pool.query(
+      `SELECT m.member_role
+       FROM rescue_group_members m
+       INNER JOIN rescue_groups g ON g.id = m.group_id
+       WHERE m.user_id = $1
+         AND m.join_status = 'active'
+         AND g.status = 'active'
+       LIMIT 1`,
+      [req.user.id]
+    );
+
+    const teamRole = teamRoleRes.rows[0]?.member_role;
+
+    if (!teamRole) {
+      return res.status(403).json({
+        success: false,
+        code: "NO_TEAM",
+        message: "Bạn cần tham gia một nhóm cứu hộ trước khi nhận nhiệm vụ.",
+      });
+    }
+
+    if (!["leader", "co_leader"].includes(teamRole)) {
+      return res.status(403).json({
+        success: false,
+        code: "NOT_AUTHORIZED_ROLE",
+        message: "Chỉ trưởng nhóm hoặc phó nhóm mới có thể nhận nhiệm vụ cứu hộ.",
+      });
+    }
+
     let assignedGroupId = null;
 
     if (resolvedAcceptMode === "group") {

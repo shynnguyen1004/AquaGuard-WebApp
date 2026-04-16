@@ -329,6 +329,7 @@ export default function RescuerDashboard() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeGroup, setActiveGroup] = useState(null);
+  const [canAcceptMission, setCanAcceptMission] = useState(false);
   const [trackingRequest, setTrackingRequest] = useState(null);
   const [selectedRequestId, setSelectedRequestId] = useState(null);
   const [seenRequestIds, setSeenRequestIds] = useState([]);
@@ -368,6 +369,7 @@ export default function RescuerDashboard() {
       const json = await res.json();
       if (json.success) {
         setActiveGroup(json.data?.group || null);
+        setCanAcceptMission(json.data?.canAcceptMission ?? false);
       }
     } catch (err) {
       console.error("Failed to fetch rescue group context:", err);
@@ -465,6 +467,8 @@ export default function RescuerDashboard() {
   };
 
   const handleAccept = (requestId) => {
+    if (!canAcceptMission) return;
+
     const request = requests.find((item) => item.id === requestId);
     if (!request) return;
 
@@ -596,6 +600,39 @@ export default function RescuerDashboard() {
           )}
         </div>
 
+        {/* ── Team role restriction banner ── */}
+        {!loading && !canAcceptMission && (
+          <div className="rounded-2xl border border-warning/30 bg-warning/5 dark:bg-warning/10 p-4 flex items-start gap-3">
+            <div className="size-10 rounded-xl bg-warning/15 flex items-center justify-center shrink-0 mt-0.5">
+              <span className="material-symbols-outlined text-warning text-xl">shield</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-sm text-warning">
+                {!activeGroup
+                  ? t("rescueQueue.cannotAcceptNoTeam")
+                  : t("rescueQueue.cannotAcceptNotLeader")}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                {!activeGroup
+                  ? t("rescueQueue.noTeamBanner")
+                  : t("rescueQueue.notLeaderBanner")}
+              </p>
+              {!activeGroup && (
+                <button
+                  onClick={() => {
+                    // Navigate to rescuer-team page via the app's internal navigation
+                    window.dispatchEvent(new CustomEvent("app_navigate", { detail: { page: "rescuer-team" } }));
+                  }}
+                  className="inline-flex items-center gap-1.5 mt-3 bg-warning text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-warning/90 active:scale-[0.97] transition-all shadow-md shadow-warning/20"
+                >
+                  <span className="material-symbols-outlined text-sm">groups</span>
+                  {t("rescueQueue.goToTeamPage")}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-danger/10 rounded-2xl p-4 border border-slate-100 dark:border-slate-700/30">
             <div className="flex items-center gap-2 mb-2">
@@ -697,7 +734,7 @@ export default function RescuerDashboard() {
             <SOSDetailPanel
               request={selectedRequest}
               isOwn={selectedRequest?.assigned_to == rescuerUid}
-              onAccept={activeTab === "active" || activeTab === "my-missions" ? handleAccept : undefined}
+              onAccept={canAcceptMission && (activeTab === "active" || activeTab === "my-missions") ? handleAccept : undefined}
               onComplete={activeTab === "my-missions" ? handleComplete : undefined}
               onCancel={activeTab === "my-missions" ? handleCancel : undefined}
               onViewTracking={activeTab === "my-missions" ? handleViewTracking : undefined}
@@ -716,6 +753,7 @@ export default function RescuerDashboard() {
           citizenName={trackingRequest.user_name}
           citizenPhone={trackingRequest.user_phone}
           rescuerName={trackingRequest.assigned_name}
+          teamName={trackingRequest.assigned_group_name}
           citizenPos={
             trackingRequest.latitude && trackingRequest.longitude
               ? { lat: Number(trackingRequest.latitude), lng: Number(trackingRequest.longitude) }

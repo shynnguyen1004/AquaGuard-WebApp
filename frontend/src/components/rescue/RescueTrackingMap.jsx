@@ -94,6 +94,7 @@ export default function RescueTrackingMap({
   citizenName,
   citizenPhone,
   rescuerName,
+  teamName,
   onClose,
   onComplete,
   onCancel,
@@ -120,9 +121,9 @@ export default function RescueTrackingMap({
   const fetchRoute = useCallback(async (from, to) => {
     if (!from || !to) return;
 
-    // Throttle: min 5 seconds between fetches
+    // Throttle: min 3 seconds between fetches
     const now = Date.now();
-    if (now - lastRouteFetchRef.current < 5000) return;
+    if (now - lastRouteFetchRef.current < 3000) return;
     lastRouteFetchRef.current = now;
 
     try {
@@ -225,15 +226,29 @@ export default function RescueTrackingMap({
             maxZoom={20}
           />
 
-          {/* Route */}
+          {/* Route — outer glow/border */}
           {routeCoords.length > 0 && (
             <Polyline
               positions={routeCoords}
               pathOptions={{
-                color: "#3b82f6",
+                color: "#1e3a5f",
+                weight: 10,
+                opacity: 0.35,
+                lineCap: "round",
+                lineJoin: "round",
+              }}
+            />
+          )}
+          {/* Route — main bright rescue path */}
+          {routeCoords.length > 0 && (
+            <Polyline
+              positions={routeCoords}
+              pathOptions={{
+                color: "#38bdf8",
                 weight: 5,
-                opacity: 0.8,
-                dashArray: "12 8",
+                opacity: 0.95,
+                lineCap: "round",
+                lineJoin: "round",
               }}
             />
           )}
@@ -247,11 +262,11 @@ export default function RescueTrackingMap({
                     <span className="material-symbols-outlined text-base">person</span>
                     {citizenName || t("trackingMap.citizenFallback")}
                   </p>
-                  <p className="text-[11px] text-slate-500 mt-1">
+                  <p className="text-[10px] text-slate-500 mt-0.5">
                     {t("trackingMap.citizenLabel")}
                   </p>
                   {citizenPhone && (
-                    <p className="text-[11px] text-slate-600 mt-1 flex items-center gap-1 font-medium">
+                    <p className="text-[11px] text-slate-600 mt-1.5 flex items-center gap-1 font-medium">
                       <span className="material-symbols-outlined text-xs">call</span>
                       {citizenPhone}
                     </p>
@@ -261,16 +276,31 @@ export default function RescueTrackingMap({
             </Marker>
           )}
 
-          {/* Rescuer marker */}
+          {/* Rescuer / Team marker */}
           {currentRescuerPos && (
             <Marker position={[currentRescuerPos.lat, currentRescuerPos.lng]} icon={rescuerIcon}>
               <Popup>
                 <div className="p-3">
-                  <p className="font-black text-sm text-blue-600 flex items-center gap-1">
-                    <span className="material-symbols-outlined text-base">local_shipping</span>
-                    {rescuerName || t("trackingMap.rescuerFallback")}
-                  </p>
-                  <p className="text-[11px] text-slate-500 mt-1">
+                  {teamName ? (
+                    <>
+                      <p className="font-black text-sm text-blue-600 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-base">groups</span>
+                        {teamName}
+                      </p>
+                      {rescuerName && (
+                        <p className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[11px]">person</span>
+                          {rescuerName}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="font-black text-sm text-blue-600 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-base">local_shipping</span>
+                      {rescuerName || t("trackingMap.rescuerFallback")}
+                    </p>
+                  )}
+                  <p className="text-[10px] text-slate-500 mt-0.5">
                     {t("trackingMap.rescuerLabel")}
                   </p>
                 </div>

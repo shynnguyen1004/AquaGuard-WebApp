@@ -170,31 +170,37 @@ export default function useRescueTracking(
         sendLocation(loc.lat, loc.lng);
       },
       (err) => {
-        console.warn("GPS error:", err.message);
-        // Fallback: try getting position once
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-            if (participantRole === "citizen") {
-              setCitizenLocation(loc);
-            } else if (participantRole === "rescuer") {
-              setRescuerLocation(loc);
-            }
-            sendLocation(loc.lat, loc.lng);
-          },
-          () => {}
-        );
+        console.warn("GPS watch error:", err.message);
       },
       {
         enableHighAccuracy: true,
-        maximumAge: 3000,
-        timeout: 10000,
+        maximumAge: 1000,
+        timeout: 5000,
       }
     );
 
     watchIdRef.current = watchId;
 
+    // Interval fallback: poll position every 2s for continuous updates
+    // (watchPosition may not fire frequently enough on some devices)
+    const intervalId = setInterval(() => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          if (participantRole === "citizen") {
+            setCitizenLocation(loc);
+          } else if (participantRole === "rescuer") {
+            setRescuerLocation(loc);
+          }
+          sendLocation(loc.lat, loc.lng);
+        },
+        () => {},
+        { enableHighAccuracy: true, maximumAge: 1000, timeout: 3000 }
+      );
+    }, 2000);
+
     return () => {
+      clearInterval(intervalId);
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;

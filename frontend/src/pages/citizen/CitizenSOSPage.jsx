@@ -282,6 +282,7 @@ export default function CitizenSOSPage() {
           citizenName={trackingRequest.user_name}
           citizenPhone={trackingRequest.user_phone}
           rescuerName={trackingRequest.assigned_name}
+          teamName={trackingRequest.assigned_group_name}
           citizenPos={
             trackingRequest.latitude && trackingRequest.longitude
               ? { lat: trackingRequest.latitude, lng: trackingRequest.longitude }

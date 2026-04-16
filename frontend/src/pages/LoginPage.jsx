@@ -743,26 +743,33 @@ export default function LoginPage() {
                       </div>
 
                       {/* Summary of previous steps */}
-                      <div className="p-3 bg-white/[0.03] rounded-xl border border-white/5 space-y-1.5">
-                        <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-2">{t("loginPage.summary")}</p>
-                        <div className="flex items-center gap-2 text-sm">
-                          <span className="material-symbols-outlined text-primary text-base">phone</span>
-                          <span className="text-slate-300">{phoneNumber}</span>
-                        </div>
-                        {displayName && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <span className="material-symbols-outlined text-primary text-base">badge</span>
-                            <span className="text-slate-300">{displayName}</span>
+                      <div className="p-3.5 bg-white/[0.03] rounded-xl border border-white/5">
+                        <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-3">{t("loginPage.summary")}</p>
+                        <div className="space-y-2.5">
+                          <div className="flex items-center gap-2.5 text-sm">
+                            <span className="material-symbols-outlined text-primary text-base">phone</span>
+                            <span className="text-slate-500 min-w-[70px]">{t("loginPage.phoneNumber")}</span>
+                            <span className="text-slate-300 font-medium">{phoneNumber}</span>
                           </div>
-                        )}
-                        <div className="flex items-center gap-2 text-sm">
-                          <span className="material-symbols-outlined text-primary text-base">{gender === "male" ? "male" : gender === "female" ? "female" : "transgender"}</span>
-                          <span className="text-slate-300">
-                            {gender === "male" ? t("loginPage.male") : gender === "female" ? t("loginPage.female") : t("loginPage.other")}
-                          </span>
-                          <span className="text-slate-600 mx-1">•</span>
-                          <span className="material-symbols-outlined text-primary text-base">calendar_month</span>
-                          <span className="text-slate-300">{dateOfBirth}</span>
+                          {displayName && (
+                            <div className="flex items-center gap-2.5 text-sm">
+                              <span className="material-symbols-outlined text-primary text-base">badge</span>
+                              <span className="text-slate-500 min-w-[70px]">{t("loginPage.displayName")}</span>
+                              <span className="text-slate-300 font-medium">{displayName}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2.5 text-sm">
+                            <span className="material-symbols-outlined text-primary text-base">{gender === "male" ? "male" : gender === "female" ? "female" : "transgender"}</span>
+                            <span className="text-slate-500 min-w-[70px]">{t("loginPage.gender")}</span>
+                            <span className="text-slate-300 font-medium">
+                              {gender === "male" ? t("loginPage.male") : gender === "female" ? t("loginPage.female") : t("loginPage.other")}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2.5 text-sm">
+                            <span className="material-symbols-outlined text-primary text-base">calendar_month</span>
+                            <span className="text-slate-500 min-w-[70px]">{t("loginPage.dateOfBirth")}</span>
+                            <span className="text-slate-300 font-medium">{dateOfBirth}</span>
+                          </div>
                         </div>
                       </div>
 
