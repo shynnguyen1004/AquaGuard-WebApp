@@ -4,6 +4,7 @@ import { LanguageProvider } from "./contexts/LanguageContext";
 import { ToastProvider } from "./components/common/Toast";
 import ErrorBoundary from "./components/common/ErrorBoundary";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import LocationGate from "./components/auth/LocationGate";
 import LoginPage from "./pages/LoginPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import Dashboard from "./pages/Dashboard";
@@ -24,7 +25,9 @@ export default function App() {
                   path="/"
                   element={
                     <ProtectedRoute>
-                      <Dashboard />
+                      <LocationGate>
+                        <Dashboard />
+                      </LocationGate>
                     </ProtectedRoute>
                   }
                 />

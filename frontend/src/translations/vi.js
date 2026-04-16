@@ -741,6 +741,22 @@ const vi = {
       "Luôn giữ bộ sơ cứu cơ bản ở nơi dễ lấy.",
     ],
   },
+
+  // ── Cổng vị trí GPS ──
+  locationGate: {
+    title: "Cho phép truy cập vị trí",
+    desc: "AquaGuard cần quyền truy cập vị trí GPS của bạn để hoạt động chính xác. Vị trí giúp chúng tôi gửi cứu hộ nhanh hơn và bảo vệ bạn tốt hơn.",
+    featureSOS: "Gửi vị trí chính xác khi yêu cầu cứu hộ SOS",
+    featureFamily: "Chia sẻ vị trí với gia đình trong tình huống khẩn cấp",
+    featureMap: "Hiển thị bản đồ lũ lụt xung quanh vị trí của bạn",
+    allowLocation: "Cho phép truy cập vị trí",
+    requesting: "Đang yêu cầu quyền truy cập...",
+    deniedTitle: "Quyền truy cập vị trí bị từ chối",
+    deniedDesc: "Bạn đã từ chối quyền truy cập vị trí. AquaGuard cần vị trí GPS để hoạt động đúng cách.",
+    deniedInstructions: "Vui lòng mở Cài đặt trình duyệt → Quyền riêng tư & Bảo mật → Cài đặt trang web → Vị trí, sau đó cho phép truy cập vị trí cho trang này.",
+    tryAgain: "Thử lại",
+    privacyNote: "Vị trí của bạn chỉ được sử dụng cho mục đích an toàn và cứu hộ. Chúng tôi không bao giờ chia sẻ dữ liệu với bên thứ ba.",
+  },
 };
 
 export default vi;

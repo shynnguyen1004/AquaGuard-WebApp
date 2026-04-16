@@ -741,6 +741,22 @@ const en = {
       "Keep a basic first-aid kit accessible at all times.",
     ],
   },
+
+  // ── GPS Location Gate ──
+  locationGate: {
+    title: "Allow Location Access",
+    desc: "AquaGuard needs access to your GPS location to work properly. Your location helps us send rescue faster and protect you better.",
+    featureSOS: "Send your exact location with SOS rescue requests",
+    featureFamily: "Share your location with family during emergencies",
+    featureMap: "Show flood maps around your current location",
+    allowLocation: "Allow Location Access",
+    requesting: "Requesting access...",
+    deniedTitle: "Location Access Denied",
+    deniedDesc: "You have denied location access. AquaGuard requires GPS location to function properly.",
+    deniedInstructions: "Please go to Browser Settings → Privacy & Security → Site Settings → Location, then allow location access for this site.",
+    tryAgain: "Try Again",
+    privacyNote: "Your location is only used for safety and rescue purposes. We never share your data with third parties.",
+  },
 };
 
 export default en;
