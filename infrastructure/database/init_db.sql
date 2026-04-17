@@ -334,6 +334,23 @@ CREATE INDEX IF NOT EXISTS idx_audit_created  ON audit_logs (created_at DESC);
 
 
 -- ════════════════════════════════════════════════════════════
+-- 11. USER LOCATIONS — Centralized GPS coordinates
+-- Single source of truth for user positions (family map, SOS tracking)
+-- ════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS user_locations (
+    id          SERIAL PRIMARY KEY,
+    user_id     INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    latitude    DOUBLE PRECISION NOT NULL,
+    longitude   DOUBLE PRECISION NOT NULL,
+    address     TEXT DEFAULT '',
+    updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_locations_user ON user_locations (user_id);
+
+
+-- ════════════════════════════════════════════════════════════
 -- SEED DATA (development only)
 -- ════════════════════════════════════════════════════════════
 -- Password: "password123" → bcrypt hash placeholder
@@ -348,6 +365,6 @@ ON CONFLICT (phone_number) DO NOTHING;
 
 
 -- ════════════════════════════════════════════════════════════
--- DONE — 10 tables ready
+-- DONE — 11 tables ready
 -- Verify: \dt (list tables)
 -- ════════════════════════════════════════════════════════════

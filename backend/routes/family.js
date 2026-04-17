@@ -185,8 +185,9 @@ router.get("/members", authMiddleware, async (req, res) => {
     const result = await pool.query(
       `SELECT fc.id AS connection_id, fc.relation,
               u.id, u.phone_number, u.display_name, u.avatar_url,
-              u.safety_status, u.health_note, u.address,
-              u.latitude, u.longitude, u.location_updated_at
+              u.safety_status, u.health_note,
+              COALESCE(loc.address, u.address, '') AS address,
+              loc.latitude, loc.longitude, loc.updated_at AS location_updated_at
        FROM family_connections fc
        JOIN users u ON (
          CASE
@@ -194,6 +195,7 @@ router.get("/members", authMiddleware, async (req, res) => {
            ELSE u.id = fc.requester_id
          END
        )
+       LEFT JOIN user_locations loc ON loc.user_id = u.id
        WHERE (fc.requester_id = $1 OR fc.receiver_id = $1)
          AND fc.status = 'accepted'
        ORDER BY u.display_name`,
@@ -292,16 +294,20 @@ router.put("/location", authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: "Thiếu tọa độ" });
     }
 
+    // Single source of truth: user_locations table
     const result = await pool.query(
-      `UPDATE users
-       SET latitude = $1, longitude = $2, address = COALESCE($3, address),
-           location_updated_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $4
-       RETURNING id, latitude, longitude, address, location_updated_at`,
-      [latitude, longitude, address, req.user.id]
+      `INSERT INTO user_locations (user_id, latitude, longitude, address, updated_at)
+       VALUES ($1, $2, $3, COALESCE($4, ''), NOW())
+       ON CONFLICT (user_id) DO UPDATE
+         SET latitude = EXCLUDED.latitude,
+             longitude = EXCLUDED.longitude,
+             address = COALESCE(NULLIF(EXCLUDED.address, ''), user_locations.address),
+             updated_at = NOW()
+       RETURNING user_id AS id, latitude, longitude, address, updated_at AS location_updated_at`,
+      [req.user.id, latitude, longitude, address]
     );
 
-    // Also update any active SOS requests so the map marker follows the user
+    // Dual-write: also update active SOS requests so the map marker follows the user
     await pool.query(
       `UPDATE rescue_requests
        SET latitude = $1, longitude = $2

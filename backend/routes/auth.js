@@ -1294,11 +1294,14 @@ router.delete("/rescue-groups/:id", authMiddleware, requireRoles(["rescuer"]), a
 router.get("/profile", authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT id, phone_number, display_name, email, role, avatar_url,
-              gender, date_of_birth, emergency_contact,
-              address, latitude, longitude, location_updated_at,
-              is_active, created_at, updated_at
-       FROM users WHERE id = $1`,
+      `SELECT u.id, u.phone_number, u.display_name, u.email, u.role, u.avatar_url,
+              u.gender, u.date_of_birth, u.emergency_contact,
+              COALESCE(loc.address, u.address, '') AS address,
+              loc.latitude, loc.longitude, loc.updated_at AS location_updated_at,
+              u.is_active, u.created_at, u.updated_at
+       FROM users u
+       LEFT JOIN user_locations loc ON loc.user_id = u.id
+       WHERE u.id = $1`,
       [req.user.id]
     );
 
@@ -1409,11 +1412,7 @@ router.put("/profile", authMiddleware, async (req, res) => {
       values.push(address.trim());
     }
     if (latitude !== undefined && longitude !== undefined) {
-      fields.push(`latitude = $${paramIdx++}`);
-      values.push(latitude);
-      fields.push(`longitude = $${paramIdx++}`);
-      values.push(longitude);
-      fields.push(`location_updated_at = CURRENT_TIMESTAMP`);
+      // Location goes to user_locations table (handled after main update)
     }
 
     if (fields.length === 0) {
@@ -1431,6 +1430,29 @@ router.put("/profile", authMiddleware, async (req, res) => {
     }
 
     const u = result.rows[0];
+
+    // If coordinates provided, upsert into user_locations table
+    if (latitude !== undefined && longitude !== undefined) {
+      await pool.query(
+        `INSERT INTO user_locations (user_id, latitude, longitude, address, updated_at)
+         VALUES ($1, $2, $3, COALESCE($4, ''), NOW())
+         ON CONFLICT (user_id) DO UPDATE
+           SET latitude = EXCLUDED.latitude,
+               longitude = EXCLUDED.longitude,
+               address = COALESCE(NULLIF(EXCLUDED.address, ''), user_locations.address),
+               updated_at = NOW()`,
+        [req.user.id, latitude, longitude, address || '']
+      );
+    }
+
+    // Fetch the latest location for the response
+    const locResult = await pool.query(
+      `SELECT latitude, longitude, address, updated_at AS location_updated_at
+       FROM user_locations WHERE user_id = $1`,
+      [req.user.id]
+    );
+    const loc = locResult.rows[0] || {};
+
     return res.json({
       success: true,
       message: "Profile updated successfully.",
@@ -1444,10 +1466,10 @@ router.put("/profile", authMiddleware, async (req, res) => {
         gender: u.gender || "",
         dateOfBirth: u.date_of_birth || null,
         emergencyContact: u.emergency_contact || "",
-        address: u.address || "",
-        latitude: u.latitude,
-        longitude: u.longitude,
-        locationUpdatedAt: u.location_updated_at,
+        address: loc.address || u.address || "",
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+        locationUpdatedAt: loc.location_updated_at,
       },
     });
   } catch (err) {

@@ -126,13 +126,13 @@ router.get("/all", authMiddleware, requireRoles(["citizen", "rescuer", "admin"])
   try {
     const result = await pool.query(
       `SELECT r.*,
-              -- For active requests, prefer user's live location over static request coords
+              -- For active requests, prefer user's live location from user_locations
               CASE WHEN r.status IN ('pending', 'in_progress')
-                   THEN COALESCE(u.latitude, r.latitude)
+                   THEN COALESCE(loc.latitude, r.latitude)
                    ELSE r.latitude
               END AS latitude,
               CASE WHEN r.status IN ('pending', 'in_progress')
-                   THEN COALESCE(u.longitude, r.longitude)
+                   THEN COALESCE(loc.longitude, r.longitude)
                    ELSE r.longitude
               END AS longitude,
               -- Citizen info (via JOIN)
@@ -140,7 +140,7 @@ router.get("/all", authMiddleware, requireRoles(["citizen", "rescuer", "admin"])
               u.phone_number   AS user_phone,
               u.gender         AS user_gender,
               u.date_of_birth  AS user_date_of_birth,
-              u.address        AS user_address,
+              COALESCE(loc.address, u.address) AS user_address,
               CASE
                 WHEN u.date_of_birth IS NULL THEN NULL
                 ELSE DATE_PART('year', AGE(CURRENT_DATE, u.date_of_birth))::int
@@ -153,6 +153,7 @@ router.get("/all", authMiddleware, requireRoles(["citizen", "rescuer", "admin"])
               c.display_name   AS last_cancelled_by_name
        FROM rescue_requests r
        LEFT JOIN users u          ON r.user_id = u.id
+       LEFT JOIN user_locations loc ON loc.user_id = r.user_id
        LEFT JOIN users a          ON r.assigned_to = a.id
        LEFT JOIN rescue_groups g  ON r.assigned_group_id = g.id
        LEFT JOIN users c          ON r.last_cancelled_by = c.id

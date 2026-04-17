@@ -83,6 +83,11 @@ db-reset: ## Reset database (xoá data, chạy lại init)
 	$(DC) down -v
 	$(DC) up --build -d
 
+db-migrate: ## Chạy migration file (usage: make db-migrate F=009_user_locations.sql)
+	@if [ -z "$(F)" ]; then echo "❌ Usage: make db-migrate F=<filename.sql>"; exit 1; fi
+	$(DC) exec -T postgres psql -U aquaguard -d aquaguard_db -f /dev/stdin < ../backend/migrations/$(F)
+	@echo "✅ Migration $(F) applied successfully"
+
 # ============================================================
 # 🏭 Production (VPS)
 # ============================================================

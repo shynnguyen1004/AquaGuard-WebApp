@@ -73,16 +73,18 @@ async function persistTrackingLocation({ requestId, userId, role, latitude, long
   }
 
   try {
+    // Write to centralized user_locations table (single source of truth)
     await pool.query(
-      `UPDATE users
-       SET latitude = $1,
-           longitude = $2,
-           location_updated_at = CURRENT_TIMESTAMP,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = $3`,
-      [latitude, longitude, userId]
+      `INSERT INTO user_locations (user_id, latitude, longitude, updated_at)
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (user_id) DO UPDATE
+         SET latitude = EXCLUDED.latitude,
+             longitude = EXCLUDED.longitude,
+             updated_at = NOW()`,
+      [userId, latitude, longitude]
     );
 
+    // Also update rescue_requests for map snapshot tracking
     if (role === "citizen") {
       await pool.query(
         `UPDATE rescue_requests
