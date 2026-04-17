@@ -49,11 +49,8 @@ CREATE TABLE IF NOT EXISTS users (
                         CHECK (role IN ('citizen', 'rescuer', 'admin')),
     is_active           BOOLEAN DEFAULT TRUE,
 
-    -- Location (live GPS for family tracking & map)
+    -- Location (address only — live GPS is in user_locations table)
     address             TEXT DEFAULT '',
-    latitude            DOUBLE PRECISION,
-    longitude           DOUBLE PRECISION,
-    location_updated_at TIMESTAMPTZ,
 
     -- Safety (family check feature)
     safety_status       VARCHAR(20) DEFAULT 'unknown'
