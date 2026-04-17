@@ -30,7 +30,18 @@ if (process.env.FRONTEND_URL) {
 }
 
 app.use(cors({
-  origin: allowedOrigins,
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    // Allow listed origins (web dev, production frontend)
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    // Allow any LAN IP in development (for Flutter on physical devices)
+    if (process.env.NODE_ENV !== "production" &&
+        /^http:\/\/(192\.168|172\.20|10\.)\.\d+\.\d+(:\d+)?$/.test(origin)) {
+      return callback(null, true);
+    }
+    callback(new Error("Not allowed by CORS"));
+  },
   credentials: true,
 }));
 app.use(express.json());
