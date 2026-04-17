@@ -122,10 +122,19 @@ router.get("/my", authMiddleware, async (req, res) => {
  * Get all requests (Rescuer / Admin)
  * Uses JOINs to resolve names instead of denormalized columns
  */
-router.get("/all", authMiddleware, requireRoles(["rescuer", "admin"]), async (req, res) => {
+router.get("/all", authMiddleware, requireRoles(["citizen", "rescuer", "admin"]), async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT r.*,
+              -- For active requests, prefer user's live location over static request coords
+              CASE WHEN r.status IN ('pending', 'in_progress')
+                   THEN COALESCE(u.latitude, r.latitude)
+                   ELSE r.latitude
+              END AS latitude,
+              CASE WHEN r.status IN ('pending', 'in_progress')
+                   THEN COALESCE(u.longitude, r.longitude)
+                   ELSE r.longitude
+              END AS longitude,
               -- Citizen info (via JOIN)
               u.display_name   AS user_name,
               u.phone_number   AS user_phone,

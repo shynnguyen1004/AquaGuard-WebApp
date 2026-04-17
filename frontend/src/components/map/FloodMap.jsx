@@ -61,18 +61,19 @@ const familySafetyColors = {
   unknown: { bg: "#94a3b8", label: "Chưa rõ" },
 };
 
-// Family member icon (person pin)
+// Family member icon (person pin) — uses unique filter IDs to avoid SVG conflicts
 function createFamilyIcon(safetyStatus) {
   const color = familySafetyColors[safetyStatus]?.bg || "#94a3b8";
+  const filterId = `fshadow-${safetyStatus}`;
   const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44">
+    <svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44" style="pointer-events:none">
       <defs>
-        <filter id="fshadow" x="-20%" y="-10%" width="140%" height="130%">
+        <filter id="${filterId}" x="-20%" y="-10%" width="140%" height="130%">
           <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.3)" />
         </filter>
       </defs>
       <path d="M18 0C9.16 0 2 7.16 2 16c0 12 16 28 16 28s16-16 16-28C34 7.16 26.84 0 18 0z" 
-            fill="${color}" filter="url(#fshadow)" />
+            fill="${color}" filter="url(#${filterId})" />
       <circle cx="18" cy="12" r="5" fill="white" />
       <path d="M10 22c0-4.4 3.6-6 8-6s8 1.6 8 6" fill="white" opacity="0.8" />
     </svg>
@@ -205,6 +206,7 @@ export default function FloodMap({ onReady }) {
 
   const [sosPins, setSosPins] = useState([]);
   const sosIconCacheRef = useRef(new Map()); // `${stage}|${avatarUrl}` -> Leaflet icon
+  const familyIconCacheRef = useRef(new Map()); // safetyStatus -> Leaflet icon
 
   const savedLabel = t("floodMap.saved") || "Đã cứu";
 
@@ -216,6 +218,15 @@ export default function FloodMap({ onReady }) {
     sosIconCacheRef.current.set(key, icon);
     return icon;
   }, [savedLabel]);
+
+  const getFamilyIcon = useCallback((safetyStatus) => {
+    const key = safetyStatus || "unknown";
+    const cached = familyIconCacheRef.current.get(key);
+    if (cached) return cached;
+    const icon = createFamilyIcon(key);
+    familyIconCacheRef.current.set(key, icon);
+    return icon;
+  }, []);
 
   const pollSosRequests = useCallback(async () => {
     if (!token) return;
@@ -553,6 +564,7 @@ export default function FloodMap({ onReady }) {
     <div className="flex-1 relative min-h-[60vh] xl:min-h-0">
       <style>{`
         .custom-pin-icon, .family-pin-icon, .my-location-icon { background: none !important; border: none !important; }
+        .family-pin-icon { cursor: pointer !important; pointer-events: auto !important; }
         .sos-avatar-marker-icon { background: none !important; border: none !important; }
 
         .sos-avatar-marker {
@@ -1004,7 +1016,8 @@ export default function FloodMap({ onReady }) {
             <Marker
               key={`family-${member.id}`}
               position={[member.latitude, member.longitude]}
-              icon={createFamilyIcon(member.safetyStatus)}
+              icon={getFamilyIcon(member.safetyStatus)}
+              eventHandlers={{ click: () => {} }}
             >
               <Popup>
                 <div className="p-4 min-w-[200px] bg-white dark:bg-slate-800 rounded-2xl">

@@ -301,6 +301,15 @@ router.put("/location", authMiddleware, async (req, res) => {
       [latitude, longitude, address, req.user.id]
     );
 
+    // Also update any active SOS requests so the map marker follows the user
+    await pool.query(
+      `UPDATE rescue_requests
+       SET latitude = $1, longitude = $2
+       WHERE user_id = $3
+         AND status IN ('pending', 'in_progress')`,
+      [latitude, longitude, req.user.id]
+    );
+
     return res.json({ success: true, data: result.rows[0] });
   } catch (err) {
     console.error("Update location error:", err);

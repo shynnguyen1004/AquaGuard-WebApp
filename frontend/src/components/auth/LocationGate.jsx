@@ -111,7 +111,7 @@ export default function LocationGate({ children }) {
       </div>
 
       <div className="relative z-10 w-full max-w-md mx-4">
-        <div className="bg-white/[0.03] dark:bg-white/[0.03] backdrop-blur-2xl border border-white/10 dark:border-white/10 rounded-3xl p-8 sm:p-10 shadow-2xl text-center">
+        <div className="bg-white/90 dark:bg-white/[0.03] backdrop-blur-2xl border border-slate-200 dark:border-white/10 rounded-3xl p-8 sm:p-10 shadow-2xl text-center">
           {/* Icon */}
           <div className="mb-6 flex justify-center">
             <div className={`size-20 rounded-full flex items-center justify-center ${
@@ -128,14 +128,14 @@ export default function LocationGate({ children }) {
           </div>
 
           {/* Title */}
-          <h2 className="text-2xl font-bold text-white mb-3">
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-3">
             {status === "denied"
               ? t("locationGate.deniedTitle")
               : t("locationGate.title")}
           </h2>
 
           {/* Description */}
-          <p className="text-slate-400 text-sm leading-relaxed mb-6">
+          <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-6">
             {status === "denied"
               ? t("locationGate.deniedDesc")
               : t("locationGate.desc")}
@@ -148,8 +148,8 @@ export default function LocationGate({ children }) {
               { icon: "group", text: t("locationGate.featureFamily") },
               { icon: "map", text: t("locationGate.featureMap") },
             ].map((feature) => (
-              <div key={feature.icon} className="flex items-center gap-3 text-slate-300">
-                <div className="size-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
+              <div key={feature.icon} className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
+                <div className="size-9 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center flex-shrink-0">
                   <span className="material-symbols-outlined text-primary text-lg">
                     {feature.icon}
                   </span>
@@ -163,7 +163,7 @@ export default function LocationGate({ children }) {
           {status === "denied" ? (
             <div className="space-y-3">
               <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20">
-                <p className="text-xs text-red-400 leading-relaxed">
+                <p className="text-xs text-red-500 dark:text-red-400 leading-relaxed">
                   {t("locationGate.deniedInstructions")}
                 </p>
               </div>
