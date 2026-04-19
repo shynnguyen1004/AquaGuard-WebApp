@@ -265,7 +265,7 @@ export default function LoginPage() {
       </div>
 
       {/* Left Side — Branding */}
-      <div className="hidden lg:flex flex-1 items-center justify-center relative z-10">
+      <div className="hidden lg:flex flex-1 items-start justify-end relative z-10 pr-16 xl:pr-24 pt-[12vh]">
         <div className="max-w-lg px-12">
           <div className="p-6">
             <img alt="AquaGuard" src="/images/dark_mode_logo.png" />
