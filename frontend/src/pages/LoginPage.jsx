@@ -265,7 +265,7 @@ export default function LoginPage() {
       </div>
 
       {/* Left Side — Branding */}
-      <div className="hidden lg:flex flex-1 items-center justify-center relative z-10">
+      <div className="hidden lg:flex flex-1 items-center justify-center relative z-10 pl-20">
         <div className="max-w-lg px-12">
           <div className="p-6">
             <img alt="AquaGuard" src="/images/dark_mode_logo.png" />
@@ -366,13 +366,12 @@ export default function LoginPage() {
                   {[1, 2, 3].map((step) => (
                     <div key={step} className="flex-1 flex items-center gap-2">
                       <div
-                        className={`size-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
-                          registerStep === step
+                        className={`size-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${registerStep === step
                             ? "bg-primary text-white shadow-lg shadow-primary/30 scale-110"
                             : registerStep > step
                               ? "bg-primary/20 text-primary"
                               : "bg-white/5 text-slate-500 border border-white/10"
-                        }`}
+                          }`}
                       >
                         {registerStep > step ? (
                           <span className="material-symbols-outlined text-sm">check</span>
@@ -381,9 +380,8 @@ export default function LoginPage() {
                         )}
                       </div>
                       {step < 3 && (
-                        <div className={`flex-1 h-0.5 rounded-full transition-all duration-300 ${
-                          registerStep > step ? "bg-primary/40" : "bg-white/10"
-                        }`} />
+                        <div className={`flex-1 h-0.5 rounded-full transition-all duration-300 ${registerStep > step ? "bg-primary/40" : "bg-white/10"
+                          }`} />
                       )}
                     </div>
                   ))}
@@ -411,11 +409,10 @@ export default function LoginPage() {
                         inputMode="tel"
                         autoComplete="tel"
                         aria-invalid={Boolean(phoneError)}
-                        className={`w-full bg-white/5 border rounded-xl pl-11 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition-all text-sm ${
-                          phoneError
+                        className={`w-full bg-white/5 border rounded-xl pl-11 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition-all text-sm ${phoneError
                             ? "border-danger/60 focus:border-danger/60 focus:ring-danger/30"
                             : "border-white/10 focus:border-primary/50 focus:ring-primary/30"
-                        }`}
+                          }`}
                       />
                     </div>
                     {phoneError ? (
@@ -449,11 +446,10 @@ export default function LoginPage() {
                         }}
                         placeholder={t("loginPage.passwordPlaceholder")}
                         aria-invalid={Boolean(passwordError)}
-                        className={`w-full bg-white/5 border rounded-xl pl-11 pr-11 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition-all text-sm ${
-                          passwordError
+                        className={`w-full bg-white/5 border rounded-xl pl-11 pr-11 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition-all text-sm ${passwordError
                             ? "border-danger/60 focus:border-danger/60 focus:ring-danger/30"
                             : "border-white/10 focus:border-primary/50 focus:ring-primary/30"
-                        }`}
+                          }`}
                       />
                       <button
                         type="button"
@@ -545,11 +541,10 @@ export default function LoginPage() {
                             inputMode="tel"
                             autoComplete="tel"
                             aria-invalid={Boolean(phoneError)}
-                            className={`w-full bg-white/5 border rounded-xl pl-11 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition-all text-sm ${
-                              phoneError
+                            className={`w-full bg-white/5 border rounded-xl pl-11 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition-all text-sm ${phoneError
                                 ? "border-danger/60 focus:border-danger/60 focus:ring-danger/30"
                                 : "border-white/10 focus:border-primary/50 focus:ring-primary/30"
-                            }`}
+                              }`}
                           />
                         </div>
                         {phoneError ? (
@@ -587,11 +582,10 @@ export default function LoginPage() {
                             }}
                             placeholder={t("loginPage.passwordMinChars")}
                             aria-invalid={Boolean(passwordError)}
-                            className={`w-full bg-white/5 border rounded-xl pl-11 pr-11 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition-all text-sm ${
-                              passwordError
+                            className={`w-full bg-white/5 border rounded-xl pl-11 pr-11 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition-all text-sm ${passwordError
                                 ? "border-danger/60 focus:border-danger/60 focus:ring-danger/30"
                                 : "border-white/10 focus:border-primary/50 focus:ring-primary/30"
-                            }`}
+                              }`}
                           />
                           <button
                             type="button"
