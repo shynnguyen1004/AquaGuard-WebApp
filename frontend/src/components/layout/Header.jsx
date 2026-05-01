@@ -1,9 +1,62 @@
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { api } from "../../services/api";
+
+/**
+ * Extract a short city/locality string from a full address.
+ * Handles Vietnamese addresses from Google Maps & Nominatim, e.g.:
+ *   "268 Lý Thường Kiệt, Phường 14, Quận 10, Thành phố Hồ Chí Minh, Việt Nam"
+ *   → "Thành phố Hồ Chí Minh, Việt Nam"
+ * Falls back to the last 2 comma-separated parts if no city keyword matches.
+ */
+function extractCity(address) {
+  if (!address) return null;
+
+  const parts = address.split(",").map((p) => p.trim());
+  if (parts.length <= 2) return address;
+
+  // Vietnamese city keywords
+  const cityKeywords = ["thành phố", "tp.", "tp ", "tỉnh", "city", "province"];
+
+  for (let i = 0; i < parts.length; i++) {
+    const lower = parts[i].toLowerCase();
+    if (cityKeywords.some((kw) => lower.includes(kw))) {
+      // Return from this part to the end (e.g. "Thành phố Hồ Chí Minh, Việt Nam")
+      return parts.slice(i).join(", ");
+    }
+  }
+
+  // Fallback: last 2 parts (usually city + country)
+  return parts.slice(-2).join(", ");
+}
 
 export default function Header() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { t } = useLanguage();
+  const [cityLabel, setCityLabel] = useState(null);
+
+  const fetchUserCity = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await api.get("/auth/profile");
+      if (res.success && res.data?.address) {
+        const city = extractCity(res.data.address);
+        if (city) setCityLabel(city);
+      }
+    } catch {
+      // Silently fail — fallback to translation key
+    }
+  }, [token]);
+
+  useEffect(() => {
+    fetchUserCity();
+
+    // Also listen for profile updates from SettingsPage
+    const onProfileUpdate = () => fetchUserCity();
+    window.addEventListener("profile_updated", onProfileUpdate);
+    return () => window.removeEventListener("profile_updated", onProfileUpdate);
+  }, [fetchUserCity]);
 
   return (
     <header
@@ -19,7 +72,7 @@ export default function Header() {
               location_on
             </span>
             <span className="text-xs font-medium truncate">
-              {t("header.location")}
+              {cityLabel || t("header.location")}
             </span>
           </div>
         </div>
@@ -70,3 +123,4 @@ export default function Header() {
     </header>
   );
 }
+

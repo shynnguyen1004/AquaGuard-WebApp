@@ -8,9 +8,11 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 
 export default function SettingsPage({ defaultTab = "profile" }) {
-  const { user, token } = useAuth();
+  const { user, token, role } = useAuth();
   const { t, language, setLanguage } = useLanguage();
-  const [activeTab, setActiveTab] = useState(defaultTab);
+  const isCitizen = role === "citizen";
+  const resolvedDefault = (!isCitizen && defaultTab === "family") ? "profile" : defaultTab;
+  const [activeTab, setActiveTab] = useState(resolvedDefault);
   const [profile, setProfile] = useState({
     displayName: user?.displayName || "User",
     email: user?.email || "",
@@ -289,12 +291,13 @@ export default function SettingsPage({ defaultTab = "profile" }) {
     localStorage.setItem("theme", theme);
   }, [theme]);
 
-  const tabs = [
+  const allTabs = [
     { id: "profile", label: t("settings.tabs.profile"), icon: "person" },
-    { id: "family", label: t("settings.tabs.family"), icon: "group" },
+    { id: "family", label: t("settings.tabs.family"), icon: "group", citizenOnly: true },
     { id: "appearance", label: t("settings.tabs.appearance"), icon: "palette" },
     { id: "language", label: t("settings.tabs.language"), icon: "translate" },
   ];
+  const tabs = allTabs.filter((tab) => !tab.citizenOnly || isCitizen);
 
   const handleProfileSave = async () => {
     if (profileSaving) return;

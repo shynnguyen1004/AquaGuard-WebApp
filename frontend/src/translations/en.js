@@ -277,6 +277,10 @@ const en = {
     alertRiverRisingDesc: "Han River levels rising at 15cm/hour.",
     alertPowerOutageTitle: "Power Outage Risk",
     alertPowerOutageDesc: "Central district grid may be suspended for safety.",
+    // Rescuer panel
+    rescuerMissionsDesc: "View your active missions",
+    rescuerTeamDesc: "Manage your team",
+    rescueRequestsDesc: "List of SOS requests",
   },
 
   // ── Active Alerts (Right Panel) ──

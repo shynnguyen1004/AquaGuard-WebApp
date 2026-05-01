@@ -277,6 +277,10 @@ const vi = {
     alertRiverRisingDesc: "Mực nước sông Hàn đang dâng 15cm/giờ.",
     alertPowerOutageTitle: "Nguy cơ mất điện",
     alertPowerOutageDesc: "Lưới điện khu vực trung tâm có thể bị tạm ngưng vì an toàn.",
+    // Rescuer panel
+    rescuerMissionsDesc: "Xem nhiệm vụ đang thực hiện",
+    rescuerTeamDesc: "Quản lý nhóm của bạn",
+    rescueRequestsDesc: "Danh sách yêu cầu SOS",
   },
 
   // ── Cảnh báo hiện tại (Bảng phải) ──

@@ -168,6 +168,7 @@ export default function Dashboard() {
               />
             </main>
             <RightPanel
+              role={role}
               onNavigate={handleNavigate}
               onLocateMe={() => mapControlsRef.current?.locateMe()}
               onToggleFamily={() => mapControlsRef.current?.toggleFamily()}

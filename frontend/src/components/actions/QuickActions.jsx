@@ -1,9 +1,12 @@
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useAuth } from "../../contexts/AuthContext";
 
 export default function QuickActions({ hideTitle = false, onNavigate }) {
   const { t } = useLanguage();
+  const { role } = useAuth();
+  const isCitizen = role === "citizen";
 
-  const actions = [
+  const allActions = [
     {
       icon: "sos",
       label: t("rightPanel.sos"),
@@ -25,8 +28,10 @@ export default function QuickActions({ hideTitle = false, onNavigate }) {
       bg: "bg-warning",
       shadow: "shadow-warning/20",
       action: "settings:family",
+      citizenOnly: true,
     },
   ];
+  const actions = allActions.filter((a) => !a.citizenOnly || isCitizen);
 
   const handleClick = (action) => {
     if (action.action && onNavigate) {

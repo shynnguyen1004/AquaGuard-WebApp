@@ -362,11 +362,11 @@ export default function LoginPage() {
 
               {/* ── Step Indicator (register only) ── */}
               {phoneMode === "register" && (
-                <div className="flex items-center gap-2 mb-6">
+                <div className="flex items-center justify-center gap-2 mb-6">
                   {[1, 2, 3].map((step) => (
-                    <div key={step} className="flex-1 flex items-center gap-2">
+                    <div key={step} className={`flex items-center gap-2${step < 3 ? " flex-1 max-w-[120px]" : ""}`}>
                       <div
-                        className={`size-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
+                        className={`size-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 shrink-0 ${
                           registerStep === step
                             ? "bg-primary text-white shadow-lg shadow-primary/30 scale-110"
                             : registerStep > step

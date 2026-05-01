@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useAuth } from "../../contexts/AuthContext";
 import { api } from "../../services/api";
 
 const TAB_KEYS = ["actions", "family"];
@@ -126,6 +127,68 @@ function ActionsTab({ onNavigate, onLocateMe, onToggleFamily, showFamily }) {
       </div>
 
       {/* Alerts Section (embedded below actions) */}
+      <AlertsTab />
+    </div>
+  );
+}
+
+// ══════════════════════════════════════
+//  TAB: RESCUER ACTIONS
+// ══════════════════════════════════════
+function RescuerActionsTab({ onNavigate, onLocateMe }) {
+  const { t } = useLanguage();
+
+  const actions = [
+    {
+      icon: "assignment_ind",
+      label: t("nav.rescuer-missions") || "Nhiệm vụ của tôi",
+      desc: t("rightPanel.rescuerMissionsDesc") || "Xem nhiệm vụ đang thực hiện",
+      onClick: () => onNavigate?.("rescuer-missions"),
+    },
+    {
+      icon: "groups",
+      label: t("nav.rescuer-team") || "Nhóm cứu hộ",
+      desc: t("rightPanel.rescuerTeamDesc") || "Quản lý nhóm của bạn",
+      onClick: () => onNavigate?.("rescuer-team"),
+    },
+    {
+      icon: "my_location",
+      label: t("floodMap.myLocation") || "Vị trí của tôi",
+      desc: t("rightPanel.updateGPS") || "Cập nhật GPS",
+      onClick: onLocateMe,
+    },
+    {
+      icon: "notifications_active",
+      label: t("nav.rescue") || "Yêu cầu cứu hộ",
+      desc: t("rightPanel.rescueRequestsDesc") || "Danh sách yêu cầu SOS",
+      onClick: () => onNavigate?.("rescue"),
+    },
+  ];
+
+  return (
+    <div className="p-4 space-y-4">
+      {/* 2x2 Action Grid */}
+      <div className="grid grid-cols-2 gap-2.5">
+        {actions.map((a) => (
+          <button
+            key={a.icon}
+            onClick={a.onClick}
+            className="flex flex-col items-center gap-1.5 p-3.5 rounded-xl border transition-all duration-200 hover:scale-[1.02] hover:brightness-110 group bg-slate-50 dark:bg-[#1e2333] border-slate-200 dark:border-[#252a38]"
+          >
+            <span className="material-symbols-outlined text-2xl transition-transform group-hover:scale-110 text-slate-400 dark:text-[#8891a8]">
+              {a.icon}
+            </span>
+            <span className="text-[11px] font-bold text-slate-800 dark:text-[#e8eaf0]">
+              {a.label}
+            </span>
+            <span className="text-[9px] leading-tight text-slate-400 dark:text-[#4a5068]">
+              {a.desc}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Alerts Section */}
       <AlertsTab />
     </div>
   );
@@ -407,6 +470,7 @@ function FamilyTab({ onFlyToMember, onNavigate }) {
 //  MAIN: RIGHT PANEL
 // ══════════════════════════════════════
 export default function RightPanel({
+  role: propRole,
   onNavigate,
   onLocateMe,
   onToggleFamily,
@@ -414,36 +478,51 @@ export default function RightPanel({
   showFamily,
 }) {
   const { t } = useLanguage();
+  const { role: authRole } = useAuth();
+  const role = propRole || authRole;
+  const isCitizen = role === "citizen";
   const [activeTab, setActiveTab] = useState("actions");
+
+  // For non-citizen roles, only show actions (no family tab)
+  const tabs = isCitizen ? TAB_KEYS : ["actions"];
 
   return (
     <aside
       className="w-full xl:w-72 xl:min-w-[288px] shrink-0 border-t xl:border-t-0 xl:border-l flex flex-col overflow-hidden bg-white dark:bg-[#171b26] border-slate-200 dark:border-[#252a38]"
     >
-      {/* Tab Bar */}
-      <div className="flex shrink-0 border-b border-slate-200 dark:border-[#252a38]">
-        {TAB_KEYS.map((tab) => (
-          <TabButton
-            key={tab}
-            label={t(`rightPanel.tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`)}
-            active={activeTab === tab}
-            onClick={() => setActiveTab(tab)}
-          />
-        ))}
-      </div>
+      {/* Tab Bar — only show when there are multiple tabs */}
+      {tabs.length > 1 && (
+        <div className="flex shrink-0 border-b border-slate-200 dark:border-[#252a38]">
+          {tabs.map((tab) => (
+            <TabButton
+              key={tab}
+              label={t(`rightPanel.tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`)}
+              active={activeTab === tab}
+              onClick={() => setActiveTab(tab)}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Tab Content */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
         {activeTab === "actions" && (
-          <ActionsTab
-            onNavigate={onNavigate}
-            onLocateMe={onLocateMe}
-            onToggleFamily={onToggleFamily}
-            showFamily={showFamily}
-          />
+          role === "rescuer" ? (
+            <RescuerActionsTab
+              onNavigate={onNavigate}
+              onLocateMe={onLocateMe}
+            />
+          ) : (
+            <ActionsTab
+              onNavigate={onNavigate}
+              onLocateMe={onLocateMe}
+              onToggleFamily={onToggleFamily}
+              showFamily={showFamily}
+            />
+          )
         )}
 
-        {activeTab === "family" && (
+        {activeTab === "family" && isCitizen && (
           <FamilyTab
             onFlyToMember={onFlyToMember}
             onNavigate={onNavigate}

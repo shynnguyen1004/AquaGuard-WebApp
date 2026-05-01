@@ -182,7 +182,8 @@ function parseLocation(location) {
 }
 
 export default function FloodMap({ onReady }) {
-  const { token } = useAuth();
+  const { token, role } = useAuth();
+  const isCitizen = role === "citizen";
   const { t, language } = useLanguage();
   const [markers, setMarkers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -416,9 +417,9 @@ export default function FloodMap({ onReady }) {
     fetchFloodZones();
   }, [t]);
 
-  // Fetch family members locations
+  // Fetch family members locations (citizen only)
   const fetchFamilyMembers = useCallback(async () => {
-    if (!token) return;
+    if (!token || !isCitizen) return;
     try {
       const res = await fetch(`${API_BASE}/family/members`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -430,13 +431,14 @@ export default function FloodMap({ onReady }) {
     } catch (err) {
       console.warn("[FloodMap] Could not fetch family:", err);
     }
-  }, [token]);
+  }, [token, isCitizen]);
 
   useEffect(() => {
+    if (!isCitizen) return;
     fetchFamilyMembers();
     const interval = setInterval(fetchFamilyMembers, 60 * 1000);
     return () => clearInterval(interval);
-  }, [fetchFamilyMembers]);
+  }, [fetchFamilyMembers, isCitizen]);
 
   // SOS realtime (polling)
   useEffect(() => {
@@ -803,18 +805,20 @@ export default function FloodMap({ onReady }) {
         </button>
       </div>
 
-      {/* Family Toggle Button */}
+      {/* Family Toggle Button (citizen only) */}
       <div className="absolute top-16 right-4 z-[1000] flex flex-col gap-2">
-        <button
-          onClick={() => setShowFamily(!showFamily)}
-          className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${showFamily
-            ? "bg-emerald-500 text-white shadow-emerald-500/30"
-            : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-            } hover:scale-105`}
-          title={showFamily ? t("floodMap.hideFamily") : t("floodMap.showFamily")}
-        >
-          <span className="material-symbols-outlined text-xl">group</span>
-        </button>
+        {isCitizen && (
+          <button
+            onClick={() => setShowFamily(!showFamily)}
+            className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${showFamily
+              ? "bg-emerald-500 text-white shadow-emerald-500/30"
+              : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+              } hover:scale-105`}
+            title={showFamily ? t("floodMap.hideFamily") : t("floodMap.showFamily")}
+          >
+            <span className="material-symbols-outlined text-xl">group</span>
+          </button>
+        )}
 
         {/* GPS Location Button */}
         <button
@@ -1011,8 +1015,8 @@ export default function FloodMap({ onReady }) {
             </Marker>
           )}
 
-          {/* Family member markers */}
-          {showFamily && familyMembers.map((member) => (
+          {/* Family member markers (citizen only) */}
+          {isCitizen && showFamily && familyMembers.map((member) => (
             <Marker
               key={`family-${member.id}`}
               position={[member.latitude, member.longitude]}
