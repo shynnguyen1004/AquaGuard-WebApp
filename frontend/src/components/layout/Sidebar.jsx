@@ -114,7 +114,7 @@ export default function Sidebar({ activePage = "dashboard", onNavigate, collapse
               />
               <img
                 alt="AquaGuard"
-                src="/images/light_mode_logo.png"
+                src="/images/Logo/Transparent_Light/TL_App_Logo.png"
                 className="block dark:hidden"
               />
             </div>
