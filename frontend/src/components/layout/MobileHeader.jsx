@@ -47,7 +47,7 @@ export default function MobileHeader({ onChatToggle, onNavigate }) {
           {/* Logo */}
           <div className="flex items-center justify-center">
             <img src="/images/light_mode_logo.png" alt="AquaGuard" className="h-12 w-auto dark:hidden" />
-            <img src="/images/dark_mode_logo.png" alt="AquaGuard" className="h-12 w-auto hidden dark:block" />
+            <img src="/images/Logo/Tranparent_Dark/TD_App_Logo.png" alt="AquaGuard" className="h-12 w-auto hidden dark:block" />
           </div>
 
           {/* Avatar — opens dropdown */}

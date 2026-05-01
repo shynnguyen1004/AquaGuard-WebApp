@@ -268,7 +268,7 @@ export default function LoginPage() {
       <div className="hidden lg:flex flex-1 items-center justify-center relative z-10">
         <div className="max-w-lg px-12">
           <div className="p-6">
-            <img alt="AquaGuard" src="/images/dark_mode_logo.png" />
+            <img alt="AquaGuard" src="/images/Logo/Tranparent_Dark/TD_App_Logo.png" />
           </div>
           <h2 className="text-4xl font-bold text-white leading-tight mb-4">
             {t("loginPage.brandingTitle")}
@@ -303,7 +303,7 @@ export default function LoginPage() {
           <div className="bg-white/[0.03] backdrop-blur-2xl border border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl">
             {/* Mobile logo */}
             <div className="lg:hidden flex items-center justify-center mb-8">
-              <img src="/images/dark_mode_logo.png" alt="AquaGuard" className="h-30 w-auto" />
+              <img src="/images/Logo/Tranparent_Dark/TD_App_Logo.png" alt="AquaGuard" className="h-30 w-auto" />
             </div>
 
             <div className="text-center mb-5 sm:mb-8">

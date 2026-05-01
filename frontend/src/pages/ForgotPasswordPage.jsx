@@ -213,7 +213,7 @@ export default function ForgotPasswordPage() {
       <div className="hidden lg:flex flex-1 items-center justify-center relative z-10">
         <div className="max-w-lg px-12">
           <div className="p-6">
-            <img alt="AquaGuard" src="/images/dark_mode_logo.png" />
+            <img alt="AquaGuard" src="/images/Logo/Tranparent_Dark/TD_App_Logo.png" />
           </div>
           <h2 className="text-4xl font-bold text-white leading-tight mb-4">
             Recover
