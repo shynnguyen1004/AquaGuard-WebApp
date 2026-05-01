@@ -118,68 +118,7 @@ function formatCity(value, t) {
   return t("rescueQueue.unknown");
 }
 
-function AcceptModeModal({ request, activeGroup, processing, onClose, onConfirm }) {
-  const { t } = useLanguage();
-  if (!request) return null;
 
-  return (
-    <div className="fixed inset-0 z-[1000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-lg rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 space-y-5 shadow-2xl">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-xl font-black">{t("rescueQueue.modalChooseTitle")}</h3>
-            <p className="text-sm text-slate-500 mt-1">
-              {t("rescueQueue.modalChooseSubtitle")}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            disabled={processing}
-            className="size-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 hover:text-danger transition-colors"
-          >
-            <span className="material-symbols-outlined">close</span>
-          </button>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/40 p-4">
-          <p className="font-bold">{request.user_name || t("rescueQueue.citizen")}</p>
-          <p className="text-sm text-slate-500 mt-1">{request.location || t("sosPage.unknownLocation")}</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <button
-            onClick={() => onConfirm("individual")}
-            disabled={processing}
-            className="rounded-2xl border border-slate-200 dark:border-slate-700 p-5 text-left hover:border-primary hover:bg-primary/5 transition-all disabled:opacity-50"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <span className="material-symbols-outlined text-primary">person</span>
-              <p className="font-black">{t("rescueQueue.modalIndividual")}</p>
-            </div>
-            <p className="text-sm text-slate-500">
-              {t("rescueQueue.modalIndividualDesc")}
-            </p>
-          </button>
-          <button
-            onClick={() => onConfirm("group")}
-            disabled={processing || !activeGroup}
-            className="rounded-2xl border border-slate-200 dark:border-slate-700 p-5 text-left hover:border-warning hover:bg-warning/5 transition-all disabled:opacity-50"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <span className="material-symbols-outlined text-warning">groups</span>
-              <p className="font-black">{t("rescueQueue.modalGroup")}</p>
-            </div>
-            <p className="text-sm text-slate-500">
-              {activeGroup
-                ? t("rescueQueue.modalGroupDescNamed").replace("{name}", activeGroup.name)
-                : t("rescueQueue.modalGroupDisabled")}
-            </p>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function formatTimeAgo(iso, t) {
   if (!iso) return "";
@@ -444,8 +383,6 @@ export default function RescueRequestPage() {
   const [trackingRequest, setTrackingRequest] = useState(null);
   const [selectedRequestId, setSelectedRequestId] = useState(null);
   const [seenRequestIds, setSeenRequestIds] = useState([]);
-  const [acceptModeRequest, setAcceptModeRequest] = useState(null);
-  const [acceptingWithMode, setAcceptingWithMode] = useState(false);
   const [acceptError, setAcceptError] = useState("");
   const [cityByRequestId, setCityByRequestId] = useState({});
   const sortMenuRef = useRef(null);
@@ -547,7 +484,7 @@ export default function RescueRequestPage() {
     });
   };
 
-  const performAccept = async (requestId, acceptMode = "individual") => {
+  const performAccept = async (requestId) => {
     const token = getStoredToken();
 
     // Get rescuer's current GPS
@@ -575,7 +512,7 @@ export default function RescueRequestPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ latitude, longitude, acceptMode }),
+        body: JSON.stringify({ latitude, longitude }),
       });
       const json = await res.json();
       if (json.success) {
@@ -595,15 +532,7 @@ export default function RescueRequestPage() {
   };
 
   const handleAccept = (requestId) => {
-    const request = requests.find((item) => item.id === requestId);
-    if (!request) return;
-
-    if (role !== "rescuer" || !activeGroup) {
-      performAccept(requestId, "individual");
-      return;
-    }
-
-    setAcceptModeRequest(request);
+    performAccept(requestId);
   };
 
   const handleComplete = async (requestId) => {
@@ -648,16 +577,7 @@ export default function RescueRequestPage() {
     }
   };
 
-  const handleConfirmAcceptMode = async (mode) => {
-    if (!acceptModeRequest) return;
-    setAcceptingWithMode(true);
-    try {
-      await performAccept(acceptModeRequest.id, mode);
-      setAcceptModeRequest(null);
-    } finally {
-      setAcceptingWithMode(false);
-    }
-  };
+
 
   const handleViewTracking = (request) => {
     setTrackingRequest(request);
@@ -1116,17 +1036,7 @@ export default function RescueRequestPage() {
         />
       )}
 
-      {acceptModeRequest && (
-        <AcceptModeModal
-          request={acceptModeRequest}
-          activeGroup={activeGroup}
-          processing={acceptingWithMode}
-          onClose={() => {
-            if (!acceptingWithMode) setAcceptModeRequest(null);
-          }}
-          onConfirm={handleConfirmAcceptMode}
-        />
-      )}
+
     </div>
   );
 }

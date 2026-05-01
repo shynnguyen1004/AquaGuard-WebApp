@@ -146,8 +146,9 @@ export default function AdminDashboard({ activePage = "admin" }) {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [rescueRequests, setRescueRequests] = useState([]);
   const [assigningRequestId, setAssigningRequestId] = useState(null);
-  const [selectedRescuerByRequest, setSelectedRescuerByRequest] = useState({});
+  const [selectedGroupByRequest, setSelectedGroupByRequest] = useState({});
   const [completingRequestId, setCompletingRequestId] = useState(null);
+  const [rescueGroups, setRescueGroups] = useState([]);
 
   // Sync internal tab when sidebar page changes
   useEffect(() => {
@@ -198,9 +199,27 @@ export default function AdminDashboard({ activePage = "admin" }) {
     }
   };
 
+  // Fetch rescue groups for assignment
+  const fetchRescueGroups = async () => {
+    const token = getStoredToken();
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/auth/rescue-groups/all`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (json.success) {
+        setRescueGroups(json.data || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch rescue groups:", err);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
     fetchRequests();
+    fetchRescueGroups();
   }, []);
 
   const handleRoleChange = async (userId, newRole) => {
@@ -227,8 +246,8 @@ export default function AdminDashboard({ activePage = "admin" }) {
 
   const handleAssignRequest = async (requestId) => {
     const token = getStoredToken();
-    const rescuerId = selectedRescuerByRequest[requestId];
-    if (!token || !rescuerId) return;
+    const groupId = selectedGroupByRequest[requestId];
+    if (!token || !groupId) return;
 
     setAssigningRequestId(requestId);
     try {
@@ -238,7 +257,7 @@ export default function AdminDashboard({ activePage = "admin" }) {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ rescuerId }),
+        body: JSON.stringify({ groupId }),
       });
       const json = await res.json();
       if (json.success) {
@@ -585,25 +604,25 @@ export default function AdminDashboard({ activePage = "admin" }) {
                       {req.status === "pending" && (
                         <div className="mt-3 flex items-center gap-2">
                           <select
-                            value={selectedRescuerByRequest[req.id] || ""}
+                            value={selectedGroupByRequest[req.id] || ""}
                             onChange={(e) =>
-                              setSelectedRescuerByRequest((prev) => ({
+                              setSelectedGroupByRequest((prev) => ({
                                 ...prev,
                                 [req.id]: Number(e.target.value),
                               }))
                             }
-                            className="text-xs bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-2.5 py-1.5 outline-none focus:ring-2 focus:ring-primary/30 min-w-[180px]"
+                            className="text-xs bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-2.5 py-1.5 outline-none focus:ring-2 focus:ring-primary/30 min-w-[220px]"
                           >
-                            <option value="">Assign to rescuer...</option>
-                            {rescuers.map((r) => (
-                              <option key={r.id} value={r.id}>
-                                {r.displayName || `Rescuer #${r.id}`}
+                            <option value="">Assign to rescue group...</option>
+                            {rescueGroups.map((g) => (
+                              <option key={g.id} value={g.id}>
+                                {g.name} ({g.member_count} members) — Leader: {g.leader_name || "N/A"}
                               </option>
                             ))}
                           </select>
                           <button
                             onClick={() => handleAssignRequest(req.id)}
-                            disabled={!selectedRescuerByRequest[req.id] || assigningRequestId === req.id}
+                            disabled={!selectedGroupByRequest[req.id] || assigningRequestId === req.id}
                             className="inline-flex items-center gap-1.5 bg-primary text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-primary/90 transition-all disabled:opacity-50"
                           >
                             <span className={`material-symbols-outlined text-sm ${assigningRequestId === req.id ? "animate-spin" : ""}`}>

@@ -8,7 +8,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api
 
 const RESCUER_TAB_DEFS = [
   { key: "active", labelKey: "rescueQueue.rescuerTabActive", icon: "emergency" },
-  { key: "my-missions", labelKey: "rescueQueue.rescuerTabMissions", icon: "assignment_ind" },
+  { key: "team-missions", labelKey: "rescueQueue.rescuerTabMissions", icon: "assignment_ind" },
   { key: "completed", labelKey: "rescueQueue.rescuerTabCompleted", icon: "check_circle" },
 ];
 
@@ -58,69 +58,7 @@ const urgencyColors = {
   low: "bg-safe/10 text-safe border-safe/20",
 };
 
-function AcceptModeModal({ request, activeGroup, processing, onClose, onConfirm }) {
-  const { t } = useLanguage();
-  if (!request) return null;
 
-  return (
-    <div className="fixed inset-0 z-[1000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-lg rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 space-y-5 shadow-2xl">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-xl font-black">{t("rescueQueue.modalChooseTitle")}</h3>
-            <p className="text-sm text-slate-500 mt-1">
-              {t("rescueQueue.modalChooseSubtitle")}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            disabled={processing}
-            className="size-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 hover:text-danger transition-colors"
-          >
-            <span className="material-symbols-outlined">close</span>
-          </button>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/40 p-4">
-          <p className="font-bold">{request.user_name || t("rescueQueue.citizen")}</p>
-          <p className="text-sm text-slate-500 mt-1">{request.location || t("sosPage.unknownLocation")}</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <button
-            onClick={() => onConfirm("individual")}
-            disabled={processing}
-            className="rounded-2xl border border-slate-200 dark:border-slate-700 p-5 text-left hover:border-primary hover:bg-primary/5 transition-all disabled:opacity-50"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <span className="material-symbols-outlined text-primary">person</span>
-              <p className="font-black">{t("rescueQueue.modalIndividual")}</p>
-            </div>
-            <p className="text-sm text-slate-500">
-              {t("rescueQueue.modalIndividualDesc")}
-            </p>
-          </button>
-
-          <button
-            onClick={() => onConfirm("group")}
-            disabled={processing || !activeGroup}
-            className="rounded-2xl border border-slate-200 dark:border-slate-700 p-5 text-left hover:border-warning hover:bg-warning/5 transition-all disabled:opacity-50"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <span className="material-symbols-outlined text-warning">groups</span>
-              <p className="font-black">{t("rescueQueue.modalGroup")}</p>
-            </div>
-            <p className="text-sm text-slate-500">
-              {activeGroup
-                ? t("rescueQueue.modalGroupDescNamed").replace("{name}", activeGroup.name)
-                : t("rescueQueue.modalGroupDisabled")}
-            </p>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function formatTime(iso, language) {
   if (!iso) return "";
@@ -327,14 +265,14 @@ export default function RescuerDashboard() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState("active");
   const [requests, setRequests] = useState([]);
+  const [teamRequests, setTeamRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeGroup, setActiveGroup] = useState(null);
   const [canAcceptMission, setCanAcceptMission] = useState(false);
   const [trackingRequest, setTrackingRequest] = useState(null);
   const [selectedRequestId, setSelectedRequestId] = useState(null);
   const [seenRequestIds, setSeenRequestIds] = useState([]);
-  const [acceptModeRequest, setAcceptModeRequest] = useState(null);
-  const [acceptingWithMode, setAcceptingWithMode] = useState(false);
+
 
   const fetchRequests = async () => {
     const token = getStoredToken();
@@ -376,13 +314,34 @@ export default function RescuerDashboard() {
     }
   };
 
+  const fetchTeamRequests = async () => {
+    const token = getStoredToken();
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/sos/team`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (json.success) {
+        setTeamRequests(json.data);
+        if (json.group) setActiveGroup(json.group);
+      }
+    } catch (err) {
+      console.error("Failed to fetch team requests:", err);
+    }
+  };
+
   useEffect(() => {
     fetchRequests();
     fetchGroupContext();
+    fetchTeamRequests();
   }, []);
 
   useEffect(() => {
-    const interval = setInterval(fetchRequests, 10000);
+    const interval = setInterval(() => {
+      fetchRequests();
+      fetchTeamRequests();
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -420,7 +379,7 @@ export default function RescuerDashboard() {
     });
   };
 
-  const performAccept = async (requestId, acceptMode = "individual") => {
+  const performAccept = async (requestId) => {
     const token = getStoredToken();
     let latitude = null;
     let longitude = null;
@@ -446,7 +405,7 @@ export default function RescuerDashboard() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ latitude, longitude, acceptMode }),
+        body: JSON.stringify({ latitude, longitude }),
       });
       const json = await res.json();
       if (json.success) {
@@ -468,16 +427,7 @@ export default function RescuerDashboard() {
 
   const handleAccept = (requestId) => {
     if (!canAcceptMission) return;
-
-    const request = requests.find((item) => item.id === requestId);
-    if (!request) return;
-
-    if (!activeGroup) {
-      performAccept(requestId, "individual");
-      return;
-    }
-
-    setAcceptModeRequest(request);
+    performAccept(requestId);
   };
 
   const handleComplete = async (requestId) => {
@@ -526,32 +476,23 @@ export default function RescuerDashboard() {
     }
   };
 
-  const handleConfirmAcceptMode = async (mode) => {
-    if (!acceptModeRequest) return;
-    setAcceptingWithMode(true);
-    try {
-      await performAccept(acceptModeRequest.id, mode);
-      setAcceptModeRequest(null);
-    } finally {
-      setAcceptingWithMode(false);
-    }
-  };
+
 
   const handleViewTracking = (request) => {
     setTrackingRequest(request);
   };
 
   const activeRequests = requests.filter((r) => r.status === "pending");
-  const myMissions = requests.filter(
-    (r) => r.assigned_to == rescuerUid && (r.status === "assigned" || r.status === "in_progress")
+  const teamActive = teamRequests.filter(
+    (r) => r.status === "assigned" || r.status === "in_progress"
   );
-  const completed = requests.filter((r) => r.assigned_to == rescuerUid && r.status === "resolved");
+  const teamCompleted = teamRequests.filter((r) => r.status === "resolved");
 
   const filteredRequests = activeTab === "active"
     ? activeRequests
-    : activeTab === "my-missions"
-      ? myMissions
-      : completed;
+    : activeTab === "team-missions"
+      ? teamActive
+      : teamCompleted;
 
   const sortedRequests = useMemo(() => {
     const arr = [...filteredRequests];
@@ -573,8 +514,8 @@ export default function RescuerDashboard() {
 
   const stats = {
     activeSOS: activeRequests.length,
-    myMissions: myMissions.length,
-    completed: completed.length,
+    teamMissions: teamActive.length,
+    completed: teamCompleted.length,
   };
 
   const tabList = useMemo(
@@ -600,39 +541,46 @@ export default function RescuerDashboard() {
           )}
         </div>
 
-        {/* ── Team role restriction banner ── */}
-        {!loading && !canAcceptMission && (
+        {/* ── No team: full-page prompt ── */}
+        {!loading && !activeGroup && (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="size-20 rounded-3xl bg-warning/10 flex items-center justify-center mb-6">
+              <span className="material-symbols-outlined text-warning text-4xl">groups</span>
+            </div>
+            <h2 className="text-xl font-black mb-2">{t("rescueQueue.noTeamFullTitle")}</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mb-6">
+              {t("rescueQueue.noTeamFullHint")}
+            </p>
+            <button
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent("app_navigate", { detail: { page: "rescuer-team" } }));
+              }}
+              className="inline-flex items-center gap-2 bg-warning text-white px-6 py-3 rounded-2xl text-sm font-bold hover:bg-warning/90 active:scale-[0.97] transition-all shadow-lg shadow-warning/20"
+            >
+              <span className="material-symbols-outlined text-base">groups</span>
+              {t("rescueQueue.goToTeamPage")}
+            </button>
+          </div>
+        )}
+
+        {/* ── Not leader/co-leader banner (has team but can't accept) ── */}
+        {!loading && activeGroup && !canAcceptMission && (
           <div className="rounded-2xl border border-warning/30 bg-warning/5 dark:bg-warning/10 p-4 flex items-start gap-3">
             <div className="size-10 rounded-xl bg-warning/15 flex items-center justify-center shrink-0 mt-0.5">
-              <span className="material-symbols-outlined text-warning text-xl">shield</span>
+              <span className="material-symbols-outlined text-warning text-xl">info</span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-bold text-sm text-warning">
-                {!activeGroup
-                  ? t("rescueQueue.cannotAcceptNoTeam")
-                  : t("rescueQueue.cannotAcceptNotLeader")}
+                {t("rescueQueue.cannotAcceptNotLeader")}
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                {!activeGroup
-                  ? t("rescueQueue.noTeamBanner")
-                  : t("rescueQueue.notLeaderBanner")}
+                {t("rescueQueue.notLeaderBanner")}
               </p>
-              {!activeGroup && (
-                <button
-                  onClick={() => {
-                    // Navigate to rescuer-team page via the app's internal navigation
-                    window.dispatchEvent(new CustomEvent("app_navigate", { detail: { page: "rescuer-team" } }));
-                  }}
-                  className="inline-flex items-center gap-1.5 mt-3 bg-warning text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-warning/90 active:scale-[0.97] transition-all shadow-md shadow-warning/20"
-                >
-                  <span className="material-symbols-outlined text-sm">groups</span>
-                  {t("rescueQueue.goToTeamPage")}
-                </button>
-              )}
             </div>
           </div>
         )}
 
+        {activeGroup && (
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-danger/10 rounded-2xl p-4 border border-slate-100 dark:border-slate-700/30">
             <div className="flex items-center gap-2 mb-2">
@@ -645,7 +593,7 @@ export default function RescuerDashboard() {
             <div className="flex items-center gap-2 mb-2">
               <span className="material-symbols-outlined filled-icon text-primary">assignment_ind</span>
             </div>
-            <p className="text-2xl font-black">{stats.myMissions}</p>
+            <p className="text-2xl font-black">{stats.teamMissions}</p>
             <p className="text-xs text-slate-500 font-medium">{t("rescueQueue.rescuerStatMissions")}</p>
           </div>
           <div className="bg-safe/10 rounded-2xl p-4 border border-slate-100 dark:border-slate-700/30">
@@ -656,7 +604,10 @@ export default function RescuerDashboard() {
             <p className="text-xs text-slate-500 font-medium">{t("rescueQueue.rescuerStatCompleted")}</p>
           </div>
         </div>
+        )}
 
+        {activeGroup && (
+        <>
         <div className="flex gap-2 overflow-x-auto pb-1">
           {tabList.map((tab) => (
             <button
@@ -673,7 +624,7 @@ export default function RescuerDashboard() {
               <span className={`text-[10px] px-2 py-0.5 rounded-full ${
                 activeTab === tab.key ? "bg-white/20" : "bg-slate-100 dark:bg-slate-700"
               }`}>
-                {tab.key === "active" ? stats.activeSOS : tab.key === "my-missions" ? stats.myMissions : stats.completed}
+                {tab.key === "active" ? stats.activeSOS : tab.key === "team-missions" ? stats.teamMissions : stats.completed}
               </span>
             </button>
           ))}
@@ -686,19 +637,19 @@ export default function RescuerDashboard() {
         ) : sortedRequests.length === 0 ? (
           <div className="text-center py-16">
             <span className="material-symbols-outlined text-6xl text-slate-300 dark:text-slate-600 mb-4">
-              {activeTab === "active" ? "emergency" : activeTab === "my-missions" ? "assignment_ind" : "check_circle"}
+              {activeTab === "active" ? "emergency" : activeTab === "team-missions" ? "assignment_ind" : "check_circle"}
             </span>
             <p className="text-lg font-bold text-slate-400 dark:text-slate-500">
               {activeTab === "active"
                 ? t("rescueQueue.rescuerEmptyActiveTitle")
-                : activeTab === "my-missions"
+                : activeTab === "team-missions"
                   ? t("rescueQueue.rescuerEmptyMissionsTitle")
                   : t("rescueQueue.rescuerEmptyCompletedTitle")}
             </p>
             <p className="text-sm text-slate-400 dark:text-slate-600 mt-1">
               {activeTab === "active"
                 ? t("rescueQueue.rescuerEmptyActiveHint")
-                : activeTab === "my-missions"
+                : activeTab === "team-missions"
                   ? t("rescueQueue.rescuerEmptyMissionsHint")
                   : t("rescueQueue.rescuerEmptyCompletedHint")}
             </p>
@@ -734,13 +685,15 @@ export default function RescuerDashboard() {
             <SOSDetailPanel
               request={selectedRequest}
               isOwn={selectedRequest?.assigned_to == rescuerUid}
-              onAccept={canAcceptMission && (activeTab === "active" || activeTab === "my-missions") ? handleAccept : undefined}
-              onComplete={activeTab === "my-missions" ? handleComplete : undefined}
-              onCancel={activeTab === "my-missions" ? handleCancel : undefined}
-              onViewTracking={activeTab === "my-missions" ? handleViewTracking : undefined}
+              onAccept={canAcceptMission && (activeTab === "active" || activeTab === "team-missions") ? handleAccept : undefined}
+              onComplete={canAcceptMission && activeTab === "team-missions" ? handleComplete : undefined}
+              onCancel={canAcceptMission && activeTab === "team-missions" ? handleCancel : undefined}
+              onViewTracking={activeTab === "team-missions" ? handleViewTracking : undefined}
               onMarkSeen={markAsSeen}
             />
           </div>
+        )}
+        </>
         )}
       </div>
 
@@ -773,17 +726,7 @@ export default function RescuerDashboard() {
         />
       )}
 
-      {acceptModeRequest && (
-        <AcceptModeModal
-          request={acceptModeRequest}
-          activeGroup={activeGroup}
-          processing={acceptingWithMode}
-          onClose={() => {
-            if (!acceptingWithMode) setAcceptModeRequest(null);
-          }}
-          onConfirm={handleConfirmAcceptMode}
-        />
-      )}
+
     </div>
   );
 }

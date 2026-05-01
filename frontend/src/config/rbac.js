@@ -24,7 +24,7 @@ const ALL_NAV_ITEMS = [
 
   // ── Rescuer ──
   { icon: "emergency", label: "Rescue Requests", labelKey: "nav.rescue", page: "rescue", badge: null, roles: [ROLES.RESCUER], mobileNav: true },
-  { icon: "assignment_ind", label: "My Missions", labelKey: "nav.rescuer-missions", page: "rescuer-missions", roles: [ROLES.RESCUER], mobileNav: false },
+  { icon: "assignment_ind", label: "Team Missions", labelKey: "nav.rescuer-missions", page: "rescuer-missions", roles: [ROLES.RESCUER], mobileNav: false },
   { icon: "groups", label: "Rescuer Team", labelKey: "nav.rescuer-team", page: "rescuer-team", roles: [ROLES.RESCUER], mobileNav: false },
 
   // ── Shared (citizen + rescuer) ──

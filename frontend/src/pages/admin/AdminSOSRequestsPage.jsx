@@ -138,11 +138,11 @@ function QueueItem({ request, selected, isNew, onSelect }) {
 
 function RequestDetail({
   request,
-  rescuers,
-  selectedRescuerByRequest,
+  rescueGroups,
+  selectedGroupByRequest,
   assigningRequestId,
   completingRequestId,
-  onSelectRescuer,
+  onSelectGroup,
   onAssign,
   onComplete,
   onViewTracking,
@@ -231,20 +231,20 @@ function RequestDetail({
         {request.status === "pending" && (
           <>
             <select
-              value={selectedRescuerByRequest[request.id] || ""}
-              onChange={(e) => onSelectRescuer(request.id, Number(e.target.value))}
-              className="text-xs bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-2.5 py-1.5 outline-none focus:ring-2 focus:ring-primary/30 min-w-[190px]"
+              value={selectedGroupByRequest[request.id] || ""}
+              onChange={(e) => onSelectGroup(request.id, Number(e.target.value))}
+              className="text-xs bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-2.5 py-1.5 outline-none focus:ring-2 focus:ring-primary/30 min-w-[220px]"
             >
-              <option value="">Assign to rescuer...</option>
-              {rescuers.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.displayName || `Rescuer #${r.id}`}
+              <option value="">Assign to rescue group...</option>
+              {rescueGroups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name} ({g.member_count} members) — Leader: {g.leader_name || "N/A"}
                 </option>
               ))}
             </select>
             <button
               onClick={() => onAssign(request.id)}
-              disabled={!selectedRescuerByRequest[request.id] || assigningRequestId === request.id}
+              disabled={!selectedGroupByRequest[request.id] || assigningRequestId === request.id}
               className="inline-flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-primary/90 transition-all disabled:opacity-50"
             >
               <span className={`material-symbols-outlined text-sm ${assigningRequestId === request.id ? "animate-spin" : ""}`}>
@@ -288,12 +288,12 @@ export default function AdminSOSRequestsPage() {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [selectedCities, setSelectedCities] = useState([]);
   const [requests, setRequests] = useState([]);
-  const [rescuers, setRescuers] = useState([]);
+  const [rescueGroups, setRescueGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [trackingRequest, setTrackingRequest] = useState(null);
   const [selectedRequestId, setSelectedRequestId] = useState(null);
   const [seenRequestIds, setSeenRequestIds] = useState([]);
-  const [selectedRescuerByRequest, setSelectedRescuerByRequest] = useState({});
+  const [selectedGroupByRequest, setSelectedGroupByRequest] = useState({});
   const [assigningRequestId, setAssigningRequestId] = useState(null);
   const [completingRequestId, setCompletingRequestId] = useState(null);
   const [cityByRequestId, setCityByRequestId] = useState({});
@@ -318,25 +318,25 @@ export default function AdminSOSRequestsPage() {
     }
   };
 
-  const fetchRescuers = async () => {
+  const fetchRescueGroups = async () => {
     const token = getStoredToken();
     if (!token) return;
     try {
-      const res = await fetch(`${API_BASE}/auth/users`, {
+      const res = await fetch(`${API_BASE}/auth/rescue-groups/all`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const json = await res.json();
       if (json.success) {
-        setRescuers((json.data || []).filter((u) => u.role === "rescuer"));
+        setRescueGroups(json.data || []);
       }
     } catch (err) {
-      console.error("Failed to fetch rescuers:", err);
+      console.error("Failed to fetch rescue groups:", err);
     }
   };
 
   useEffect(() => {
     fetchRequests();
-    fetchRescuers();
+    fetchRescueGroups();
   }, []);
 
   useEffect(() => {
@@ -378,8 +378,8 @@ export default function AdminSOSRequestsPage() {
 
   const handleAssign = async (requestId) => {
     const token = getStoredToken();
-    const rescuerId = selectedRescuerByRequest[requestId];
-    if (!token || !rescuerId) return;
+    const groupId = selectedGroupByRequest[requestId];
+    if (!token || !groupId) return;
 
     setAssigningRequestId(requestId);
     try {
@@ -389,7 +389,7 @@ export default function AdminSOSRequestsPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ rescuerId }),
+        body: JSON.stringify({ groupId }),
       });
       const json = await res.json();
       if (json.success) {
@@ -710,12 +710,12 @@ export default function AdminSOSRequestsPage() {
 
             <RequestDetail
               request={selectedRequest}
-              rescuers={rescuers}
-              selectedRescuerByRequest={selectedRescuerByRequest}
+              rescueGroups={rescueGroups}
+              selectedGroupByRequest={selectedGroupByRequest}
               assigningRequestId={assigningRequestId}
               completingRequestId={completingRequestId}
-              onSelectRescuer={(requestId, rescuerId) =>
-                setSelectedRescuerByRequest((prev) => ({ ...prev, [requestId]: rescuerId }))
+              onSelectGroup={(requestId, groupId) =>
+                setSelectedGroupByRequest((prev) => ({ ...prev, [requestId]: groupId }))
               }
               onAssign={handleAssign}
               onComplete={handleComplete}

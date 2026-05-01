@@ -468,6 +468,42 @@ router.get("/rescuers", authMiddleware, requireRoles(["admin", "rescuer"]), asyn
 });
 
 /**
+ * GET /api/auth/rescue-groups/all
+ * Admin-only: list all active rescue groups with member count and leader info.
+ * Used by Admin SOS page to assign requests to groups.
+ */
+router.get("/rescue-groups/all", authMiddleware, requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+         g.id,
+         g.name,
+         g.description,
+         g.status,
+         g.created_at,
+         COUNT(m.id) FILTER (WHERE m.join_status = 'active') AS member_count,
+         leader_u.display_name AS leader_name,
+         leader_m.user_id AS leader_id
+       FROM rescue_groups g
+       LEFT JOIN rescue_group_members m ON m.group_id = g.id
+       LEFT JOIN rescue_group_members leader_m
+         ON leader_m.group_id = g.id
+         AND leader_m.member_role = 'leader'
+         AND leader_m.join_status = 'active'
+       LEFT JOIN users leader_u ON leader_u.id = leader_m.user_id
+       WHERE g.status = 'active'
+       GROUP BY g.id, g.name, g.description, g.status, g.created_at, leader_u.display_name, leader_m.user_id
+       ORDER BY g.name`
+    );
+
+    return res.json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error("Fetch all rescue groups error:", err);
+    return res.status(500).json({ success: false, message: "Server error." });
+  }
+});
+
+/**
  * GET /api/auth/rescue-groups/my
  * Get the current rescuer's active group and pending invites
  */
