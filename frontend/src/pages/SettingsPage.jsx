@@ -351,10 +351,10 @@ export default function SettingsPage({ defaultTab = "profile" }) {
   };
 
   const statusLabels = {
-    safe: "An toàn",
-    danger: "Nguy hiểm",
-    injured: "Bị thương",
-    unknown: "Chưa rõ",
+    safe: t("settings.family.safe"),
+    danger: t("settings.family.danger"),
+    injured: t("settings.family.injured"),
+    unknown: t("settings.family.unknown"),
   };
 
   const getAvatar = (name) => (name || "?").split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
@@ -562,7 +562,7 @@ export default function SettingsPage({ defaultTab = "profile" }) {
           <div className="bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 p-5">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-3">
               <span className="material-symbols-outlined text-primary text-lg">health_and_safety</span>
-              Trạng thái của tôi
+              {t("settings.family.myStatus")}
             </h3>
             <div className="flex flex-wrap gap-2 mb-3">
               {["safe", "danger", "injured", "unknown"].map((s) => (
@@ -581,7 +581,7 @@ export default function SettingsPage({ defaultTab = "profile" }) {
             </div>
             <input
               type="text"
-              placeholder="Ghi chú sức khỏe (tuỳ chọn)..."
+              placeholder={t("settings.family.healthNotePlaceholder")}
               value={myHealthNote}
               onChange={(e) => setMyHealthNote(e.target.value)}
               onBlur={() => handleUpdateStatus(mySafetyStatus)}
@@ -592,15 +592,15 @@ export default function SettingsPage({ defaultTab = "profile" }) {
           {/* Family header */}
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Người thân</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Theo dõi tình trạng an toàn của gia đình</p>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">{t("settings.family.familyMembers")}</h3>
+              <p className="text-xs text-slate-500 mt-0.5">{t("settings.family.subtitle")}</p>
             </div>
             <button
               onClick={() => setShowAddFamily(true)}
               className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
             >
               <span className="material-symbols-outlined text-sm">person_add</span>
-              Thêm người thân
+              {t("settings.family.addFamilyMember")}
             </button>
           </div>
 
@@ -609,7 +609,7 @@ export default function SettingsPage({ defaultTab = "profile" }) {
             <div className="space-y-2">
               <p className="text-xs font-bold text-orange-500 uppercase tracking-wider flex items-center gap-1">
                 <span className="material-symbols-outlined text-sm">notifications</span>
-                Lời mời kết nối ({pendingRequests.length})
+                {t("settings.family.pendingRequests")} ({pendingRequests.length})
               </p>
               {pendingRequests.map((req) => (
                 <div key={req.id} className="bg-orange-50 dark:bg-orange-500/10 rounded-2xl border border-orange-200 dark:border-orange-500/30 p-4 flex items-center gap-4">
@@ -618,13 +618,13 @@ export default function SettingsPage({ defaultTab = "profile" }) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-slate-900 dark:text-white">{req.from.displayName}</p>
-                    <p className="text-[11px] text-slate-500">{req.from.phoneNumber} • {req.relation || "Người thân"}</p>
+                    <p className="text-[11px] text-slate-500">{req.from.phoneNumber} • {req.relation || t("settings.family.relationDefault")}</p>
                   </div>
                   <button onClick={() => handleAcceptRequest(req.id)} className="px-3 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-lg hover:bg-emerald-600">
-                    Chấp nhận
+                    {t("settings.family.accept")}
                   </button>
                   <button onClick={() => handleRejectRequest(req.id)} className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-lg hover:bg-slate-300">
-                    Từ chối
+                    {t("settings.family.reject")}
                   </button>
                 </div>
               ))}
@@ -636,12 +636,12 @@ export default function SettingsPage({ defaultTab = "profile" }) {
             <div className="bg-white dark:bg-slate-800/50 rounded-2xl border border-primary/30 p-5 space-y-4">
               <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary text-lg">person_search</span>
-                Tìm người thân bằng số điện thoại
+                {t("settings.family.searchByPhone")}
               </h4>
               <div className="flex gap-2">
                 <input
                   type="tel"
-                  placeholder="Nhập SĐT (VD: 0901234567 hoặc +84901234567)"
+                  placeholder={t("settings.family.searchPlaceholder")}
                   value={searchPhone}
                   onChange={(e) => setSearchPhone(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -663,13 +663,13 @@ export default function SettingsPage({ defaultTab = "profile" }) {
                   </div>
                   <input
                     type="text"
-                    placeholder="Quan hệ (VD: Bố, Mẹ...)"
+                    placeholder={t("settings.family.relationPlaceholder")}
                     value={relation}
                     onChange={(e) => setRelation(e.target.value)}
                     className="px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs w-32 outline-none"
                   />
                   <button onClick={handleSendRequest} className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/90">
-                    Gửi lời mời
+                    {t("settings.family.sendRequest")}
                   </button>
                 </div>
               )}
@@ -677,7 +677,7 @@ export default function SettingsPage({ defaultTab = "profile" }) {
                 onClick={() => { setShowAddFamily(false); setSearchResult(null); setSearchPhone(""); setSearchError(""); }}
                 className="px-5 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600"
               >
-                Đóng
+                {t("settings.family.close")}
               </button>
             </div>
           )}
@@ -699,7 +699,7 @@ export default function SettingsPage({ defaultTab = "profile" }) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{member.displayName}</p>
-                    <p className="text-xs text-slate-500">{member.relation || "Người thân"}</p>
+                    <p className="text-xs text-slate-500">{member.relation || t("settings.family.relationDefault")}</p>
                     <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
                       <span className="material-symbols-outlined text-xs">call</span>
                       {member.phoneNumber}
@@ -718,7 +718,7 @@ export default function SettingsPage({ defaultTab = "profile" }) {
                     )}
                   </div>
                   <span className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wide ${statusColors[member.safetyStatus] || statusColors.unknown}`}>
-                    {statusLabels[member.safetyStatus] || "Chưa rõ"}
+                    {statusLabels[member.safetyStatus] || t("settings.family.unknown")}
                   </span>
                   <button
                     onClick={() => handleRemoveFamily(member.connectionId)}
@@ -734,7 +734,7 @@ export default function SettingsPage({ defaultTab = "profile" }) {
           {!familyLoading && family.length === 0 && (
             <div className="text-center py-12 text-slate-400">
               <span className="material-symbols-outlined text-4xl mb-2">group_off</span>
-              <p className="text-sm">Chưa có người thân nào. Nhấn "Thêm người thân" để bắt đầu.</p>
+              <p className="text-sm">{t("settings.family.noMembersHint")}</p>
             </div>
           )}
         </div>

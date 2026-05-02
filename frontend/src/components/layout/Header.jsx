@@ -81,16 +81,16 @@ export default function Header() {
 
         {/* Risk Level Badge */}
         <div
-          className="rounded-lg px-2 md:px-3 lg:px-4 py-1.5 md:py-2 flex items-center gap-1.5 md:gap-3 shrink-0 bg-red-50 dark:bg-red-500/12 border border-red-200 dark:border-red-500/25"
+          className="rounded-lg px-2 md:px-3 lg:px-4 py-1.5 md:py-2 flex items-center gap-1.5 md:gap-3 shrink-0 bg-emerald-50 dark:bg-emerald-500/12 border border-emerald-200 dark:border-emerald-500/25"
         >
-          <span className="material-symbols-outlined filled-icon text-base md:text-xl text-red-500">
-            error
+          <span className="material-symbols-outlined filled-icon text-base md:text-xl text-emerald-500">
+            verified_user
           </span>
           <div>
-            <p className="text-[9px] md:text-[10px] font-bold uppercase leading-none whitespace-nowrap text-red-500">
+            <p className="text-[9px] md:text-[10px] font-bold uppercase leading-none whitespace-nowrap text-emerald-600 dark:text-emerald-400">
               {t("header.riskLabel")}
             </p>
-            <p className="text-xs md:text-sm font-black tracking-tight whitespace-nowrap text-red-500">
+            <p className="text-xs md:text-sm font-black tracking-tight whitespace-nowrap text-emerald-600 dark:text-emerald-400">
               {t("header.riskValue")}
             </p>
           </div>
