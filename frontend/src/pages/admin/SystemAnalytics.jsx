@@ -7,6 +7,12 @@ import { getStoredToken } from "../../utils/authStorage";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
+// ── Safe capitalize helper ──
+const capitalize = (str) => {
+  if (!str || typeof str !== "string") return "Unknown";
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
 // ── Theme colors matching Tailwind config ──
 const COLORS = {
   primary: "#11a0b6",
@@ -15,8 +21,7 @@ const COLORS = {
   safe: "#10b981",
   critical: "#a855f7",
   slate400: "#94a3b8",
-  slate600: "#475569",
-};
+  slate600: "#475569",};
 
 const ROLE_COLORS = {
   citizen: COLORS.primary,
@@ -371,7 +376,7 @@ export default function SystemAnalytics() {
                         strokeWidth={3}
                         stroke="transparent"
                       >
-                        {(userData?.roles || []).map((entry, i) => (
+                        {(userData?.roles || []).filter((e) => e.role).map((entry, i) => (
                           <Cell key={i} fill={ROLE_COLORS[entry.role] || COLORS.slate400} />
                         ))}
                       </Pie>
@@ -380,11 +385,11 @@ export default function SystemAnalytics() {
                   </ResponsiveContainer>
                 </div>
                 <div className="space-y-2">
-                  {(userData?.roles || []).map((r) => (
+                  {(userData?.roles || []).filter((r) => r.role).map((r) => (
                     <LegendItem
                       key={r.role}
                       color={ROLE_COLORS[r.role] || COLORS.slate400}
-                      label={r.role.charAt(0).toUpperCase() + r.role.slice(1)}
+                      label={capitalize(r.role)}
                       value={`${r.count} (${roleTotal > 0 ? Math.round((r.count / roleTotal) * 100) : 0}%)`}
                     />
                   ))}
@@ -434,7 +439,7 @@ export default function SystemAnalytics() {
                         strokeWidth={3}
                         stroke="transparent"
                       >
-                        {(rescueData?.urgency || []).map((entry, i) => (
+                        {(rescueData?.urgency || []).filter((e) => e.urgency).map((entry, i) => (
                           <Cell key={i} fill={URGENCY_COLORS[entry.urgency] || COLORS.slate400} />
                         ))}
                       </Pie>
@@ -443,11 +448,11 @@ export default function SystemAnalytics() {
                   </ResponsiveContainer>
                 </div>
                 <div className="space-y-2">
-                  {(rescueData?.urgency || []).map((r) => (
+                  {(rescueData?.urgency || []).filter((r) => r.urgency).map((r) => (
                     <LegendItem
                       key={r.urgency}
                       color={URGENCY_COLORS[r.urgency] || COLORS.slate400}
-                      label={r.urgency.charAt(0).toUpperCase() + r.urgency.slice(1)}
+                      label={capitalize(r.urgency)}
                       value={`${r.count} (${urgencyTotal > 0 ? Math.round((r.count / urgencyTotal) * 100) : 0}%)`}
                     />
                   ))}
@@ -460,11 +465,11 @@ export default function SystemAnalytics() {
               {/* Status Overview */}
               <ChartCard title="Request Status Overview" icon="assignment" iconColor="text-primary">
                 <div className="space-y-4">
-                  {(rescueData?.status || []).map((s) => {
+                  {(rescueData?.status || []).filter((s) => s.status).map((s) => {
                     const total = overview?.totalRequests || 1;
-                    const pct = Math.round((s.count / total) * 100);
+                    const pct = Math.round(((s.count || 0) / total) * 100);
                     const color = STATUS_COLORS[s.status] || COLORS.slate400;
-                    const label = s.status === "in_progress" ? "In Progress" : s.status.charAt(0).toUpperCase() + s.status.slice(1);
+                    const label = s.status === "in_progress" ? "In Progress" : capitalize(s.status);
                     return (
                       <div key={s.status}>
                         <div className="flex items-center justify-between mb-1.5">

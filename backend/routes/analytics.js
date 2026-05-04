@@ -87,6 +87,7 @@ router.get("/users", authMiddleware, requireAdmin, async (req, res) => {
       pool.query(`
         SELECT role, COUNT(*)::int AS count
         FROM users
+        WHERE role IS NOT NULL
         GROUP BY role
         ORDER BY count DESC
       `),
@@ -133,6 +134,7 @@ router.get("/rescue", authMiddleware, requireAdmin, async (req, res) => {
       pool.query(`
         SELECT urgency, COUNT(*)::int AS count
         FROM rescue_requests
+        WHERE urgency IS NOT NULL
         GROUP BY urgency
         ORDER BY count DESC
       `),
@@ -140,6 +142,7 @@ router.get("/rescue", authMiddleware, requireAdmin, async (req, res) => {
       pool.query(`
         SELECT status, COUNT(*)::int AS count
         FROM rescue_requests
+        WHERE status IS NOT NULL
         GROUP BY status
         ORDER BY count DESC
       `),
