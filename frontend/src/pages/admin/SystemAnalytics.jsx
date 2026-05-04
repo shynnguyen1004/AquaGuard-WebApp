@@ -145,10 +145,22 @@ function LegendItem({ color, label, value }) {
 // ══════════════════════════════════════════════════════════════
 // ── Main Component ──
 // ══════════════════════════════════════════════════════════════
+// Safe default values to prevent null crashes in Recharts
+const DEFAULT_OVERVIEW = {
+  totalUsers: 0, newUsers7d: 0, totalRequests: 0,
+  pendingRequests: 0, activeRequests: 0, resolvedRequests: 0,
+  avgResponseMinutes: 0, resolutionRate: 0,
+};
+const DEFAULT_USER_DATA = { growth: [], roles: [] };
+const DEFAULT_RESCUE_DATA = {
+  trend: [], urgency: [], status: [],
+  performance: { fastest: 0, slowest: 0, average: 0 },
+};
+
 export default function SystemAnalytics() {
-  const [overview, setOverview] = useState(null);
-  const [userData, setUserData] = useState(null);
-  const [rescueData, setRescueData] = useState(null);
+  const [overview, setOverview] = useState(DEFAULT_OVERVIEW);
+  const [userData, setUserData] = useState(DEFAULT_USER_DATA);
+  const [rescueData, setRescueData] = useState(DEFAULT_RESCUE_DATA);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -165,25 +177,52 @@ export default function SystemAnalytics() {
     try {
       const headers = { Authorization: `Bearer ${token}` };
       const [ovRes, usrRes, resRes] = await Promise.all([
-        fetch(`${API_BASE}/analytics/overview`, { headers }),
-        fetch(`${API_BASE}/analytics/users`, { headers }),
-        fetch(`${API_BASE}/analytics/rescue`, { headers }),
+        fetch(`${API_BASE}/analytics/overview`, { headers }).catch(() => null),
+        fetch(`${API_BASE}/analytics/users`, { headers }).catch(() => null),
+        fetch(`${API_BASE}/analytics/rescue`, { headers }).catch(() => null),
       ]);
 
-      const [ovJson, usrJson, resJson] = await Promise.all([
-        ovRes.json(), usrRes.json(), resRes.json(),
-      ]);
-
-      if (!ovRes.ok || !usrRes.ok || !resRes.ok) {
-        throw new Error(ovJson.message || usrJson.message || resJson.message || "Failed to load analytics data");
+      // If all requests failed (network error), show error
+      if (!ovRes && !usrRes && !resRes) {
+        throw new Error("Unable to connect to analytics API");
       }
 
-      if (ovJson.success) setOverview(ovJson.data);
-      if (usrJson.success) setUserData(usrJson.data);
-      if (resJson.success) setRescueData(resJson.data);
+      const ovJson = ovRes ? await ovRes.json().catch(() => ({})) : {};
+      const usrJson = usrRes ? await usrRes.json().catch(() => ({})) : {};
+      const resJson = resRes ? await resRes.json().catch(() => ({})) : {};
+
+      // Check for HTTP errors
+      if (ovRes && !ovRes.ok) {
+        throw new Error(ovJson.message || `Analytics overview failed (${ovRes.status})`);
+      }
+      if (usrRes && !usrRes.ok) {
+        throw new Error(usrJson.message || `Analytics users failed (${usrRes.status})`);
+      }
+      if (resRes && !resRes.ok) {
+        throw new Error(resJson.message || `Analytics rescue failed (${resRes.status})`);
+      }
+
+      // Always set data with safe defaults — never leave as null
+      setOverview(ovJson.data || DEFAULT_OVERVIEW);
+      setUserData({
+        growth: ovJson.data?.growth || usrJson.data?.growth || [],
+        roles: ovJson.data?.roles || usrJson.data?.roles || [],
+        ...usrJson.data,
+      });
+      setRescueData({
+        trend: [],
+        urgency: [],
+        status: [],
+        performance: { fastest: 0, slowest: 0, average: 0 },
+        ...resJson.data,
+      });
     } catch (err) {
       console.error("Analytics fetch error:", err);
       setError(err.message || "Failed to load analytics data");
+      // Keep safe defaults so charts don't crash
+      setOverview((prev) => prev || DEFAULT_OVERVIEW);
+      setUserData((prev) => prev || DEFAULT_USER_DATA);
+      setRescueData((prev) => prev || DEFAULT_RESCUE_DATA);
     } finally {
       setLoading(false);
     }
@@ -210,8 +249,8 @@ export default function SystemAnalytics() {
     }));
   };
 
-  const roleTotal = userData?.roles?.reduce((sum, r) => sum + r.count, 0) || 0;
-  const urgencyTotal = rescueData?.urgency?.reduce((sum, r) => sum + r.count, 0) || 0;
+  const roleTotal = (userData?.roles || []).reduce((sum, r) => sum + (r.count || 0), 0);
+  const urgencyTotal = (rescueData?.urgency || []).reduce((sum, r) => sum + (r.count || 0), 0);
 
   return (
     <div className="flex-1 overflow-y-auto">
