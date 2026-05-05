@@ -1,13 +1,15 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
+const SOS_SOUND_URL = "/sounds/aquaguard_sos.mp3";
 
 export default function RescueRequestForm({ onClose, onSubmit }) {
   const { user } = useAuth();
   const { t } = useLanguage();
   const fileInputRef = useRef(null);
+  const formRef = useRef(null);
   const [formData, setFormData] = useState({
     location: "",
     description: "",
@@ -16,6 +18,22 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
   const [images, setImages] = useState([]);
   const [dragActive, setDragActive] = useState(false);
   const [errors, setErrors] = useState({});
+
+  // ── SOS Sound: only play on Enter/Return key submit ──
+  const submitTriggeredByKeyboard = useRef(false);
+  const sosAudioRef = useRef(null);
+
+  useEffect(() => {
+    // Preload the SOS audio
+    sosAudioRef.current = new Audio(SOS_SOUND_URL);
+    sosAudioRef.current.preload = "auto";
+    return () => {
+      if (sosAudioRef.current) {
+        sosAudioRef.current.pause();
+        sosAudioRef.current = null;
+      }
+    };
+  }, []);
 
   // ── GPS auto-capture ──
   const [gpsStatus, setGpsStatus] = useState("loading"); // loading | success | error
@@ -124,6 +142,20 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!validate()) return;
+
+    // Play SOS sound only if submitted via Enter/Return key
+    // Detach audio from ref BEFORE onClose unmounts the component,
+    // so cleanup won't pause it — browser keeps playing until finished
+    if (submitTriggeredByKeyboard.current && sosAudioRef.current) {
+      const audio = sosAudioRef.current;
+      sosAudioRef.current = null; // detach from ref so cleanup won't pause it
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+      // Stop after 5 seconds
+      setTimeout(() => { audio.pause(); }, 5000);
+    }
+    submitTriggeredByKeyboard.current = false;
+
     onSubmit?.({
       ...formData,
       latitude: gpsCoords?.lat || null,
@@ -137,6 +169,16 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
     onClose?.();
   };
 
+  // Track Enter/Return key on form to flag keyboard-triggered submit
+  // and explicitly submit the form (Enter only auto-submits when an <input> has focus)
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === "Enter" && e.target.tagName !== "TEXTAREA") {
+      e.preventDefault();
+      submitTriggeredByKeyboard.current = true;
+      formRef.current?.requestSubmit();
+    }
+  }, []);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
@@ -146,7 +188,11 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
       />
 
       {/* Modal */}
-      <div className="relative bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-700">
+      <div
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
+        className="relative bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-700 outline-none"
+      >
         {/* Header */}
         <div className="sticky top-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-6 pb-4 border-b border-slate-100 dark:border-slate-800 rounded-t-3xl z-10">
           <div className="flex items-center justify-between">
@@ -168,7 +214,7 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="p-6 space-y-6">
           {/* GPS Status Indicator */}
           <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium ${
             gpsStatus === "success"
@@ -355,6 +401,7 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
             </button>
             <button
               type="submit"
+              onMouseDown={() => { submitTriggeredByKeyboard.current = false; }}
               className="flex-1 py-3 rounded-xl bg-danger text-white text-sm font-bold hover:bg-red-600 transition-colors shadow-lg shadow-danger/20 flex items-center justify-center gap-2"
             >
               <span className="material-symbols-outlined text-base filled-icon">
