@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { getCachedGpsPosition, cacheGpsPosition } from "../../utils/locationSync";
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 const SOS_SOUND_URL = "/sounds/aquaguard_sos.mp3";
+const ACCURACY_RANK = { none: 0, cached: 1, low: 2, high: 3 };
 
 export default function RescueRequestForm({ onClose, onSubmit }) {
   const { user } = useAuth();
@@ -35,9 +37,10 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
     };
   }, []);
 
-  // ── GPS auto-capture ──
+  // ── GPS auto-capture (progressive: cache → low-accuracy → high-accuracy) ──
   const [gpsStatus, setGpsStatus] = useState("loading"); // loading | success | error
   const [gpsCoords, setGpsCoords] = useState(null);
+  const gpsAccuracyRef = useRef("none"); // "none" | "cached" | "low" | "high"
 
   const reverseGeocode = async (lat, lng) => {
     if (GOOGLE_MAPS_API_KEY) {
@@ -57,37 +60,66 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
     return fallbackData.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
   };
 
+  // Helper: update GPS state only if this accuracy tier is better than current
+  const lastGpsAddressRef = useRef(""); // track last GPS-set address to detect manual edits
+  const updateGps = useCallback(async (lat, lng, tier) => {
+    if (ACCURACY_RANK[tier] <= ACCURACY_RANK[gpsAccuracyRef.current]) return;
+    gpsAccuracyRef.current = tier;
+
+    setGpsCoords({ lat, lng });
+    setGpsStatus("success");
+
+    // Cache for future instant use
+    cacheGpsPosition(lat, lng);
+
+    try {
+      const address = await reverseGeocode(lat, lng);
+      setFormData((prev) => {
+        // Only update location if user hasn't manually edited it
+        const userHasEdited = prev.location.trim() && prev.location !== lastGpsAddressRef.current;
+        if (userHasEdited) return prev;
+        lastGpsAddressRef.current = address;
+        return { ...prev, location: address };
+      });
+    } catch (err) {
+      console.error("Reverse geocoding failed:", err);
+      setFormData((prev) => {
+        const fallback = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        const userHasEdited = prev.location.trim() && prev.location !== lastGpsAddressRef.current;
+        if (userHasEdited) return prev;
+        lastGpsAddressRef.current = fallback;
+        return { ...prev, location: fallback };
+      });
+    }
+  }, []);
+
   useEffect(() => {
+    // ── Tier 1: Instant — use cached GPS from sessionStorage ──
+    const cached = getCachedGpsPosition();
+    if (cached) {
+      updateGps(cached.latitude, cached.longitude, "cached");
+    }
+
     if (!navigator.geolocation) {
-      setGpsStatus("error");
+      if (!cached) setGpsStatus("error");
       return;
     }
-    setGpsStatus("loading");
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        setGpsCoords({ lat, lng });
-        setGpsStatus("success");
 
-        try {
-          const address = await reverseGeocode(lat, lng);
-          setFormData((prev) => ({
-            ...prev,
-            location: prev.location.trim() ? prev.location : address,
-          }));
-        } catch (err) {
-          console.error("Reverse geocoding failed:", err);
-          setFormData((prev) => ({
-            ...prev,
-            location: prev.location.trim() ? prev.location : `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-          }));
-        }
+    // ── Tier 2: Fast — low-accuracy (WiFi/IP, ~0.5s) ──
+    navigator.geolocation.getCurrentPosition(
+      (pos) => updateGps(pos.coords.latitude, pos.coords.longitude, "low"),
+      () => { /* ignore error, high-accuracy will try too */ },
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+    );
+
+    // ── Tier 3: Precise — high-accuracy GPS hardware (may take 3-10s) ──
+    navigator.geolocation.getCurrentPosition(
+      (pos) => updateGps(pos.coords.latitude, pos.coords.longitude, "high"),
+      (err) => {
+        // Only set error if we have no position at all
+        if (gpsAccuracyRef.current === "none") setGpsStatus("error");
       },
-      () => {
-        setGpsStatus("error");
-      },
-      { enableHighAccuracy: true, timeout: 15000 }
+      { enableHighAccuracy: true, timeout: 10000 }
     );
   }, []);
 
@@ -213,8 +245,8 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
           </div>
         </div>
 
-        {/* Form */}
-        <form ref={formRef} onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="p-6 space-y-6">
+        {/* Form — no onKeyDown here, the modal wrapper already handles it */}
+        <form ref={formRef} onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* GPS Status Indicator */}
           <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium ${
             gpsStatus === "success"

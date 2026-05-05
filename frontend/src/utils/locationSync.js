@@ -5,6 +5,36 @@
  */
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
+const GPS_CACHE_KEY = "aquaguard_gps_cache";
+
+/**
+ * Save GPS position to sessionStorage for fast reuse across components.
+ */
+export function cacheGpsPosition(latitude, longitude) {
+  try {
+    sessionStorage.setItem(GPS_CACHE_KEY, JSON.stringify({
+      latitude,
+      longitude,
+      timestamp: Date.now(),
+    }));
+  } catch { /* quota exceeded — ignore */ }
+}
+
+/**
+ * Read cached GPS position from sessionStorage.
+ * Returns { latitude, longitude } if cache is fresh (< 5 min), else null.
+ */
+export function getCachedGpsPosition(maxAgeMs = 300000) {
+  try {
+    const raw = sessionStorage.getItem(GPS_CACHE_KEY);
+    if (!raw) return null;
+    const cached = JSON.parse(raw);
+    if (Date.now() - cached.timestamp > maxAgeMs) return null;
+    return { latitude: cached.latitude, longitude: cached.longitude };
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Get the user's current GPS position.
@@ -20,10 +50,13 @@ function getCurrentPosition() {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        resolve({
+        const coords = {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
-        });
+        };
+        // Cache for instant reuse by other components
+        cacheGpsPosition(coords.latitude, coords.longitude);
+        resolve(coords);
       },
       (err) => {
         console.warn("[LocationSync] Could not get position:", err.message);
