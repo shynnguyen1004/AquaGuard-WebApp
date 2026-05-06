@@ -1,0 +1,13 @@
+# Allow all crawlers (Facebook, Google, etc.)
+User-agent: *
+Allow: /
+
+# Explicitly allow Facebook crawler
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: Facebot
+Allow: /
+
+# Sitemap
+Sitemap: https://aquaguard.vn/sitemap.xml
