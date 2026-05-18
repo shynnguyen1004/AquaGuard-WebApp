@@ -147,6 +147,9 @@ const vi = {
       darkDesc: "Dễ chịu cho mắt",
       system: "Hệ thống",
       systemDesc: "Theo cài đặt thiết bị",
+      tourTitle: "Hướng dẫn sử dụng",
+      tourSubtitle: "Xem lại nhanh các tính năng chính của ứng dụng.",
+      tourReplay: "Xem lại hướng dẫn",
     },
     language: {
       title: "Ngôn ngữ",
@@ -157,6 +160,132 @@ const vi = {
       vietnamese: "Tiếng Việt",
       vietnameseNative: "Tiếng Việt",
       vietnameseDesc: "Hiển thị bằng Tiếng Việt",
+    },
+  },
+
+  // ── Hướng dẫn onboarding ──
+  tour: {
+    back: "Quay lại",
+    close: "Đóng",
+    next: "Tiếp",
+    skip: "Bỏ qua",
+    finish: "Bắt đầu",
+    step: "Bước",
+    citizen: {
+      welcome: {
+        title: "Chào mừng đến AquaGuard! 👋",
+        content: "Chúng tôi sẽ hướng dẫn nhanh các tính năng chính để bạn an toàn khi lũ về.",
+      },
+      dashboard: {
+        title: "Bảng điều khiển",
+        content: "Trang chính: cập nhật trạng thái an toàn, theo dõi gia đình, dùng thao tác nhanh và xem lại lịch sử SOS của bạn.",
+      },
+      map: {
+        title: "Bản đồ lũ realtime",
+        content: "Xem vùng ngập, nơi trú ẩn và vị trí các đội cứu hộ ngay trên bản đồ.",
+      },
+      mapWeather: {
+        title: "Lớp thời tiết",
+        content: "Bật/tắt các lớp thời tiết — mưa, gió, mây, nhiệt độ, áp suất, sóng — để theo dõi diễn biến cơn bão.",
+      },
+      mapFamily: {
+        title: "Gia đình trên bản đồ",
+        content: "Hiển thị vị trí thời gian thực của người thân. Thêm người thân ở Cài đặt → Gia đình trước nhé.",
+      },
+      mapLocate: {
+        title: "Vị trí của tôi",
+        content: "Nhấn để chia sẻ GPS và đưa bản đồ về vị trí hiện tại của bạn.",
+      },
+      mapFloodZones: {
+        title: "Vùng ngập",
+        content: "Bật/tắt các điểm vùng ngập để xem khu vực đang bị ảnh hưởng.",
+      },
+      sos: {
+        title: "Gửi yêu cầu SOS",
+        content: "Nhấn vào đây khi cần cứu hộ. Vị trí và thông tin sẽ được gửi cho đội gần nhất.",
+      },
+      sosSend: {
+        title: "Tạo yêu cầu",
+        content: "Mở biểu mẫu SOS ở đây. Mình sẽ hướng dẫn bạn điền ngay sau đây.",
+      },
+      sosLocation: {
+        title: "Vị trí của bạn",
+        content: "Mô tả nơi bạn cần cứu hộ (tên đường, mốc, toà nhà...). Toạ độ GPS được đính kèm tự động.",
+      },
+      sosDescription: {
+        title: "Tình hình ra sao?",
+        content: "Tả ngắn gọn: bao nhiêu người, mực nước, có ai bị thương — mọi thông tin đội cứu hộ cần biết.",
+      },
+      sosUrgency: {
+        title: "Mức khẩn cấp",
+        content: "Chọn mức khẩn cấp: Thấp, Trung bình, Cao hoặc Nguy cấp. 'Nguy cấp' = đe doạ tính mạng.",
+      },
+      sosImages: {
+        title: "Ảnh (tuỳ chọn)",
+        content: "Đính kèm ảnh hiện trường để đội cứu hộ hình dung. Bấm chọn file hoặc kéo-thả vào đây.",
+      },
+      sosSubmit: {
+        title: "Gửi đi",
+        content: "Nhấn nút đỏ này để gửi yêu cầu SOS. Đội cứu hộ gần nhất sẽ được thông báo ngay.",
+      },
+      safety: {
+        title: "Quy tắc an toàn",
+        content: "Số khẩn cấp (Công an 113, Cứu hỏa 114, Cấp cứu 115) và hướng dẫn an toàn trước, trong và sau lũ.",
+      },
+      chatbot: {
+        title: "Trợ lý AI",
+        content: "Có câu hỏi về lũ lụt hay an toàn? Trợ lý AI luôn sẵn sàng giúp bạn.",
+      },
+      settings: {
+        title: "Cài đặt",
+        content: "Cập nhật hồ sơ, gia đình và xem lại hướng dẫn này bất cứ lúc nào.",
+      },
+      finish: {
+        title: "Tất cả đã sẵn sàng! 🎉",
+        content: "Chúc bạn an toàn. Bạn có thể xem lại hướng dẫn này trong Cài đặt → Giao diện.",
+      },
+    },
+    rescuer: {
+      welcome: {
+        title: "Chào mừng đội cứu hộ! 🚑",
+        content: "Hướng dẫn nhanh các công cụ giúp bạn phối hợp cứu hộ hiệu quả.",
+      },
+      rescue: {
+        title: "Yêu cầu cứu hộ",
+        content: "Xem các SOS từ người dân và nhận xử lý những trường hợp gần bạn.",
+      },
+      missions: {
+        title: "Nhiệm vụ của đội",
+        content: "Theo dõi các nhiệm vụ đang giao cho đội của bạn theo thời gian thực.",
+      },
+      team: {
+        title: "Đội của bạn",
+        content: "Xem thành viên, mời thêm cứu hộ viên và quản lý vai trò trong đội.",
+      },
+      map: {
+        title: "Bản đồ lũ realtime",
+        content: "Vùng ngập và vị trí người dân đang cần giúp đỡ.",
+      },
+      mapWeather: {
+        title: "Lớp thời tiết",
+        content: "Bật/tắt các lớp thời tiết để đánh giá điều kiện hiện trường.",
+      },
+      mapLocate: {
+        title: "Vị trí của tôi",
+        content: "Chia sẻ GPS để người dân và đồng đội biết bạn đang ở đâu.",
+      },
+      mapFloodZones: {
+        title: "Vùng ngập",
+        content: "Bật/tắt các điểm vùng ngập để khoanh vùng khu vực bị ảnh hưởng.",
+      },
+      settings: {
+        title: "Cài đặt",
+        content: "Cập nhật hồ sơ và xem lại hướng dẫn này bất cứ lúc nào.",
+      },
+      finish: {
+        title: "Sẵn sàng cứu trợ 💪",
+        content: "Chúc bạn an toàn. Có thể xem lại hướng dẫn trong Cài đặt → Giao diện.",
+      },
     },
   },
 

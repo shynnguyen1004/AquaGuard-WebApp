@@ -93,6 +93,7 @@ export function AuthProvider({ children }) {
   const [error, setError] = useState(null);
   const [needsRoleSelection, setNeedsRoleSelection] = useState(false);
   const [pendingFirebaseUser, setPendingFirebaseUser] = useState(null);
+  const [isFirstLogin, setIsFirstLogin] = useState(false);
 
   const updateRole = (newRole) => {
     const resolved = newRole || ROLES.CITIZEN;
@@ -188,6 +189,7 @@ export function AuthProvider({ children }) {
         setUser(tempUser);
         setPendingFirebaseUser(firebaseUser);
         setNeedsRoleSelection(true);
+        setIsFirstLogin(true);
         setLoading(false);
         return tempUser;
       }
@@ -265,6 +267,7 @@ export function AuthProvider({ children }) {
       setUser(userData);
       updateRole(userData.role);
       saveUserToStorage(userData, "session");
+      setIsFirstLogin(true);
 
       // Sync GPS location after registration
       syncLocationAfterAuth(data.data.accessToken);
@@ -344,16 +347,18 @@ export function AuthProvider({ children }) {
     setRole(null);
     setNeedsRoleSelection(false);
     setPendingFirebaseUser(null);
+    setIsFirstLogin(false);
   };
 
   const clearError = () => setError(null);
+  const clearFirstLogin = () => setIsFirstLogin(false);
 
   return (
     <AuthContext.Provider
       value={{
-        user, role, token, loading, error, needsRoleSelection,
+        user, role, token, loading, error, needsRoleSelection, isFirstLogin,
         loginWithGoogle, loginWithPhonePassword, registerWithPhone,
-        selectRole, logout, clearError,
+        selectRole, logout, clearError, clearFirstLogin,
       }}
     >
       {children}

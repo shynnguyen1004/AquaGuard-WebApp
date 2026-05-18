@@ -131,6 +131,7 @@ export default function CitizenSOSPage() {
           </div>
           <button
             onClick={() => setShowForm(true)}
+            data-tour="sos-send"
             className="inline-flex items-center gap-2 bg-danger text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-red-600 transition-all shadow-lg shadow-danger/20 hover:shadow-xl hover:shadow-danger/30"
           >
             <span className="material-symbols-outlined text-lg filled-icon">add_circle</span>

@@ -18,6 +18,7 @@ export default function MobileBottomNav({ activePage, onNavigate }) {
             <button
               key={item.page}
               onClick={() => onNavigate(item.page)}
+              data-tour={`nav-${item.page}`}
               className={`relative flex flex-col items-center gap-0.5 py-2 px-3 rounded-xl transition-all ${isActive
                   ? "text-primary"
                   : "text-slate-400 dark:text-slate-500"

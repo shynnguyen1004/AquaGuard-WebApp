@@ -18,6 +18,7 @@ import RescuerTeamPage from "./rescuer/RescuerTeamPage";
 import CitizenSOSPage from "./citizen/CitizenSOSPage";
 import ChatBot from "../components/chat/ChatBot";
 import RoleSelectionModal from "../components/auth/RoleSelectionModal";
+import TourGuide from "../components/onboarding/TourGuide";
 import { useAuth } from "../contexts/AuthContext";
 import { canAccessPage } from "../config/rbac";
 
@@ -221,6 +222,9 @@ export default function Dashboard() {
           onSelect={selectRole}
         />
       )}
+
+      {/* Onboarding tour for first-time users (citizen/rescuer) */}
+      {!needsRoleSelection && <TourGuide />}
     </div>
   );
 }

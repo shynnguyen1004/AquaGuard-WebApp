@@ -248,6 +248,7 @@ export default function ChatBot({ externalOpen, onExternalToggle }) {
       {/* Floating Button — desktop only */}
       <button
         onClick={() => setIsOpen((prev) => !prev)}
+        data-tour="chatbot-button"
         className={`fixed bottom-6 right-6 z-[1100] size-14 rounded-full shadow-xl hidden lg:flex items-center justify-center transition-all duration-300 hover:scale-110 ${isOpen
             ? "bg-slate-700 hover:bg-slate-600"
             : "bg-gradient-to-br from-primary to-primary/80 hover:shadow-primary/30 hover:shadow-2xl"

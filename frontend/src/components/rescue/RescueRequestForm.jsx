@@ -236,6 +236,7 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
             </div>
             <button
               onClick={onClose}
+              data-tour="sos-close"
               className="size-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
             >
               <span className="material-symbols-outlined text-slate-500">
@@ -266,7 +267,7 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
           </div>
 
           {/* Location */}
-          <div>
+          <div data-tour="sos-location">
             <label className="block text-sm font-bold mb-2">
               <span className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-base text-danger filled-icon">
@@ -292,7 +293,7 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
           </div>
 
           {/* Description */}
-          <div>
+          <div data-tour="sos-description">
             <label className="block text-sm font-bold mb-2">
               <span className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-base text-primary filled-icon">
@@ -318,7 +319,7 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
           </div>
 
           {/* Urgency */}
-          <div>
+          <div data-tour="sos-urgency">
             <label className="block text-sm font-bold mb-3">
               <span className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-base text-warning filled-icon">
@@ -351,7 +352,7 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
           </div>
 
           {/* Image Upload */}
-          <div>
+          <div data-tour="sos-images">
             <label className="block text-sm font-bold mb-2">
               <span className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-base text-primary filled-icon">
@@ -434,6 +435,7 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
             <button
               type="submit"
               onMouseDown={() => { submitTriggeredByKeyboard.current = false; }}
+              data-tour="sos-submit"
               className="flex-1 py-3 rounded-xl bg-danger text-white text-sm font-bold hover:bg-red-600 transition-colors shadow-lg shadow-danger/20 flex items-center justify-center gap-2"
             >
               <span className="material-symbols-outlined text-base filled-icon">

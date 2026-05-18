@@ -3,7 +3,7 @@ import { useLanguage } from "../../contexts/LanguageContext";
 import { useNavigate } from "react-router-dom";
 import { getNavItemsForRole } from "../../config/rbac";
 
-function NavItem({ icon, label, active, filled, badge, onClick, collapsed }) {
+function NavItem({ icon, label, active, filled, badge, onClick, collapsed, dataTour }) {
   const baseClasses =
     "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer relative group";
   const activeClasses = "bg-primary/10 text-primary shadow-sm";
@@ -19,6 +19,7 @@ function NavItem({ icon, label, active, filled, badge, onClick, collapsed }) {
         onClick?.();
       }}
       title={collapsed ? label : undefined}
+      data-tour={dataTour}
     >
       <span
         className={`material-symbols-outlined ${active && filled ? "filled-icon" : ""}`}
@@ -137,6 +138,7 @@ export default function Sidebar({ activePage = "dashboard", onNavigate, collapse
               badge={item.badge}
               onClick={() => handleNavigate(item.page)}
               collapsed={collapsed && !mobileOpen}
+              dataTour={`nav-${item.page}`}
             />
           ))}
         </nav>
@@ -147,6 +149,7 @@ export default function Sidebar({ activePage = "dashboard", onNavigate, collapse
             <>
               <button
                 onClick={() => { onNavigate("settings"); if (mobileOpen) onMobileClose(); }}
+                data-tour="nav-settings"
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors w-full text-left ${activePage === "settings"
                     ? "bg-primary/10 text-primary font-bold"
                     : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -190,6 +193,7 @@ export default function Sidebar({ activePage = "dashboard", onNavigate, collapse
             <div className="flex flex-col items-center gap-2 py-2">
               <button
                 onClick={() => onNavigate("settings")}
+                data-tour="nav-settings"
                 className={`size-10 rounded-xl flex items-center justify-center transition-colors relative group ${activePage === "settings"
                     ? "bg-primary/10 text-primary"
                     : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"

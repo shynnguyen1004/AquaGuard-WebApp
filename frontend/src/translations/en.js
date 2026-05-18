@@ -147,6 +147,9 @@ const en = {
       darkDesc: "Easy on the eyes",
       system: "System",
       systemDesc: "Match device setting",
+      tourTitle: "App Tour",
+      tourSubtitle: "Take a quick walkthrough of the main features again.",
+      tourReplay: "Replay tour",
     },
     language: {
       title: "Language",
@@ -157,6 +160,132 @@ const en = {
       vietnamese: "Tiếng Việt",
       vietnameseNative: "Tiếng Việt",
       vietnameseDesc: "Hiển thị bằng Tiếng Việt",
+    },
+  },
+
+  // ── Onboarding Tour ──
+  tour: {
+    back: "Back",
+    close: "Close",
+    next: "Next",
+    skip: "Skip tour",
+    finish: "Get started",
+    step: "Step",
+    citizen: {
+      welcome: {
+        title: "Welcome to AquaGuard! 👋",
+        content: "We'll show you around in a few quick steps so you can stay safe during floods.",
+      },
+      dashboard: {
+        title: "Your Dashboard",
+        content: "Your home screen: broadcast your safety status, check on family, use quick actions, and review your SOS history.",
+      },
+      map: {
+        title: "Live Flood Map",
+        content: "Real-time flood zones, shelters, and rescue team locations on the map.",
+      },
+      mapWeather: {
+        title: "Weather Layers",
+        content: "Toggle live weather overlays — rain, wind, clouds, temperature, pressure, or waves — to monitor the storm.",
+      },
+      mapFamily: {
+        title: "Family on Map",
+        content: "Show your family members' real-time location on the map. Add family in Settings → Family first.",
+      },
+      mapLocate: {
+        title: "My Location",
+        content: "Tap to share your GPS location and center the map on you.",
+      },
+      mapFloodZones: {
+        title: "Flood Zones",
+        content: "Toggle flood zone markers to see which areas are currently affected.",
+      },
+      sos: {
+        title: "Send an SOS",
+        content: "Tap here when you need rescue. Your location and details are sent to nearby rescuers.",
+      },
+      sosSend: {
+        title: "Start a request",
+        content: "Open the SOS form here. We'll walk you through filling it out next.",
+      },
+      sosLocation: {
+        title: "Your location",
+        content: "Describe where you need help (street name, landmark, building). GPS coordinates are attached automatically.",
+      },
+      sosDescription: {
+        title: "What's happening?",
+        content: "Briefly describe the situation: how many people, water level, injuries, anything rescuers should know.",
+      },
+      sosUrgency: {
+        title: "Urgency level",
+        content: "Pick how urgent it is: Low, Medium, High, or Critical. Critical = life-threatening.",
+      },
+      sosImages: {
+        title: "Photos (optional)",
+        content: "Add up to a few photos so rescuers can see the scene. Tap to choose files or drag them here.",
+      },
+      sosSubmit: {
+        title: "Submit",
+        content: "Tap this red button to send your SOS. Rescuers nearby will be notified immediately.",
+      },
+      safety: {
+        title: "Safety Protocols",
+        content: "Emergency hotlines (Police 113, Fire 114, Ambulance 115) and step-by-step safety guides before, during, and after a flood.",
+      },
+      chatbot: {
+        title: "AI Assistant",
+        content: "Got a question about floods or safety? Our AI assistant is one click away.",
+      },
+      settings: {
+        title: "Settings",
+        content: "Update your profile, manage family, and replay this tour anytime from here.",
+      },
+      finish: {
+        title: "You're all set! 🎉",
+        content: "Stay safe — AquaGuard is here to help. You can replay this tour from Settings → Appearance.",
+      },
+    },
+    rescuer: {
+      welcome: {
+        title: "Welcome, Rescuer! 🚑",
+        content: "A quick walkthrough of the tools you'll use to coordinate rescues.",
+      },
+      rescue: {
+        title: "Rescue Requests",
+        content: "See pending SOS requests from citizens and accept the ones near you.",
+      },
+      missions: {
+        title: "Team Missions",
+        content: "Track active missions assigned to your team in real time.",
+      },
+      team: {
+        title: "Your Team",
+        content: "View your team members, invite new rescuers, and manage roles.",
+      },
+      map: {
+        title: "Live Flood Map",
+        content: "Realtime flood zones and the location of citizens needing help.",
+      },
+      mapWeather: {
+        title: "Weather Layers",
+        content: "Toggle live weather overlays to assess conditions on the ground.",
+      },
+      mapLocate: {
+        title: "My Location",
+        content: "Share your GPS so citizens and your team can see where you are.",
+      },
+      mapFloodZones: {
+        title: "Flood Zones",
+        content: "Toggle flood zone markers to spot the affected areas.",
+      },
+      settings: {
+        title: "Settings",
+        content: "Update your profile and replay this tour anytime from here.",
+      },
+      finish: {
+        title: "Ready to save lives 💪",
+        content: "Stay safe out there. You can replay this tour from Settings → Appearance.",
+      },
     },
   },
 

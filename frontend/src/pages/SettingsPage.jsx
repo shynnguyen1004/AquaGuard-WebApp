@@ -3,6 +3,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import { getRoleBadgeClasses } from "../config/rbac";
 import { normalizePhone, formatPhoneDisplay } from "../utils/phone";
+import { resetTour } from "../utils/tourStorage";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
@@ -11,7 +12,13 @@ export default function SettingsPage({ defaultTab = "profile" }) {
   const { user, token, role } = useAuth();
   const { t, language, setLanguage } = useLanguage();
   const isCitizen = role === "citizen";
+  const isAdmin = role === "admin";
   const resolvedDefault = (!isCitizen && defaultTab === "family") ? "profile" : defaultTab;
+
+  const handleReplayTour = () => {
+    if (user?.uid) resetTour(user.uid);
+    window.dispatchEvent(new CustomEvent("aquaguard:start-tour"));
+  };
   const [activeTab, setActiveTab] = useState(resolvedDefault);
   const [profile, setProfile] = useState({
     displayName: user?.displayName || "User",
@@ -743,6 +750,23 @@ export default function SettingsPage({ defaultTab = "profile" }) {
       {/* Appearance Tab */}
       {activeTab === "appearance" && (
         <div className="max-w-2xl space-y-6">
+          {!isAdmin && (
+            <div className="bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 p-6">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-2">
+                <span className="material-symbols-outlined text-primary text-lg">tour</span>
+                {t("settings.appearance.tourTitle")}
+              </h3>
+              <p className="text-xs text-slate-500 mb-4">{t("settings.appearance.tourSubtitle")}</p>
+              <button
+                onClick={handleReplayTour}
+                className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
+              >
+                <span className="material-symbols-outlined text-lg">play_circle</span>
+                {t("settings.appearance.tourReplay")}
+              </button>
+            </div>
+          )}
+
           <div className="bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 p-6">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-5">
               <span className="material-symbols-outlined text-primary text-lg">palette</span>

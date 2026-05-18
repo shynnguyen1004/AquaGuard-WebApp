@@ -795,6 +795,7 @@ export default function FloodMap({ onReady }) {
         {/* Layer toggle button - always stays at top-right */}
         <button
           onClick={() => setWeatherPanelOpen(!weatherPanelOpen)}
+          data-tour="map-weather"
           className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all flex-shrink-0 ${showWindy
             ? "bg-primary text-white shadow-primary/30"
             : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
@@ -810,6 +811,7 @@ export default function FloodMap({ onReady }) {
         {isCitizen && (
           <button
             onClick={() => setShowFamily(!showFamily)}
+            data-tour="map-family"
             className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${showFamily
               ? "bg-emerald-500 text-white shadow-emerald-500/30"
               : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
@@ -824,6 +826,7 @@ export default function FloodMap({ onReady }) {
         <button
           onClick={handleLocateMe}
           disabled={locating}
+          data-tour="map-locate"
           className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${myLocation
             ? "bg-blue-500 text-white shadow-blue-500/30"
             : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
@@ -838,6 +841,7 @@ export default function FloodMap({ onReady }) {
         {/* Flood Zones Toggle */}
         <button
           onClick={() => setShowFloodZones(!showFloodZones)}
+          data-tour="map-floodzones"
           className={`size-10 rounded-xl flex items-center justify-center shadow-lg transition-all ${showFloodZones
             ? "bg-amber-500 text-white shadow-amber-500/30"
             : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
