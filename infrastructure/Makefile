@@ -8,12 +8,15 @@
 # Docker compose file path (works from infrastructure/ directory)
 DC := docker compose
 DC_PROD := docker compose -f docker-compose.prod.yml
+DC_REFACTOR := docker compose -f docker-compose.refactor.yml
+DC_REFACTOR_PROD := docker compose -f docker-compose.refactor.prod.yml
 
 .PHONY: help dev up down build logs restart clean \
         logs-fe logs-be logs-db \
         shell-fe shell-be shell-db \
         db-reset db-psql \
-        prod prod-down prod-logs
+        prod prod-down prod-logs \
+        r-dev r-up r-down r-build r-logs r-shell-be r-prod r-prod-down r-prod-logs
 
 # ── Default: show help ──
 help: ## Hiển thị danh sách commands
@@ -116,3 +119,36 @@ clean-all: ## Xoá tất cả (bao gồm cached layers)
 	$(DC) down -v --rmi all
 	docker system prune -f
 	@echo "✅ Full cleanup complete"
+
+# ============================================================
+# 🔁 Refactored backend stack (project: aquaguard-refactor)
+# Dùng song song với stack cũ — khác project name, isolated containers.
+# Lưu ý: cùng dùng port 5001/5173/5433 → KHÔNG chạy đồng thời với stack cũ.
+# ============================================================
+
+r-dev: ## [refactor] Khởi chạy dev stack (build + start)
+	$(DC_REFACTOR) up --build
+
+r-up: ## [refactor] Start không build lại
+	$(DC_REFACTOR) up
+
+r-down: ## [refactor] Dừng dev stack
+	$(DC_REFACTOR) down
+
+r-build: ## [refactor] Build lại images
+	$(DC_REFACTOR) build
+
+r-logs: ## [refactor] Xem logs tất cả services
+	$(DC_REFACTOR) logs -f
+
+r-shell-be: ## [refactor] Mở shell trong backend container
+	$(DC_REFACTOR) exec backend sh
+
+r-prod: ## [refactor] Khởi chạy production
+	$(DC_REFACTOR_PROD) up --build -d
+
+r-prod-down: ## [refactor] Dừng production
+	$(DC_REFACTOR_PROD) down
+
+r-prod-logs: ## [refactor] Xem logs production
+	$(DC_REFACTOR_PROD) logs -f
