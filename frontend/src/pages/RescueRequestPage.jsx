@@ -380,6 +380,7 @@ export default function RescueRequestPage() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeGroup, setActiveGroup] = useState(null);
+  const [canAcceptMission, setCanAcceptMission] = useState(false);
   const [trackingRequest, setTrackingRequest] = useState(null);
   const [selectedRequestId, setSelectedRequestId] = useState(null);
   const [seenRequestIds, setSeenRequestIds] = useState([]);
@@ -426,6 +427,7 @@ export default function RescueRequestPage() {
       const json = await res.json();
       if (json.success) {
         setActiveGroup(json.data?.group || null);
+        setCanAcceptMission(json.data?.canAcceptMission ?? false);
       }
     } catch (err) {
       console.error("Failed to fetch rescue group context:", err);
@@ -474,6 +476,12 @@ export default function RescueRequestPage() {
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
+  useEffect(() => {
+    if (!acceptError) return;
+    const timeout = setTimeout(() => setAcceptError(""), 5000);
+    return () => clearTimeout(timeout);
+  }, [acceptError]);
+
   const markAsSeen = (requestId) => {
     if (!requestId) return;
     setSeenRequestIds((prev) => {
@@ -516,6 +524,7 @@ export default function RescueRequestPage() {
       });
       const json = await res.json();
       if (json.success) {
+        setAcceptError("");
         fetchRequests();
         // Auto-open tracking map
         const acceptedRequest = json.data;
@@ -524,14 +533,35 @@ export default function RescueRequestPage() {
         }
         window.dispatchEvent(new CustomEvent("sos_changed", { detail: { type: "accepted", requestId } }));
       } else {
-        setAcceptError(json.message || t("rescueQueue.acceptFailed"));
+        const codeKey = {
+          NO_TEAM: "rescueQueue.cannotAcceptNoTeam",
+          NOT_AUTHORIZED_ROLE: "rescueQueue.cannotAcceptNotLeader",
+        }[json.code];
+        setAcceptError(
+          (codeKey && t(codeKey)) || json.message || t("rescueQueue.acceptFailed")
+        );
+        // Re-sync team context so the banner reflects reality after a role change.
+        fetchGroupContext();
       }
     } catch (err) {
       console.error("Failed to accept:", err);
+      setAcceptError(t("rescueQueue.acceptFailed"));
     }
   };
 
   const handleAccept = (requestId) => {
+    // Defensive client-side guard — gives immediate, specific feedback instead
+    // of relying on a round-trip when we already know the rescuer is ineligible.
+    if (role === "rescuer") {
+      if (!activeGroup) {
+        setAcceptError(t("rescueQueue.cannotAcceptNoTeam"));
+        return;
+      }
+      if (!canAcceptMission) {
+        setAcceptError(t("rescueQueue.cannotAcceptNotLeader"));
+        return;
+      }
+    }
     performAccept(requestId);
   };
 
@@ -758,6 +788,40 @@ export default function RescueRequestPage() {
             )}
           </div>
         </div>
+
+        {acceptError && (
+          <div
+            role="alert"
+            className="mb-6 flex items-start gap-3 rounded-2xl border border-danger/30 bg-danger/5 dark:bg-danger/10 p-4"
+          >
+            <div className="size-10 rounded-xl bg-danger/15 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-danger text-xl">error</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-sm text-danger">{acceptError}</p>
+              {role === "rescuer" && (!activeGroup || !canAcceptMission) && (
+                <button
+                  onClick={() =>
+                    window.dispatchEvent(
+                      new CustomEvent("app_navigate", { detail: { page: "rescuer-team" } })
+                    )
+                  }
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-danger hover:underline"
+                >
+                  <span className="material-symbols-outlined text-base">groups</span>
+                  {t("rescueQueue.goToTeamPage")}
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setAcceptError("")}
+              className="size-8 rounded-lg text-danger/70 hover:bg-danger/10 flex items-center justify-center"
+              aria-label="Dismiss"
+            >
+              <span className="material-symbols-outlined text-base">close</span>
+            </button>
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
