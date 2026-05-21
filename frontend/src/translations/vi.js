@@ -625,6 +625,12 @@ const vi = {
     gpsLoading: "Đang lấy vị trí GPS...",
     gpsSuccess: "Đã lấy vị trí GPS",
     gpsError: "Không lấy được GPS (vẫn gửi được)",
+    gpsError_default: "Không lấy được GPS (vẫn gửi được)",
+    gpsError_denied: "Bạn đã chặn quyền vị trí. Vào Settings trình duyệt để bật lại rồi reload.",
+    gpsError_unavailable: "Không có tín hiệu GPS. Bạn có thể nhập địa chỉ thủ công ở dưới.",
+    gpsError_timeout: "GPS phản hồi chậm. Bấm Thử lại hoặc nhập địa chỉ thủ công.",
+    gpsError_unsupported: "Trình duyệt không hỗ trợ định vị.",
+    gpsRetry: "Thử lại",
   },
 
   // ── Hàng đợi cứu hộ (rescuer / danh sách SOS + lọc) ──
@@ -670,6 +676,7 @@ const vi = {
     gps: "GPS",
     newBadge: "MỚI",
     accept: "Nhận",
+    accepting: "Đang nhận...",
     tracking: "Theo dõi",
     complete: "Hoàn thành",
     cancel: "Hủy",

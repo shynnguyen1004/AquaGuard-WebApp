@@ -57,11 +57,16 @@ export default function CitizenSOSPage() {
     fetchMyRequests();
   }, []);
 
-  // Auto-refresh to catch status changes (e.g. rescuer accepted)
+  // Auto-refresh to catch status changes (e.g. rescuer accepted).
+  // Poll faster (4s) while at least one request is awaiting action so the citizen sees
+  // the "View tracking" button promptly after a rescuer accepts. Drop to 15s when idle.
   useEffect(() => {
-    const interval = setInterval(fetchMyRequests, 10000);
+    const hasActive = myRequests.some(
+      (r) => r.status === "pending" || r.status === "assigned" || r.status === "in_progress"
+    );
+    const interval = setInterval(fetchMyRequests, hasActive ? 4000 : 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [myRequests]);
 
   // Submit new SOS request to API (now with GPS)
   const handleNewRequest = async (formData) => {

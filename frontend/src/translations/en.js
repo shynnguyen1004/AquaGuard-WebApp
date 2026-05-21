@@ -625,6 +625,12 @@ const en = {
     gpsLoading: "Getting GPS location...",
     gpsSuccess: "GPS location detected",
     gpsError: "Could not get GPS (you can still submit)",
+    gpsError_default: "Could not get GPS (you can still submit)",
+    gpsError_denied: "Location access blocked. Enable it in your browser settings and reload.",
+    gpsError_unavailable: "No GPS signal. You can type the address manually below.",
+    gpsError_timeout: "GPS is slow to respond. Tap Retry or type the address manually.",
+    gpsError_unsupported: "This browser does not support geolocation.",
+    gpsRetry: "Retry",
   },
 
   // ── Rescue queue (rescuer / admin rescue list + filters) ──
@@ -670,6 +676,7 @@ const en = {
     gps: "GPS",
     newBadge: "NEW",
     accept: "Accept",
+    accepting: "Accepting...",
     tracking: "Tracking",
     complete: "Complete",
     cancel: "Cancel",

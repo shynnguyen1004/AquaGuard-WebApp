@@ -210,20 +210,38 @@ function SOSDetailPanel({ request, isOwn, onAccept, onComplete, onCancel, onView
           <button
             onClick={() => handleAction(() => onAccept(request.id))}
             disabled={processing}
-            className="inline-flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-primary/90 transition-all shadow-md shadow-primary/20 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-primary/90 transition-all shadow-md shadow-primary/20 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <span className="material-symbols-outlined text-sm">check</span>
-            {t("rescueQueue.accept")}
+            {processing ? (
+              <>
+                <span className="inline-block size-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                {t("rescueQueue.accepting")}
+              </>
+            ) : (
+              <>
+                <span className="material-symbols-outlined text-sm">check</span>
+                {t("rescueQueue.accept")}
+              </>
+            )}
           </button>
         )}
         {isOwn && request.status === "assigned" && onAccept && (
           <button
             onClick={() => handleAction(() => onAccept(request.id))}
             disabled={processing}
-            className="inline-flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-primary/90 transition-all shadow-md shadow-primary/20 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-primary/90 transition-all shadow-md shadow-primary/20 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <span className="material-symbols-outlined text-sm">play_arrow</span>
-            {t("rescueQueue.startMission")}
+            {processing ? (
+              <>
+                <span className="inline-block size-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                {t("rescueQueue.accepting")}
+              </>
+            ) : (
+              <>
+                <span className="material-symbols-outlined text-sm">play_arrow</span>
+                {t("rescueQueue.startMission")}
+              </>
+            )}
           </button>
         )}
         {isOwn && request.status === "in_progress" && request.latitude && onViewTracking && (
@@ -383,12 +401,15 @@ export default function RescuerDashboard() {
     const token = getStoredToken();
     let latitude = null;
     let longitude = null;
+    // Best-effort GPS seed. Tracking hook refines accuracy via watchPosition right after accept,
+    // so a fast cached/low-accuracy fix is enough — avoid the prior 10s block on getCurrentPosition.
     if (navigator.geolocation) {
       try {
         const pos = await new Promise((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 10000,
+            enableHighAccuracy: false,
+            maximumAge: 30000,
+            timeout: 3000,
           });
         });
         latitude = pos.coords.latitude;
@@ -426,7 +447,16 @@ export default function RescuerDashboard() {
   };
 
   const handleAccept = (requestId) => {
-    if (!canAcceptMission) return;
+    // Defensive: the Accept button is normally hidden when !canAcceptMission, but
+    // surface a clear message if it ever fires (e.g. stale state after a role demotion).
+    if (!activeGroup) {
+      alert(t("rescueQueue.cannotAcceptNoTeam"));
+      return;
+    }
+    if (!canAcceptMission) {
+      alert(t("rescueQueue.cannotAcceptNotLeader"));
+      return;
+    }
     performAccept(requestId);
   };
 

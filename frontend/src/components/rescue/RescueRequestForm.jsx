@@ -40,6 +40,7 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
   // ── GPS auto-capture (progressive: cache → low-accuracy → high-accuracy) ──
   const [gpsStatus, setGpsStatus] = useState("loading"); // loading | success | error
   const [gpsCoords, setGpsCoords] = useState(null);
+  const [gpsErrorReason, setGpsErrorReason] = useState(null); // "denied" | "unavailable" | "timeout" | "unsupported" | null
   const gpsAccuracyRef = useRef("none"); // "none" | "cached" | "low" | "high"
 
   const reverseGeocode = async (lat, lng) => {
@@ -93,22 +94,43 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
     }
   }, []);
 
-  useEffect(() => {
-    // ── Tier 1: Instant — use cached GPS from sessionStorage ──
+  const mapGpsErrorReason = (err) => {
+    if (err?.code === 1) return "denied";
+    if (err?.code === 2) return "unavailable";
+    if (err?.code === 3) return "timeout";
+    return "unavailable";
+  };
+
+  const requestGps = useCallback(() => {
+    setGpsErrorReason(null);
+    gpsAccuracyRef.current = "none";
+
+    // ── Tier 1: Instant — cached GPS from sessionStorage ──
     const cached = getCachedGpsPosition();
     if (cached) {
       updateGps(cached.latitude, cached.longitude, "cached");
+    } else {
+      setGpsStatus("loading");
     }
 
     if (!navigator.geolocation) {
-      if (!cached) setGpsStatus("error");
+      if (!cached) {
+        setGpsStatus("error");
+        setGpsErrorReason("unsupported");
+      }
       return;
     }
 
     // ── Tier 2: Fast — low-accuracy (WiFi/IP, ~0.5s) ──
     navigator.geolocation.getCurrentPosition(
       (pos) => updateGps(pos.coords.latitude, pos.coords.longitude, "low"),
-      () => { /* ignore error, high-accuracy will try too */ },
+      (err) => {
+        // PERMISSION_DENIED is final — Tier 3 will fail the same way, surface immediately.
+        if (err.code === 1 && gpsAccuracyRef.current === "none") {
+          setGpsStatus("error");
+          setGpsErrorReason("denied");
+        }
+      },
       { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
     );
 
@@ -116,12 +138,19 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
     navigator.geolocation.getCurrentPosition(
       (pos) => updateGps(pos.coords.latitude, pos.coords.longitude, "high"),
       (err) => {
-        // Only set error if we have no position at all
-        if (gpsAccuracyRef.current === "none") setGpsStatus("error");
+        if (gpsAccuracyRef.current === "none") {
+          setGpsStatus("error");
+          // Don't overwrite a more-specific "denied" reason captured by Tier 2.
+          setGpsErrorReason((prev) => prev || mapGpsErrorReason(err));
+        }
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
     );
-  }, []);
+  }, [updateGps]);
+
+  useEffect(() => {
+    requestGps();
+  }, [requestGps]);
 
   const urgencyOptions = [
     { value: "low", label: t("rescueForm.low"), color: "peer-checked:bg-slate-200 peer-checked:text-slate-700 peer-checked:border-slate-400" },
@@ -249,21 +278,39 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
         {/* Form — no onKeyDown here, the modal wrapper already handles it */}
         <form ref={formRef} onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* GPS Status Indicator */}
-          <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium ${
+          <div className={`flex items-start gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium ${
             gpsStatus === "success"
               ? "bg-safe/10 border-safe/20 text-safe"
               : gpsStatus === "loading"
                 ? "bg-primary/10 border-primary/20 text-primary"
                 : "bg-warning/10 border-warning/20 text-warning"
           }`}>
-            <span className={`material-symbols-outlined text-base ${gpsStatus === "loading" ? "animate-spin" : "filled-icon"}`}>
+            <span className={`material-symbols-outlined text-base mt-0.5 ${gpsStatus === "loading" ? "animate-spin" : "filled-icon"}`}>
               {gpsStatus === "success" ? "my_location" : gpsStatus === "loading" ? "progress_activity" : "location_off"}
             </span>
-            {gpsStatus === "success" && (
-              <span>{t("rescueForm.gpsSuccess")}: {gpsCoords.lat.toFixed(5)}, {gpsCoords.lng.toFixed(5)}</span>
-            )}
-            {gpsStatus === "loading" && <span>{t("rescueForm.gpsLoading")}</span>}
-            {gpsStatus === "error" && <span>{t("rescueForm.gpsError")}</span>}
+            <div className="flex-1 flex items-center justify-between gap-2 min-w-0">
+              {gpsStatus === "success" && (
+                <span>{t("rescueForm.gpsSuccess")}: {gpsCoords.lat.toFixed(5)}, {gpsCoords.lng.toFixed(5)}</span>
+              )}
+              {gpsStatus === "loading" && <span>{t("rescueForm.gpsLoading")}</span>}
+              {gpsStatus === "error" && (
+                <>
+                  <span className="min-w-0">
+                    {t(`rescueForm.gpsError_${gpsErrorReason || "default"}`)}
+                  </span>
+                  {gpsErrorReason !== "denied" && gpsErrorReason !== "unsupported" && (
+                    <button
+                      type="button"
+                      onClick={requestGps}
+                      className="shrink-0 inline-flex items-center gap-1 text-xs font-bold underline hover:no-underline"
+                    >
+                      <span className="material-symbols-outlined text-sm">refresh</span>
+                      {t("rescueForm.gpsRetry")}
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
 
           {/* Location */}
