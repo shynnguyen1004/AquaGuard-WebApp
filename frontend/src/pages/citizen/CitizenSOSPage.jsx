@@ -172,7 +172,9 @@ export default function CitizenSOSPage() {
           ) : (
             <div className="space-y-3">
               {myRequests.map((req) => {
-                const status = STATUS_CONFIG[req.status] || STATUS_CONFIG.pending;
+                // For status='assigned', show BOTH Pending and Assigned pills —
+                // admin has linked a team but the rescue hasn't started yet.
+                const statusKeys = req.status === "assigned" ? ["pending", "assigned"] : [req.status];
                 const urgency = URGENCY_CONFIG[req.urgency] || URGENCY_CONFIG.medium;
 
                 return (
@@ -181,12 +183,22 @@ export default function CitizenSOSPage() {
                     className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700/30 p-5 hover:shadow-lg transition-shadow"
                   >
                     {/* Top row: status + time */}
-                    <div className="flex items-center justify-between mb-3">
-                      <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border ${status.bg} ${status.color} ${status.border}`}>
-                        <span className="material-symbols-outlined text-sm filled-icon">{status.icon}</span>
-                        {status.label}
-                      </span>
-                      <span className="text-xs text-slate-400">{formatTime(req.created_at)}</span>
+                    <div className="flex items-center justify-between mb-3 gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {statusKeys.map((key) => {
+                          const s = STATUS_CONFIG[key] || STATUS_CONFIG.pending;
+                          return (
+                            <span
+                              key={key}
+                              className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border ${s.bg} ${s.color} ${s.border}`}
+                            >
+                              <span className="material-symbols-outlined text-sm filled-icon">{s.icon}</span>
+                              {s.label}
+                            </span>
+                          );
+                        })}
+                      </div>
+                      <span className="text-xs text-slate-400 whitespace-nowrap">{formatTime(req.created_at)}</span>
                     </div>
 
                     {/* User name */}

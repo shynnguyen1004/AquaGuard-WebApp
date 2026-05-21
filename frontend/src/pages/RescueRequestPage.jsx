@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import RescueTrackingMap from "../components/rescue/RescueTrackingMap";
+import StatusPills from "../components/rescue/StatusPills";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import { getStoredToken } from "../utils/authStorage";
@@ -12,13 +13,6 @@ const TAB_DEFS = [
   { key: "in_progress", icon: "local_shipping", labelKey: "rescueQueue.tabInProgress" },
   { key: "resolved", icon: "check_circle", labelKey: "rescueQueue.tabResolved" },
 ];
-
-const statusColors = {
-  pending: "bg-warning/10 text-warning border-warning/20",
-  assigned: "bg-primary/10 text-primary border-primary/20",
-  in_progress: "bg-primary/10 text-primary border-primary/20",
-  resolved: "bg-safe/10 text-safe border-safe/20",
-};
 
 const urgencyColors = {
   critical: "bg-danger/10 text-danger border-danger/20",
@@ -56,16 +50,6 @@ function formatGender(value, t) {
   if (value === "female") return t("rescueQueue.genderFemale");
   if (value === "other") return t("rescueQueue.genderOther");
   return t("rescueQueue.unknown");
-}
-
-function displayStatus(status, t) {
-  const keys = {
-    pending: "sosPage.pending",
-    assigned: "sosPage.assigned",
-    in_progress: "sosPage.inProgress",
-    resolved: "sosPage.resolved",
-  };
-  return keys[status] ? t(keys[status]) : status;
 }
 
 function displayUrgency(urgency, t) {
@@ -161,9 +145,7 @@ function QueueItem({ request, selected, isNew, onSelect, onAccept }) {
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${urgencyColors[request.urgency] || urgencyColors.medium}`}>
             {displayUrgency(request.urgency, t)}
           </span>
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusColors[request.status] || statusColors.pending}`}>
-            {displayStatus(request.status, t)}
-          </span>
+          <StatusPills status={request.status} />
         </div>
       </div>
       <p className="mt-2 text-xs text-slate-500 flex items-center gap-1 truncate">
@@ -263,9 +245,7 @@ function RequestDetail({ request, canAccept, canComplete, canCancel, canTrack, o
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${urgencyColors[request.urgency] || urgencyColors.medium}`}>
             {displayUrgency(request.urgency, t)}
           </span>
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusColors[request.status] || statusColors.pending}`}>
-            {displayStatus(request.status, t)}
-          </span>
+          <StatusPills status={request.status} />
         </div>
       </div>
 
@@ -626,8 +606,11 @@ export default function RescueRequestPage() {
   const tabFiltered =
     activeTab === "all"
       ? requests
-      : activeTab === "in_progress"
-        ? requests.filter((r) => r.status === "assigned" || r.status === "in_progress")
+      : activeTab === "pending"
+        // Admin-assigned rows live in DB as 'assigned' but the user-facing
+        // story treats them as still pending (rescuer hasn't started yet) —
+        // so they show under the Pending tab and contribute to its count.
+        ? requests.filter((r) => r.status === "pending" || r.status === "assigned")
         : requests.filter((r) => r.status === activeTab);
 
   const tabFilteredWithCity = useMemo(
@@ -764,8 +747,8 @@ export default function RescueRequestPage() {
 
   const counts = {
     all: requests.length,
-    pending: requests.filter((r) => r.status === "pending").length,
-    in_progress: requests.filter((r) => r.status === "assigned" || r.status === "in_progress").length,
+    pending: requests.filter((r) => r.status === "pending" || r.status === "assigned").length,
+    in_progress: requests.filter((r) => r.status === "in_progress").length,
     resolved: requests.filter((r) => r.status === "resolved").length,
   };
 

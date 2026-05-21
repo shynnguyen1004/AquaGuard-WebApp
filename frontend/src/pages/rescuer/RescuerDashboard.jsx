@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
 import RescueTrackingMap from "../../components/rescue/RescueTrackingMap";
+import StatusPills from "../../components/rescue/StatusPills";
 import { getStoredToken } from "../../utils/authStorage";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
@@ -11,23 +12,6 @@ const RESCUER_TAB_DEFS = [
   { key: "team-missions", labelKey: "rescueQueue.rescuerTabMissions", icon: "assignment_ind" },
   { key: "completed", labelKey: "rescueQueue.rescuerTabCompleted", icon: "check_circle" },
 ];
-
-const statusColors = {
-  pending: "bg-warning/10 text-warning border-warning/20",
-  assigned: "bg-primary/10 text-primary border-primary/20",
-  in_progress: "bg-primary/10 text-primary border-primary/20",
-  resolved: "bg-safe/10 text-safe border-safe/20",
-};
-
-function displayStatus(status, t) {
-  const keys = {
-    pending: "sosPage.pending",
-    assigned: "sosPage.assigned",
-    in_progress: "sosPage.inProgress",
-    resolved: "sosPage.resolved",
-  };
-  return keys[status] ? t(keys[status]) : status;
-}
 
 function displayUrgency(urgency, t) {
   const u = urgency || "medium";
@@ -69,7 +53,6 @@ function formatTime(iso, language) {
 function SOSListItem({ request, selected, isNew, onClick }) {
   const { t } = useLanguage();
   const urgencyClass = urgencyColors[request.urgency] || urgencyColors.medium;
-  const statusClass = statusColors[request.status] || statusColors.pending;
 
   return (
     <button
@@ -95,9 +78,7 @@ function SOSListItem({ request, selected, isNew, onClick }) {
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${urgencyClass}`}>
             {displayUrgency(request.urgency, t)}
           </span>
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusClass}`}>
-            {displayStatus(request.status, t)}
-          </span>
+          <StatusPills status={request.status} />
         </div>
       </div>
       <p className="mt-2 text-xs text-slate-500 flex items-center gap-1 truncate">
@@ -155,13 +136,11 @@ function SOSDetailPanel({ request, isOwn, onAccept, onComplete, onCancel, onView
           <p className="font-black text-base truncate">{request.user_name || t("rescueQueue.anonymous")}</p>
           <p className="text-xs text-slate-500 mt-1">{formatTime(request.created_at, language)}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 justify-end">
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${urgencyColors[request.urgency] || urgencyColors.medium}`}>
             {displayUrgency(request.urgency, t)}
           </span>
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusColors[request.status] || statusColors.pending}`}>
-            {displayStatus(request.status, t)}
-          </span>
+          <StatusPills status={request.status} />
         </div>
       </div>
 
@@ -206,25 +185,6 @@ function SOSDetailPanel({ request, isOwn, onAccept, onComplete, onCancel, onView
       )}
 
       <div className="pt-3 border-t border-slate-100 dark:border-slate-700 flex flex-wrap gap-2 justify-end">
-        {request.status === "pending" && onAccept && (
-          <button
-            onClick={() => handleAction(() => onAccept(request.id))}
-            disabled={processing}
-            className="inline-flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-primary/90 transition-all shadow-md shadow-primary/20 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {processing ? (
-              <>
-                <span className="inline-block size-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />
-                {t("rescueQueue.accepting")}
-              </>
-            ) : (
-              <>
-                <span className="material-symbols-outlined text-sm">check</span>
-                {t("rescueQueue.accept")}
-              </>
-            )}
-          </button>
-        )}
         {request.status === "assigned" && onAccept && (
           <button
             onClick={() => handleAction(() => onAccept(request.id))}

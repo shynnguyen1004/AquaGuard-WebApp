@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import RescueTrackingMap from "../../components/rescue/RescueTrackingMap";
+import StatusPills from "../../components/rescue/StatusPills";
 import { getStoredToken } from "../../utils/authStorage";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
@@ -10,13 +11,6 @@ const TABS = [
   { key: "in_progress", label: "In Progress", icon: "local_shipping" },
   { key: "resolved", label: "Resolved", icon: "check_circle" },
 ];
-
-const statusColors = {
-  pending: "bg-warning/10 text-warning border-warning/20",
-  assigned: "bg-primary/10 text-primary border-primary/20",
-  in_progress: "bg-primary/10 text-primary border-primary/20",
-  resolved: "bg-safe/10 text-safe border-safe/20",
-};
 
 const urgencyColors = {
   critical: "bg-danger/10 text-danger border-danger/20",
@@ -104,9 +98,7 @@ function QueueItem({ request, selected, isNew, onSelect }) {
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${urgencyColors[request.urgency] || urgencyColors.medium}`}>
             {request.urgency || "medium"}
           </span>
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusColors[request.status] || statusColors.pending}`}>
-            {request.status}
-          </span>
+          <StatusPills status={request.status} />
         </div>
       </div>
       <p className="mt-2 text-xs text-slate-500 flex items-center gap-1 truncate">
@@ -173,9 +165,7 @@ function RequestDetail({
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${urgencyColors[request.urgency] || urgencyColors.medium}`}>
             {request.urgency || "medium"}
           </span>
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusColors[request.status] || statusColors.pending}`}>
-            {request.status}
-          </span>
+          <StatusPills status={request.status} />
         </div>
       </div>
 
@@ -442,8 +432,10 @@ export default function AdminSOSRequestsPage() {
   const filtered =
     activeTab === "all"
       ? requests
-      : activeTab === "in_progress"
-        ? requests.filter((r) => r.status === "assigned" || r.status === "in_progress")
+      : activeTab === "pending"
+        // Admin-assigned rows (status='assigned') are still in the "pending"
+        // phase from the user's perspective — rescuer hasn't started yet.
+        ? requests.filter((r) => r.status === "pending" || r.status === "assigned")
         : requests.filter((r) => r.status === activeTab);
 
   const filteredWithCity = useMemo(
@@ -511,7 +503,7 @@ export default function AdminSOSRequestsPage() {
       if (sortKey === "oldest") {
         return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
       }
-      const statusPriority = (s) => (s === "pending" ? 2 : s === "assigned" || s === "in_progress" ? 1 : 0);
+      const statusPriority = (s) => (s === "pending" || s === "assigned" ? 2 : s === "in_progress" ? 1 : 0);
       const sp = statusPriority(b.status) - statusPriority(a.status);
       if (sp !== 0) return sp;
       const up = (urgencyRank[b.urgency] || 0) - (urgencyRank[a.urgency] || 0);
@@ -535,8 +527,8 @@ export default function AdminSOSRequestsPage() {
 
   const counts = {
     all: requests.length,
-    pending: requests.filter((r) => r.status === "pending").length,
-    in_progress: requests.filter((r) => r.status === "assigned" || r.status === "in_progress").length,
+    pending: requests.filter((r) => r.status === "pending" || r.status === "assigned").length,
+    in_progress: requests.filter((r) => r.status === "in_progress").length,
     resolved: requests.filter((r) => r.status === "resolved").length,
   };
 

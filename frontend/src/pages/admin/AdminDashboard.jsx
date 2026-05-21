@@ -305,8 +305,8 @@ export default function AdminDashboard({ activePage = "admin" }) {
     citizens: users.filter((u) => u.role === ROLES.CITIZEN).length,
     rescuers: users.filter((u) => u.role === ROLES.RESCUER).length,
     admins: users.filter((u) => u.role === ROLES.ADMIN).length,
-    pendingRequests: rescueRequests.filter((r) => r.status === "pending").length,
-    activeRequests: rescueRequests.filter((r) => r.status === "assigned" || r.status === "in_progress").length,
+    pendingRequests: rescueRequests.filter((r) => r.status === "pending" || r.status === "assigned").length,
+    activeRequests: rescueRequests.filter((r) => r.status === "in_progress").length,
     resolvedRequests: rescueRequests.filter((r) => r.status === "resolved").length,
   };
 
