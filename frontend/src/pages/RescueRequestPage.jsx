@@ -861,35 +861,35 @@ export default function RescueRequestPage() {
           ))}
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
-          {tabList.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab.key
-                ? "bg-primary text-white shadow-md shadow-primary/20"
-                : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:border-primary/30 hover:text-primary"
-                }`}
-            >
-              <span className="material-symbols-outlined text-base">
-                {tab.icon}
-              </span>
-              {tab.label}
-              <span
-                className={`text-[10px] px-2 py-0.5 rounded-full ${activeTab === tab.key
-                  ? "bg-white/20"
-                  : "bg-slate-100 dark:bg-slate-700"
+        {/* Tabs + Sort (same row) */}
+        <div className="flex items-center justify-between gap-3 mb-6 flex-wrap lg:flex-nowrap">
+          <div className="flex gap-2 overflow-x-auto pb-1 min-w-0 flex-1">
+            {tabList.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab.key
+                  ? "bg-primary text-white shadow-md shadow-primary/20"
+                  : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:border-primary/30 hover:text-primary"
                   }`}
               >
-                {counts[tab.key]}
-              </span>
-            </button>
-          ))}
-        </div>
+                <span className="material-symbols-outlined text-base">
+                  {tab.icon}
+                </span>
+                {tab.label}
+                <span
+                  className={`text-[10px] px-2 py-0.5 rounded-full ${activeTab === tab.key
+                    ? "bg-white/20"
+                    : "bg-slate-100 dark:bg-slate-700"
+                    }`}
+                >
+                  {counts[tab.key]}
+                </span>
+              </button>
+            ))}
+          </div>
 
-        <div className="mb-5 flex flex-wrap items-center gap-2">
-          <div className="relative" ref={sortMenuRef}>
+          <div className="relative shrink-0" ref={sortMenuRef}>
             <button
               onClick={() => setShowSortMenu((prev) => !prev)}
               className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:border-primary/40"
@@ -901,7 +901,7 @@ export default function RescueRequestPage() {
             </button>
 
             {showSortMenu && (
-              <div className="absolute z-20 mt-2 w-72 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-2xl">
+              <div className="absolute right-0 z-20 mt-2 w-72 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-2xl">
                 <p className="mb-2 text-xs font-black uppercase tracking-wider text-slate-500">
                   {t("rescueQueue.sortHeading")}
                 </p>
@@ -974,23 +974,27 @@ export default function RescueRequestPage() {
               </div>
             )}
           </div>
-
-          {selectedAgeGroups.map((item) => (
-            <span key={item} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-              {t("rescueQueue.ageChip").replace("{range}", item)}
-            </span>
-          ))}
-          {selectedGenders.map((item) => (
-            <span key={item} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-              {formatGender(item, t)}
-            </span>
-          ))}
-          {selectedCities.map((item) => (
-            <span key={item} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-              {item}
-            </span>
-          ))}
         </div>
+
+        {(selectedAgeGroups.length > 0 || selectedGenders.length > 0 || selectedCities.length > 0) && (
+          <div className="mb-5 flex flex-wrap items-center gap-2">
+            {selectedAgeGroups.map((item) => (
+              <span key={item} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                {t("rescueQueue.ageChip").replace("{range}", item)}
+              </span>
+            ))}
+            {selectedGenders.map((item) => (
+              <span key={item} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                {formatGender(item, t)}
+              </span>
+            ))}
+            {selectedCities.map((item) => (
+              <span key={item} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                {item}
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* Request List */}
         {loading ? (

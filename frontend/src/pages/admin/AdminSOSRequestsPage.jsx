@@ -23,9 +23,31 @@ const ADMIN_SORT_OPTIONS = [
   { key: "priority", label: "Priority" },
   { key: "newest", label: "Newest" },
   { key: "oldest", label: "Oldest" },
+  { key: "age_asc", label: "Age ascending" },
+  { key: "age_desc", label: "Age descending" },
 ];
 
 const ADMIN_SORT_LABELS = Object.fromEntries(ADMIN_SORT_OPTIONS.map((opt) => [opt.key, opt.label]));
+
+const ADMIN_AGE_GROUPS = [
+  { key: "0-16", label: "0-16", min: 0, max: 16 },
+  { key: "16-30", label: "16-30", min: 16, max: 30 },
+  { key: "30-50", label: "30-50", min: 30, max: 50 },
+  { key: "50-90", label: "50-90", min: 50, max: 90 },
+];
+
+const ADMIN_GENDER_OPTIONS = [
+  { key: "male", label: "Male" },
+  { key: "female", label: "Female" },
+  { key: "other", label: "Other" },
+];
+
+function formatAdminGender(value) {
+  if (value === "male") return "Male";
+  if (value === "female") return "Female";
+  if (value === "other") return "Other";
+  return "Unknown";
+}
 const gpsCityCache = new Map();
 
 function extractCityFromLocation(location) {
@@ -277,6 +299,8 @@ export default function AdminSOSRequestsPage() {
   const [sortKey, setSortKey] = useState("priority");
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [selectedCities, setSelectedCities] = useState([]);
+  const [selectedAgeGroups, setSelectedAgeGroups] = useState([]);
+  const [selectedGenders, setSelectedGenders] = useState([]);
   const [requests, setRequests] = useState([]);
   const [rescueGroups, setRescueGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -423,10 +447,15 @@ export default function AdminSOSRequestsPage() {
     }
   };
 
-  const toggleCity = (city) => {
-    setSelectedCities((prev) =>
-      prev.includes(city) ? prev.filter((item) => item !== city) : [...prev, city]
-    );
+  const toggleInList = (value, setter) => {
+    setter((prev) => (prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]));
+  };
+  const toggleCity = (city) => toggleInList(city, setSelectedCities);
+
+  const resetFilters = () => {
+    setSelectedCities([]);
+    setSelectedAgeGroups([]);
+    setSelectedGenders([]);
   };
 
   const filtered =
@@ -489,9 +518,23 @@ export default function AdminSOSRequestsPage() {
   }, [filteredWithCity]);
 
   const cityFiltered = useMemo(() => {
-    if (selectedCities.length === 0) return filteredWithCity;
-    return filteredWithCity.filter((r) => r.cityFromLocation && selectedCities.includes(r.cityFromLocation));
-  }, [filteredWithCity, selectedCities]);
+    return filteredWithCity.filter((r) => {
+      const passCity =
+        selectedCities.length === 0 ||
+        (r.cityFromLocation && selectedCities.includes(r.cityFromLocation));
+      const passAge =
+        selectedAgeGroups.length === 0 ||
+        (typeof r.user_age === "number" &&
+          selectedAgeGroups.some((groupKey) => {
+            const group = ADMIN_AGE_GROUPS.find((item) => item.key === groupKey);
+            return group && r.user_age >= group.min && r.user_age < group.max;
+          }));
+      const passGender =
+        selectedGenders.length === 0 ||
+        (r.user_gender && selectedGenders.includes(r.user_gender));
+      return passCity && passAge && passGender;
+    });
+  }, [filteredWithCity, selectedCities, selectedAgeGroups, selectedGenders]);
 
   const sorted = useMemo(() => {
     const arr = [...cityFiltered];
@@ -502,6 +545,12 @@ export default function AdminSOSRequestsPage() {
       }
       if (sortKey === "oldest") {
         return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+      }
+      if (sortKey === "age_asc") {
+        return (a.user_age ?? Number.MAX_SAFE_INTEGER) - (b.user_age ?? Number.MAX_SAFE_INTEGER);
+      }
+      if (sortKey === "age_desc") {
+        return (b.user_age ?? -1) - (a.user_age ?? -1);
       }
       const statusPriority = (s) => (s === "pending" || s === "assigned" ? 2 : s === "in_progress" ? 1 : 0);
       const sp = statusPriority(b.status) - statusPriority(a.status);
@@ -573,28 +622,29 @@ export default function AdminSOSRequestsPage() {
           ))}
         </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
-                activeTab === tab.key
-                  ? "bg-primary text-white shadow-md shadow-primary/20"
-                  : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:border-primary/30 hover:text-primary"
-              }`}
-            >
-              <span className="material-symbols-outlined text-base">{tab.icon}</span>
-              {tab.label}
-              <span className={`text-[10px] px-2 py-0.5 rounded-full ${activeTab === tab.key ? "bg-white/20" : "bg-slate-100 dark:bg-slate-700"}`}>
-                {counts[tab.key]}
-              </span>
-            </button>
-          ))}
-        </div>
+        {/* Tabs + Sort (same row) */}
+        <div className="flex items-center justify-between gap-3 flex-wrap lg:flex-nowrap">
+          <div className="flex gap-2 overflow-x-auto pb-1 min-w-0 flex-1">
+            {TABS.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
+                  activeTab === tab.key
+                    ? "bg-primary text-white shadow-md shadow-primary/20"
+                    : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:border-primary/30 hover:text-primary"
+                }`}
+              >
+                <span className="material-symbols-outlined text-base">{tab.icon}</span>
+                {tab.label}
+                <span className={`text-[10px] px-2 py-0.5 rounded-full ${activeTab === tab.key ? "bg-white/20" : "bg-slate-100 dark:bg-slate-700"}`}>
+                  {counts[tab.key]}
+                </span>
+              </button>
+            ))}
+          </div>
 
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <div className="relative" ref={sortMenuRef}>
+          <div className="relative shrink-0" ref={sortMenuRef}>
             <button
               onClick={() => setShowSortMenu((prev) => !prev)}
               className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:border-primary/40"
@@ -606,7 +656,7 @@ export default function AdminSOSRequestsPage() {
             </button>
 
             {showSortMenu && (
-              <div className="absolute z-20 mt-2 w-72 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-2xl">
+              <div className="absolute right-0 z-20 mt-2 w-72 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-2xl">
                 <p className="mb-2 text-xs font-black uppercase tracking-wider text-slate-500">Sort</p>
                 <div className="space-y-1">
                   {ADMIN_SORT_OPTIONS.map((option) => (
@@ -620,6 +670,40 @@ export default function AdminSOSRequestsPage() {
                         sortKey === option.key
                           ? "bg-primary/10 text-primary font-bold"
                           : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+
+                <p className="mb-2 mt-4 text-xs font-black uppercase tracking-wider text-slate-500">Age group</p>
+                <div className="flex flex-wrap gap-2">
+                  {ADMIN_AGE_GROUPS.map((group) => (
+                    <button
+                      key={group.key}
+                      onClick={() => toggleInList(group.key, setSelectedAgeGroups)}
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                        selectedAgeGroups.includes(group.key)
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
+                      }`}
+                    >
+                      {group.label}
+                    </button>
+                  ))}
+                </div>
+
+                <p className="mb-2 mt-4 text-xs font-black uppercase tracking-wider text-slate-500">Gender</p>
+                <div className="flex flex-wrap gap-2">
+                  {ADMIN_GENDER_OPTIONS.map((option) => (
+                    <button
+                      key={option.key}
+                      onClick={() => toggleInList(option.key, setSelectedGenders)}
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                        selectedGenders.includes(option.key)
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
                       }`}
                     >
                       {option.label}
@@ -645,7 +729,7 @@ export default function AdminSOSRequestsPage() {
                 </div>
 
                 <button
-                  onClick={() => setSelectedCities([])}
+                  onClick={resetFilters}
                   className="mt-4 w-full rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                 >
                   Clear Filters
@@ -653,13 +737,27 @@ export default function AdminSOSRequestsPage() {
               </div>
             )}
           </div>
-
-          {selectedCities.map((city) => (
-            <span key={city} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-              {city}
-            </span>
-          ))}
         </div>
+
+        {(selectedAgeGroups.length > 0 || selectedGenders.length > 0 || selectedCities.length > 0) && (
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            {selectedAgeGroups.map((item) => (
+              <span key={item} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                Age {item}
+              </span>
+            ))}
+            {selectedGenders.map((item) => (
+              <span key={item} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                {formatAdminGender(item)}
+              </span>
+            ))}
+            {selectedCities.map((city) => (
+              <span key={city} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                {city}
+              </span>
+            ))}
+          </div>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-16">
