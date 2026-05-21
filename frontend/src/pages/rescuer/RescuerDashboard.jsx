@@ -7,7 +7,7 @@ import { getStoredToken } from "../../utils/authStorage";
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
 const RESCUER_TAB_DEFS = [
-  { key: "active", labelKey: "rescueQueue.rescuerTabActive", icon: "emergency" },
+  { key: "to-start", labelKey: "rescueQueue.rescuerTabToStart", icon: "assignment_late" },
   { key: "team-missions", labelKey: "rescueQueue.rescuerTabMissions", icon: "assignment_ind" },
   { key: "completed", labelKey: "rescueQueue.rescuerTabCompleted", icon: "check_circle" },
 ];
@@ -225,7 +225,7 @@ function SOSDetailPanel({ request, isOwn, onAccept, onComplete, onCancel, onView
             )}
           </button>
         )}
-        {isOwn && request.status === "assigned" && onAccept && (
+        {request.status === "assigned" && onAccept && (
           <button
             onClick={() => handleAction(() => onAccept(request.id))}
             disabled={processing}
@@ -281,8 +281,7 @@ function SOSDetailPanel({ request, isOwn, onAccept, onComplete, onCancel, onView
 export default function RescuerDashboard() {
   const { user } = useAuth();
   const { t } = useLanguage();
-  const [activeTab, setActiveTab] = useState("active");
-  const [requests, setRequests] = useState([]);
+  const [activeTab, setActiveTab] = useState("to-start");
   const [teamRequests, setTeamRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeGroup, setActiveGroup] = useState(null);
@@ -291,28 +290,6 @@ export default function RescuerDashboard() {
   const [selectedRequestId, setSelectedRequestId] = useState(null);
   const [seenRequestIds, setSeenRequestIds] = useState([]);
 
-
-  const fetchRequests = async () => {
-    const token = getStoredToken();
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const res = await fetch(`${API_BASE}/sos/all`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const json = await res.json();
-      if (json.success) {
-        setRequests(json.data);
-      }
-    } catch (err) {
-      console.error("Failed to fetch requests:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchGroupContext = async () => {
     const token = getStoredToken();
@@ -334,7 +311,10 @@ export default function RescuerDashboard() {
 
   const fetchTeamRequests = async () => {
     const token = getStoredToken();
-    if (!token) return;
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     try {
       const res = await fetch(`${API_BASE}/sos/team`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -346,26 +326,24 @@ export default function RescuerDashboard() {
       }
     } catch (err) {
       console.error("Failed to fetch team requests:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchRequests();
     fetchGroupContext();
     fetchTeamRequests();
   }, []);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      fetchRequests();
-      fetchTeamRequests();
-    }, 10000);
+    const interval = setInterval(fetchTeamRequests, 10000);
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
     const handleProfileUpdated = () => {
-      fetchRequests();
+      fetchTeamRequests();
     };
     window.addEventListener("profile_updated", handleProfileUpdated);
     return () => window.removeEventListener("profile_updated", handleProfileUpdated);
@@ -430,7 +408,7 @@ export default function RescuerDashboard() {
       });
       const json = await res.json();
       if (json.success) {
-        fetchRequests();
+        fetchTeamRequests();
         window.dispatchEvent(
           new CustomEvent("sos_changed", { detail: { type: "accepted", requestId } })
         );
@@ -473,7 +451,7 @@ export default function RescuerDashboard() {
       const json = await res.json();
       if (json.success) {
         setTrackingRequest(null);
-        fetchRequests();
+        fetchTeamRequests();
         window.dispatchEvent(
           new CustomEvent("sos_changed", { detail: { type: "completed", requestId } })
         );
@@ -496,7 +474,7 @@ export default function RescuerDashboard() {
       const json = await res.json();
       if (json.success) {
         setTrackingRequest(null);
-        fetchRequests();
+        fetchTeamRequests();
         window.dispatchEvent(
           new CustomEvent("sos_changed", { detail: { type: "cancelled", requestId } })
         );
@@ -512,16 +490,14 @@ export default function RescuerDashboard() {
     setTrackingRequest(request);
   };
 
-  const activeRequests = requests.filter((r) => r.status === "pending");
-  const teamActive = teamRequests.filter(
-    (r) => r.status === "assigned" || r.status === "in_progress"
-  );
+  const teamToStart = teamRequests.filter((r) => r.status === "assigned");
+  const teamInProgress = teamRequests.filter((r) => r.status === "in_progress");
   const teamCompleted = teamRequests.filter((r) => r.status === "resolved");
 
-  const filteredRequests = activeTab === "active"
-    ? activeRequests
+  const filteredRequests = activeTab === "to-start"
+    ? teamToStart
     : activeTab === "team-missions"
-      ? teamActive
+      ? teamInProgress
       : teamCompleted;
 
   const sortedRequests = useMemo(() => {
@@ -543,8 +519,8 @@ export default function RescuerDashboard() {
   }, [sortedRequests, selectedRequestId]);
 
   const stats = {
-    activeSOS: activeRequests.length,
-    teamMissions: teamActive.length,
+    toStart: teamToStart.length,
+    teamMissions: teamInProgress.length,
     completed: teamCompleted.length,
   };
 
@@ -612,12 +588,12 @@ export default function RescuerDashboard() {
 
         {activeGroup && (
         <div className="grid grid-cols-3 gap-4">
-          <div className="bg-danger/10 rounded-2xl p-4 border border-slate-100 dark:border-slate-700/30">
+          <div className="bg-warning/10 rounded-2xl p-4 border border-slate-100 dark:border-slate-700/30">
             <div className="flex items-center gap-2 mb-2">
-              <span className="material-symbols-outlined filled-icon text-danger">emergency</span>
+              <span className="material-symbols-outlined filled-icon text-warning">assignment_late</span>
             </div>
-            <p className="text-2xl font-black">{stats.activeSOS}</p>
-            <p className="text-xs text-slate-500 font-medium">{t("rescueQueue.rescuerStatActive")}</p>
+            <p className="text-2xl font-black">{stats.toStart}</p>
+            <p className="text-xs text-slate-500 font-medium">{t("rescueQueue.rescuerStatToStart")}</p>
           </div>
           <div className="bg-primary/10 rounded-2xl p-4 border border-slate-100 dark:border-slate-700/30">
             <div className="flex items-center gap-2 mb-2">
@@ -654,7 +630,7 @@ export default function RescuerDashboard() {
               <span className={`text-[10px] px-2 py-0.5 rounded-full ${
                 activeTab === tab.key ? "bg-white/20" : "bg-slate-100 dark:bg-slate-700"
               }`}>
-                {tab.key === "active" ? stats.activeSOS : tab.key === "team-missions" ? stats.teamMissions : stats.completed}
+                {tab.key === "to-start" ? stats.toStart : tab.key === "team-missions" ? stats.teamMissions : stats.completed}
               </span>
             </button>
           ))}
@@ -667,18 +643,18 @@ export default function RescuerDashboard() {
         ) : sortedRequests.length === 0 ? (
           <div className="text-center py-16">
             <span className="material-symbols-outlined text-6xl text-slate-300 dark:text-slate-600 mb-4">
-              {activeTab === "active" ? "emergency" : activeTab === "team-missions" ? "assignment_ind" : "check_circle"}
+              {activeTab === "to-start" ? "assignment_late" : activeTab === "team-missions" ? "assignment_ind" : "check_circle"}
             </span>
             <p className="text-lg font-bold text-slate-400 dark:text-slate-500">
-              {activeTab === "active"
-                ? t("rescueQueue.rescuerEmptyActiveTitle")
+              {activeTab === "to-start"
+                ? t("rescueQueue.rescuerEmptyToStartTitle")
                 : activeTab === "team-missions"
                   ? t("rescueQueue.rescuerEmptyMissionsTitle")
                   : t("rescueQueue.rescuerEmptyCompletedTitle")}
             </p>
             <p className="text-sm text-slate-400 dark:text-slate-600 mt-1">
-              {activeTab === "active"
-                ? t("rescueQueue.rescuerEmptyActiveHint")
+              {activeTab === "to-start"
+                ? t("rescueQueue.rescuerEmptyToStartHint")
                 : activeTab === "team-missions"
                   ? t("rescueQueue.rescuerEmptyMissionsHint")
                   : t("rescueQueue.rescuerEmptyCompletedHint")}
@@ -696,9 +672,9 @@ export default function RescuerDashboard() {
               <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
                 {sortedRequests.map((req) => {
                   const isNew =
-                    req.status === "pending" &&
+                    req.status === "assigned" &&
                     !seenRequestIds.includes(req.id) &&
-                    Date.now() - new Date(req.created_at || 0).getTime() < 30 * 60 * 1000;
+                    Date.now() - new Date(req.assigned_at || req.created_at || 0).getTime() < 30 * 60 * 1000;
                   return (
                     <SOSListItem
                       key={req.id}
@@ -715,7 +691,7 @@ export default function RescuerDashboard() {
             <SOSDetailPanel
               request={selectedRequest}
               isOwn={selectedRequest?.assigned_to == rescuerUid}
-              onAccept={canAcceptMission && (activeTab === "active" || activeTab === "team-missions") ? handleAccept : undefined}
+              onAccept={canAcceptMission && activeTab === "to-start" ? handleAccept : undefined}
               onComplete={canAcceptMission && activeTab === "team-missions" ? handleComplete : undefined}
               onCancel={canAcceptMission && activeTab === "team-missions" ? handleCancel : undefined}
               onViewTracking={activeTab === "team-missions" ? handleViewTracking : undefined}
@@ -749,7 +725,7 @@ export default function RescuerDashboard() {
           }
           onClose={() => {
             setTrackingRequest(null);
-            fetchRequests();
+            fetchTeamRequests();
           }}
           onComplete={() => handleComplete(trackingRequest.id)}
           onCancel={() => handleCancel(trackingRequest.id)}
