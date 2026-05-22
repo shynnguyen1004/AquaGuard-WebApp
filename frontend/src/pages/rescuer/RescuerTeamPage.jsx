@@ -555,8 +555,8 @@ export default function RescuerTeamPage() {
               )}
               {teamStats && (
                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-danger/10 text-danger text-xs font-bold border border-danger/15">
-                    <span className="material-symbols-outlined text-[14px] filled-icon">emergency</span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 text-xs font-bold border border-indigo-500/15">
+                    <span className="material-symbols-outlined text-[14px] filled-icon">directions_run</span>
                     {teamStats.activeMissions} {t("teamPage.statActiveShort")}
                   </span>
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-safe/10 text-safe text-xs font-bold border border-safe/15">
