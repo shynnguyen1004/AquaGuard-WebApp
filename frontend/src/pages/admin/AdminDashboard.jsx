@@ -394,26 +394,31 @@ export default function AdminDashboard({ activePage = "admin" }) {
               <div className="bg-white dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-100 dark:border-slate-700/30">
                 <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                   <span className="material-symbols-outlined text-warning">local_fire_department</span>
-                  Rescue Teams
+                  Rescue Teams ({rescueGroups.length})
                 </h3>
-                {rescuers.length === 0 ? (
-                  <p className="text-sm text-slate-400">No rescuers registered yet</p>
+                {rescueGroups.length === 0 ? (
+                  <p className="text-sm text-slate-400">No rescue teams created yet</p>
                 ) : (
                   <div className="space-y-3">
-                    {rescuers.slice(0, 5).map((r) => (
-                      <div key={r.id} className="flex items-center gap-3">
-                        <img
-                          alt={r.displayName}
-                          className="size-8 rounded-full border border-warning/30 object-cover"
-                          src={r.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(r.displayName || "R")}&background=f59e0b&color=fff`}
-                          referrerPolicy="no-referrer"
-                        />
-                        <div>
-                          <p className="text-sm font-medium">{r.displayName || "Unknown"}</p>
-                          <p className="text-xs text-slate-500">{r.phoneNumber || r.email || ""}</p>
+                    {rescueGroups.slice(0, 5).map((g) => (
+                      <div key={g.id} className="flex items-center gap-3">
+                        <div className="size-9 rounded-full border border-warning/30 bg-warning/10 flex items-center justify-center shrink-0">
+                          <span className="material-symbols-outlined text-warning text-base">groups</span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{g.name}</p>
+                          <p className="text-xs text-slate-500 truncate">
+                            {Number(g.member_count) || 0} {Number(g.member_count) === 1 ? "member" : "members"}
+                            {g.leader_name ? ` • Leader: ${g.leader_name}` : ""}
+                          </p>
                         </div>
                       </div>
                     ))}
+                    {rescueGroups.length > 5 && (
+                      <p className="text-xs text-slate-400 pt-1">
+                        +{rescueGroups.length - 5} more
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

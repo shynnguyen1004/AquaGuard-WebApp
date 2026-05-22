@@ -7,12 +7,6 @@ import { getStoredToken } from "../../utils/authStorage";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
-const RESCUER_TAB_DEFS = [
-  { key: "to-start", labelKey: "rescueQueue.rescuerTabToStart", icon: "assignment_late" },
-  { key: "team-missions", labelKey: "rescueQueue.rescuerTabMissions", icon: "assignment_ind" },
-  { key: "completed", labelKey: "rescueQueue.rescuerTabCompleted", icon: "check_circle" },
-];
-
 function displayUrgency(urgency, t) {
   const u = urgency || "medium";
   const keys = {
@@ -177,7 +171,7 @@ function SOSDetailPanel({ request, isOwn, onAccept, onComplete, onCancel, onView
               key={i}
               src={img}
               alt={`SOS ${i + 1}`}
-              className="h-20 w-28 rounded-lg object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0 cursor-pointer"
+              className="h-40 w-56 rounded-lg object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
               onClick={() => window.open(img, "_blank")}
             />
           ))}
@@ -484,11 +478,6 @@ export default function RescuerDashboard() {
     completed: teamCompleted.length,
   };
 
-  const tabList = useMemo(
-    () => RESCUER_TAB_DEFS.map((tab) => ({ ...tab, label: t(tab.labelKey) })),
-    [t]
-  );
-
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
@@ -546,56 +535,38 @@ export default function RescuerDashboard() {
           </div>
         )}
 
+        {/* Stat cards double as tab buttons — click to filter the queue below. */}
         {activeGroup && (
         <div className="grid grid-cols-3 gap-4">
-          <div className="bg-warning/10 rounded-2xl p-4 border border-slate-100 dark:border-slate-700/30">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="material-symbols-outlined filled-icon text-warning">assignment_late</span>
-            </div>
-            <p className="text-2xl font-black">{stats.toStart}</p>
-            <p className="text-xs text-slate-500 font-medium">{t("rescueQueue.rescuerStatToStart")}</p>
-          </div>
-          <div className="bg-primary/10 rounded-2xl p-4 border border-slate-100 dark:border-slate-700/30">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="material-symbols-outlined filled-icon text-primary">assignment_ind</span>
-            </div>
-            <p className="text-2xl font-black">{stats.teamMissions}</p>
-            <p className="text-xs text-slate-500 font-medium">{t("rescueQueue.rescuerStatMissions")}</p>
-          </div>
-          <div className="bg-safe/10 rounded-2xl p-4 border border-slate-100 dark:border-slate-700/30">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="material-symbols-outlined filled-icon text-safe">check_circle</span>
-            </div>
-            <p className="text-2xl font-black">{stats.completed}</p>
-            <p className="text-xs text-slate-500 font-medium">{t("rescueQueue.rescuerStatCompleted")}</p>
-          </div>
+          {[
+            { key: "to-start",      value: stats.toStart,      labelKey: "rescueQueue.rescuerStatToStart",    icon: "assignment_late", bg: "bg-warning/10", iconColor: "text-warning", ring: "ring-warning" },
+            { key: "team-missions", value: stats.teamMissions, labelKey: "rescueQueue.rescuerStatMissions",   icon: "assignment_ind",  bg: "bg-primary/10", iconColor: "text-primary", ring: "ring-primary" },
+            { key: "completed",     value: stats.completed,    labelKey: "rescueQueue.rescuerStatCompleted",  icon: "check_circle",    bg: "bg-safe/10",    iconColor: "text-safe",    ring: "ring-safe" },
+          ].map((stat) => {
+            const isActive = activeTab === stat.key;
+            return (
+              <button
+                key={stat.key}
+                type="button"
+                onClick={() => setActiveTab(stat.key)}
+                aria-pressed={isActive}
+                className={`${stat.bg} rounded-2xl p-4 border border-slate-100 dark:border-slate-700/30 text-left transition-all hover:brightness-95 active:scale-[0.99] ${
+                  isActive ? `ring-2 ring-offset-2 ring-offset-slate-50 dark:ring-offset-slate-900 ${stat.ring} shadow-md` : ""
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={`material-symbols-outlined filled-icon ${stat.iconColor}`}>{stat.icon}</span>
+                </div>
+                <p className="text-2xl font-black">{stat.value}</p>
+                <p className="text-xs text-slate-500 font-medium">{t(stat.labelKey)}</p>
+              </button>
+            );
+          })}
         </div>
         )}
 
         {activeGroup && (
         <>
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {tabList.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
-                activeTab === tab.key
-                  ? "bg-primary text-white shadow-md shadow-primary/20"
-                  : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:border-primary/30 hover:text-primary"
-              }`}
-            >
-              <span className="material-symbols-outlined text-base">{tab.icon}</span>
-              {tab.label}
-              <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                activeTab === tab.key ? "bg-white/20" : "bg-slate-100 dark:bg-slate-700"
-              }`}>
-                {tab.key === "to-start" ? stats.toStart : tab.key === "team-missions" ? stats.teamMissions : stats.completed}
-              </span>
-            </button>
-          ))}
-        </div>
-
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="size-10 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />

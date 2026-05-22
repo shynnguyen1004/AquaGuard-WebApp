@@ -7,13 +7,6 @@ import { getStoredToken } from "../utils/authStorage";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
-const TAB_DEFS = [
-  { key: "all", icon: "list", labelKey: "rescueQueue.tabAll" },
-  { key: "pending", icon: "schedule", labelKey: "rescueQueue.tabPending" },
-  { key: "in_progress", icon: "local_shipping", labelKey: "rescueQueue.tabInProgress" },
-  { key: "resolved", icon: "check_circle", labelKey: "rescueQueue.tabResolved" },
-];
-
 const urgencyColors = {
   critical: "bg-danger/10 text-danger border-danger/20",
   high: "bg-warning/10 text-warning border-warning/20",
@@ -296,7 +289,7 @@ function RequestDetail({ request, canAccept, canComplete, canCancel, canTrack, o
               key={i}
               src={img}
               alt={`SOS ${i + 1}`}
-              className="h-20 w-28 rounded-lg object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0 cursor-pointer"
+              className="h-40 w-56 rounded-lg object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
               onClick={() => window.open(img, "_blank")}
             />
           ))}
@@ -368,7 +361,6 @@ export default function RescueRequestPage() {
   const [cityByRequestId, setCityByRequestId] = useState({});
   const sortMenuRef = useRef(null);
 
-  const tabList = useMemo(() => TAB_DEFS.map((d) => ({ ...d, label: t(d.labelKey) })), [t]);
   const sortLabels = useMemo(
     () => Object.fromEntries(SORT_OPTION_DEFS.map((o) => [o.key, t(o.labelKey)])),
     [t]
@@ -806,174 +798,39 @@ export default function RescueRequestPage() {
           </div>
         )}
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {/* Stat cards double as tab buttons — click to filter the queue below. */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {[
-            {
-              labelKey: "rescueQueue.statsTotal",
-              value: counts.all,
-              icon: "format_list_numbered",
-              bg: "bg-slate-100 dark:bg-slate-800",
-              iconColor: "text-slate-500",
-            },
-            {
-              labelKey: "rescueQueue.statsPending",
-              value: counts.pending,
-              icon: "schedule",
-              bg: "bg-warning/10",
-              iconColor: "text-warning",
-            },
-            {
-              labelKey: "rescueQueue.statsInProgress",
-              value: counts.in_progress,
-              icon: "local_shipping",
-              bg: "bg-primary/10",
-              iconColor: "text-primary",
-            },
-            {
-              labelKey: "rescueQueue.statsResolved",
-              value: counts.resolved,
-              icon: "check_circle",
-              bg: "bg-safe/10",
-              iconColor: "text-safe",
-            },
-          ].map((stat) => (
-            <div
-              key={stat.labelKey}
-              className={`${stat.bg} rounded-2xl p-4 flex items-center gap-4 border border-slate-100 dark:border-slate-700/30`}
-            >
-              <div
-                className={`size-10 rounded-xl bg-white/60 dark:bg-white/5 flex items-center justify-center`}
-              >
-                <span
-                  className={`material-symbols-outlined filled-icon ${stat.iconColor}`}
-                >
-                  {stat.icon}
-                </span>
-              </div>
-              <div>
-                <p className="text-2xl font-black">{stat.value}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  {t(stat.labelKey)}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Tabs + Sort (same row) */}
-        <div className="flex items-center justify-between gap-3 mb-6 flex-wrap lg:flex-nowrap">
-          <div className="flex gap-2 overflow-x-auto pb-1 min-w-0 flex-1">
-            {tabList.map((tab) => (
+            { key: "all",         labelKey: "rescueQueue.statsTotal",      value: counts.all,         icon: "format_list_numbered", bg: "bg-slate-100 dark:bg-slate-800", iconColor: "text-slate-500", ring: "ring-slate-400 dark:ring-slate-500" },
+            { key: "pending",     labelKey: "rescueQueue.statsPending",    value: counts.pending,     icon: "schedule",             bg: "bg-warning/10",                 iconColor: "text-warning",  ring: "ring-warning" },
+            { key: "in_progress", labelKey: "rescueQueue.statsInProgress", value: counts.in_progress, icon: "local_shipping",       bg: "bg-primary/10",                 iconColor: "text-primary",  ring: "ring-primary" },
+            { key: "resolved",    labelKey: "rescueQueue.statsResolved",   value: counts.resolved,    icon: "check_circle",         bg: "bg-safe/10",                    iconColor: "text-safe",     ring: "ring-safe" },
+          ].map((stat) => {
+            const isActive = activeTab === stat.key;
+            return (
               <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === tab.key
-                  ? "bg-primary text-white shadow-md shadow-primary/20"
-                  : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:border-primary/30 hover:text-primary"
-                  }`}
+                key={stat.key}
+                type="button"
+                onClick={() => setActiveTab(stat.key)}
+                aria-pressed={isActive}
+                className={`${stat.bg} rounded-2xl p-4 flex items-center gap-4 border border-slate-100 dark:border-slate-700/30 text-left transition-all hover:brightness-95 active:scale-[0.99] ${
+                  isActive ? `ring-2 ring-offset-2 ring-offset-slate-50 dark:ring-offset-slate-900 ${stat.ring} shadow-md` : ""
+                }`}
               >
-                <span className="material-symbols-outlined text-base">
-                  {tab.icon}
-                </span>
-                {tab.label}
-                <span
-                  className={`text-[10px] px-2 py-0.5 rounded-full ${activeTab === tab.key
-                    ? "bg-white/20"
-                    : "bg-slate-100 dark:bg-slate-700"
-                    }`}
-                >
-                  {counts[tab.key]}
-                </span>
+                <div className="size-10 rounded-xl bg-white/60 dark:bg-white/5 flex items-center justify-center shrink-0">
+                  <span className={`material-symbols-outlined filled-icon ${stat.iconColor}`}>
+                    {stat.icon}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-2xl font-black">{stat.value}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    {t(stat.labelKey)}
+                  </p>
+                </div>
               </button>
-            ))}
-          </div>
-
-          <div className="relative shrink-0" ref={sortMenuRef}>
-            <button
-              onClick={() => setShowSortMenu((prev) => !prev)}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:border-primary/40"
-            >
-              <span className="material-symbols-outlined text-base">tune</span>
-              {t("rescueQueue.sortBy")}
-              <span className="text-slate-500">{sortLabels[sortKey]}</span>
-              <span className="material-symbols-outlined text-base">{showSortMenu ? "expand_less" : "expand_more"}</span>
-            </button>
-
-            {showSortMenu && (
-              <div className="absolute right-0 z-20 mt-2 w-72 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-2xl">
-                <p className="mb-2 text-xs font-black uppercase tracking-wider text-slate-500">
-                  {t("rescueQueue.sortHeading")}
-                </p>
-                <div className="space-y-1">
-                  {SORT_OPTION_DEFS.map((option) => (
-                    <button
-                      key={option.key}
-                      onClick={() => {
-                        setSortKey(option.key);
-                        setShowSortMenu(false);
-                      }}
-                      className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${sortKey === option.key ? "bg-primary/10 text-primary font-bold" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
-                    >
-                      {t(option.labelKey)}
-                    </button>
-                  ))}
-                </div>
-
-                <p className="mb-2 mt-4 text-xs font-black uppercase tracking-wider text-slate-500">
-                  {t("rescueQueue.ageGroup")}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {AGE_GROUPS.map((group) => (
-                    <button
-                      key={group.key}
-                      onClick={() => toggleInList(group.key, setSelectedAgeGroups)}
-                      className={`rounded-full border px-3 py-1 text-xs font-semibold ${selectedAgeGroups.includes(group.key) ? "border-primary bg-primary/10 text-primary" : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"}`}
-                    >
-                      {group.label}
-                    </button>
-                  ))}
-                </div>
-
-                <p className="mb-2 mt-4 text-xs font-black uppercase tracking-wider text-slate-500">
-                  {t("rescueQueue.genderHeading")}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {GENDER_OPTION_DEFS.map((option) => (
-                    <button
-                      key={option.key}
-                      onClick={() => toggleInList(option.key, setSelectedGenders)}
-                      className={`rounded-full border px-3 py-1 text-xs font-semibold ${selectedGenders.includes(option.key) ? "border-primary bg-primary/10 text-primary" : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"}`}
-                    >
-                      {t(option.labelKey)}
-                    </button>
-                  ))}
-                </div>
-
-                <p className="mb-2 mt-4 text-xs font-black uppercase tracking-wider text-slate-500">
-                  {t("rescueQueue.city")}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {cityOptions.map((option) => (
-                    <button
-                      key={option.key}
-                      onClick={() => toggleInList(option.key, setSelectedCities)}
-                      className={`rounded-full border px-3 py-1 text-xs font-semibold ${selectedCities.includes(option.key) ? "border-primary bg-primary/10 text-primary" : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"}`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-
-                <button
-                  onClick={resetFilters}
-                  className="mt-4 w-full rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                >
-                  {t("rescueQueue.clearFilters")}
-                </button>
-              </div>
-            )}
-          </div>
+            );
+          })}
         </div>
 
         {(selectedAgeGroups.length > 0 || selectedGenders.length > 0 || selectedCities.length > 0) && (
@@ -1016,11 +873,94 @@ export default function RescueRequestPage() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-[380px_minmax(0,1fr)] gap-4 items-start">
             <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 p-3">
-              <div className="flex items-center justify-between px-1 pb-2">
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <div className="flex items-center justify-between gap-2 px-1 pb-2">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider truncate">
                   {t("rescueQueue.requestQueue").replace("{count}", String(sorted.length))}
                 </p>
-                <p className="text-[11px] text-slate-400">{sortLabels[sortKey]}</p>
+                <div className="relative shrink-0" ref={sortMenuRef}>
+                  <button
+                    onClick={() => setShowSortMenu((prev) => !prev)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-200 hover:border-primary/40"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">tune</span>
+                    {sortLabels[sortKey]}
+                    <span className="material-symbols-outlined text-[14px]">{showSortMenu ? "expand_less" : "expand_more"}</span>
+                  </button>
+
+                  {showSortMenu && (
+                    <div className="absolute right-0 z-20 mt-2 w-72 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-2xl">
+                      <p className="mb-2 text-xs font-black uppercase tracking-wider text-slate-500">
+                        {t("rescueQueue.sortHeading")}
+                      </p>
+                      <div className="space-y-1">
+                        {SORT_OPTION_DEFS.map((option) => (
+                          <button
+                            key={option.key}
+                            onClick={() => {
+                              setSortKey(option.key);
+                              setShowSortMenu(false);
+                            }}
+                            className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${sortKey === option.key ? "bg-primary/10 text-primary font-bold" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
+                          >
+                            {t(option.labelKey)}
+                          </button>
+                        ))}
+                      </div>
+
+                      <p className="mb-2 mt-4 text-xs font-black uppercase tracking-wider text-slate-500">
+                        {t("rescueQueue.ageGroup")}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {AGE_GROUPS.map((group) => (
+                          <button
+                            key={group.key}
+                            onClick={() => toggleInList(group.key, setSelectedAgeGroups)}
+                            className={`rounded-full border px-3 py-1 text-xs font-semibold ${selectedAgeGroups.includes(group.key) ? "border-primary bg-primary/10 text-primary" : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"}`}
+                          >
+                            {group.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <p className="mb-2 mt-4 text-xs font-black uppercase tracking-wider text-slate-500">
+                        {t("rescueQueue.genderHeading")}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {GENDER_OPTION_DEFS.map((option) => (
+                          <button
+                            key={option.key}
+                            onClick={() => toggleInList(option.key, setSelectedGenders)}
+                            className={`rounded-full border px-3 py-1 text-xs font-semibold ${selectedGenders.includes(option.key) ? "border-primary bg-primary/10 text-primary" : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"}`}
+                          >
+                            {t(option.labelKey)}
+                          </button>
+                        ))}
+                      </div>
+
+                      <p className="mb-2 mt-4 text-xs font-black uppercase tracking-wider text-slate-500">
+                        {t("rescueQueue.city")}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {cityOptions.map((option) => (
+                          <button
+                            key={option.key}
+                            onClick={() => toggleInList(option.key, setSelectedCities)}
+                            className={`rounded-full border px-3 py-1 text-xs font-semibold ${selectedCities.includes(option.key) ? "border-primary bg-primary/10 text-primary" : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"}`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <button
+                        onClick={resetFilters}
+                        className="mt-4 w-full rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      >
+                        {t("rescueQueue.clearFilters")}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
                 {sorted.map((request) => {

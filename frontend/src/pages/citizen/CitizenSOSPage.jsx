@@ -235,7 +235,7 @@ export default function CitizenSOSPage() {
                             key={i}
                             src={img}
                             alt={`SOS ${i + 1}`}
-                            className="h-20 w-28 rounded-xl object-cover border border-slate-200 dark:border-slate-600 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                            className="h-40 w-56 rounded-xl object-cover border border-slate-200 dark:border-slate-600 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
                             onClick={() => window.open(img, "_blank")}
                           />
                         ))}
