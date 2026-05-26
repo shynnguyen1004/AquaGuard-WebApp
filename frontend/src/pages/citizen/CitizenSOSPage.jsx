@@ -4,6 +4,7 @@ import { useLanguage } from "../../contexts/LanguageContext";
 import RescueRequestForm from "../../components/rescue/RescueRequestForm";
 import RescueTrackingMap from "../../components/rescue/RescueTrackingMap";
 import { getStoredToken } from "../../utils/authStorage";
+import { prewarmGps } from "../../utils/locationSync";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
@@ -55,7 +56,17 @@ export default function CitizenSOSPage() {
 
   useEffect(() => {
     fetchMyRequests();
+    // Pre-warm GPS so the SOS modal has a fresh fix the moment the user opens it.
+    // Without this, the modal cold-starts geolocation and can sit at "loading" for 10s+.
+    prewarmGps();
   }, []);
+
+  // Re-prime GPS the moment the user is about to open the modal — by the time
+  // the dialog mounts and reads the cache, the browser already has a position.
+  const openForm = () => {
+    prewarmGps();
+    setShowForm(true);
+  };
 
   // Auto-refresh to catch status changes (e.g. rescuer accepted).
   // Poll faster (4s) while at least one request is awaiting action so the citizen sees
@@ -135,7 +146,7 @@ export default function CitizenSOSPage() {
             </p>
           </div>
           <button
-            onClick={() => setShowForm(true)}
+            onClick={openForm}
             data-tour="sos-send"
             className="inline-flex items-center gap-2 bg-danger text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-red-600 transition-all shadow-lg shadow-danger/20 hover:shadow-xl hover:shadow-danger/30"
           >

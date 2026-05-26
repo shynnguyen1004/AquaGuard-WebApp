@@ -101,11 +101,11 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
     return "unavailable";
   };
 
-  const requestGps = useCallback(() => {
+  const requestGps = useCallback(async () => {
     setGpsErrorReason(null);
     gpsAccuracyRef.current = "none";
 
-    // ── Tier 1: Instant — cached GPS from sessionStorage ──
+    // ── Tier 1: Instant — cached GPS from sessionStorage (≤ 5 min) ──
     const cached = getCachedGpsPosition();
     if (cached) {
       updateGps(cached.latitude, cached.longitude, "cached");
@@ -121,31 +121,55 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
       return;
     }
 
-    // ── Tier 2: Fast — low-accuracy (WiFi/IP, ~0.5s) ──
+    // ── Permissions API: short-circuit denied state without firing a probe ──
+    try {
+      const perm = await navigator.permissions?.query?.({ name: "geolocation" });
+      if (perm?.state === "denied" && gpsAccuracyRef.current === "none") {
+        setGpsStatus("error");
+        setGpsErrorReason("denied");
+        return;
+      }
+    } catch { /* Permissions API unavailable — fall through to probe */ }
+
+    // Tier 3 is the slow one — kick it off first so its long timeout runs in parallel
+    // with Tier 2's fast WiFi/IP fix instead of stacking behind it.
+    // maximumAge: 120000 lets the browser return any position it acquired during
+    // pre-warm (CitizenSOSPage triggers a warmup ~seconds before this runs).
+    const tier3Promise = new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => { updateGps(pos.coords.latitude, pos.coords.longitude, "high"); resolve(true); },
+        (err) => {
+          if (gpsAccuracyRef.current === "none") {
+            // Last-resort: surface a stale cache (up to ~24h) before declaring failure.
+            // The user can still edit the address; better than blocking the SOS flow.
+            const stale = getCachedGpsPosition(86400000);
+            if (stale) {
+              updateGps(stale.latitude, stale.longitude, "cached");
+            } else {
+              setGpsStatus("error");
+              setGpsErrorReason((prev) => prev || mapGpsErrorReason(err));
+            }
+          }
+          resolve(false);
+        },
+        { enableHighAccuracy: true, timeout: 20000, maximumAge: 120000 }
+      );
+    });
+
+    // ── Tier 2: Fast — low-accuracy (WiFi/IP) ──
     navigator.geolocation.getCurrentPosition(
       (pos) => updateGps(pos.coords.latitude, pos.coords.longitude, "low"),
       (err) => {
-        // PERMISSION_DENIED is final — Tier 3 will fail the same way, surface immediately.
+        // PERMISSION_DENIED is final — surface immediately.
         if (err.code === 1 && gpsAccuracyRef.current === "none") {
           setGpsStatus("error");
           setGpsErrorReason("denied");
         }
       },
-      { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 120000 }
     );
 
-    // ── Tier 3: Precise — high-accuracy GPS hardware (may take 3-10s) ──
-    navigator.geolocation.getCurrentPosition(
-      (pos) => updateGps(pos.coords.latitude, pos.coords.longitude, "high"),
-      (err) => {
-        if (gpsAccuracyRef.current === "none") {
-          setGpsStatus("error");
-          // Don't overwrite a more-specific "denied" reason captured by Tier 2.
-          setGpsErrorReason((prev) => prev || mapGpsErrorReason(err));
-        }
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
-    );
+    await tier3Promise;
   }, [updateGps]);
 
   useEffect(() => {

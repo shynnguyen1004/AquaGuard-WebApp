@@ -22,18 +22,37 @@ export function cacheGpsPosition(latitude, longitude) {
 
 /**
  * Read cached GPS position from sessionStorage.
- * Returns { latitude, longitude } if cache is fresh (< 5 min), else null.
+ * Returns { latitude, longitude, ageMs } if present and (optionally) fresh enough, else null.
+ * Pass maxAgeMs = Infinity to retrieve a stale cache as a last-resort fallback.
  */
 export function getCachedGpsPosition(maxAgeMs = 300000) {
   try {
     const raw = sessionStorage.getItem(GPS_CACHE_KEY);
     if (!raw) return null;
     const cached = JSON.parse(raw);
-    if (Date.now() - cached.timestamp > maxAgeMs) return null;
-    return { latitude: cached.latitude, longitude: cached.longitude };
+    const ageMs = Date.now() - cached.timestamp;
+    if (ageMs > maxAgeMs) return null;
+    return { latitude: cached.latitude, longitude: cached.longitude, ageMs };
   } catch {
     return null;
   }
+}
+
+/**
+ * Pre-warm GPS: fire a non-blocking geolocation request that caches the result.
+ * Use this as soon as a page that needs GPS mounts, so the browser's internal
+ * position cache is fresh by the time the user actually submits anything.
+ * Cheap to call repeatedly — no-op if there is already a fresh cached position.
+ */
+export function prewarmGps() {
+  if (typeof navigator === "undefined" || !navigator.geolocation) return;
+  if (getCachedGpsPosition(60000)) return; // already fresh within last 60s
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => cacheGpsPosition(pos.coords.latitude, pos.coords.longitude),
+    () => { /* silent — best-effort warmup */ },
+    { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 }
+  );
 }
 
 /**
