@@ -6,31 +6,60 @@ import { isTourCompleted, markTourCompleted } from "../../utils/tourStorage";
 import { getStepsForRole } from "./tourSteps";
 import TourTooltip from "./TourTooltip";
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" ? window.innerWidth < 1024 : false,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const handler = (e) => setIsMobile(e.matches);
+    setIsMobile(mq.matches);
+    mq.addEventListener?.("change", handler);
+    return () => mq.removeEventListener?.("change", handler);
+  }, []);
+  return isMobile;
+}
+
 export default function TourGuide() {
   const { user, role, isFirstLogin, clearFirstLogin } = useAuth();
   const { t } = useLanguage();
   const [run, setRun] = useState(false);
   const [tourKey, setTourKey] = useState(0);
+  const isMobile = useIsMobile();
 
   const rawSteps = useMemo(() => getStepsForRole(role), [role]);
 
   const steps = useMemo(
     () =>
-      rawSteps.map((s) => ({
-        target: s.target,
-        placement: s.placement,
-        disableBeacon: s.disableBeacon,
-        title: t(s.titleKey),
-        content: t(s.contentKey),
-        data: {
-          icon: s.icon,
-          kind: s.kind,
-          autoOpen: s.autoOpen,
-          skipAutoClick: s.skipAutoClick,
-          closeOnNext: s.closeOnNext,
-        },
-      })),
-    [rawSteps, t],
+      rawSteps.map((s) => {
+        const isCenter = s.kind === "welcome" || s.kind === "finish";
+        let placement = s.placement;
+        if (isMobile && !isCenter) {
+          const target = typeof s.target === "string" ? s.target : "";
+          // Mobile bottom nav lives at the bottom edge — flip tooltip above.
+          if (target.startsWith('[data-tour="nav-')) {
+            placement = "top";
+          } else if (placement === "left" || placement === "right") {
+            // Side placements overflow on narrow viewports — let joyride pick.
+            placement = "auto";
+          }
+        }
+        return {
+          target: s.target,
+          placement,
+          disableBeacon: s.disableBeacon,
+          title: t(s.titleKey),
+          content: t(s.contentKey),
+          data: {
+            icon: s.icon,
+            kind: s.kind,
+            autoOpen: s.autoOpen,
+            skipAutoClick: s.skipAutoClick,
+            closeOnNext: s.closeOnNext,
+          },
+        };
+      }),
+    [rawSteps, t, isMobile],
   );
 
   // Auto-start once per user — show tour the first time they land on the
@@ -91,6 +120,14 @@ export default function TourGuide() {
       spotlightClicks={true}
       tooltipComponent={TourTooltip}
       callback={handleCallback}
+      floaterProps={{
+        styles: {
+          floater: {
+            // Prevent horizontal overflow on small viewports.
+            maxWidth: "min(95vw, 440px)",
+          },
+        },
+      }}
       styles={{
         options: {
           zIndex: 10000,
