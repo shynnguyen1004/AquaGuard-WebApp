@@ -44,16 +44,24 @@ export default function TourGuide() {
     () =>
       visibleSteps.map((s) => {
         const isCenter = s.kind === "welcome" || s.kind === "finish";
+        const isNavTarget = typeof s.target === "string" && s.target.startsWith('[data-tour="nav-');
         // Some desktop targets (sidebar settings, floating chatbot) are
         // display:none on mobile — spotlighting them collapses the overlay into
         // a black stripe. Retarget to their mobile-header equivalents instead.
         const useMobileTarget = isMobile && typeof s.mobileTarget === "string";
-        const target = useMobileTarget ? s.mobileTarget : s.target;
+        let target = useMobileTarget ? s.mobileTarget : s.target;
+        // The desktop sidebar and the mobile bottom nav previously shared
+        // data-tour="nav-…" anchors. On mobile the sidebar is display:none but
+        // still first in the DOM, so querySelector matched the hidden copy and
+        // react-joyride skipped the step (polled, timed out, auto-advanced).
+        // The bottom nav uses a distinct "mnav-" anchor — point mobile at it.
+        if (isMobile && !useMobileTarget && isNavTarget) {
+          target = s.target.replace('[data-tour="nav-', '[data-tour="mnav-');
+        }
         let placement = s.placement;
         if (isMobile && !isCenter) {
-          const tgt = typeof target === "string" ? target : "";
           // Mobile bottom nav lives at the bottom edge — flip tooltip above.
-          if (tgt.startsWith('[data-tour="nav-')) {
+          if (isNavTarget) {
             placement = "top";
           } else if (placement === "left" || placement === "right") {
             // Side placements overflow on narrow viewports — let joyride pick.
