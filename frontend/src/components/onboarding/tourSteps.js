@@ -1,7 +1,7 @@
 import { ROLES } from "../../config/rbac";
 
-function step({ target, titleKey, contentKey, icon, placement = "right", disableBeacon = true, kind = "step", autoOpen = false, skipAutoClick = false, closeOnNext = null }) {
-  return { target, titleKey, contentKey, icon, placement, disableBeacon, kind, autoOpen, skipAutoClick, closeOnNext };
+function step({ target, mobileTarget = null, titleKey, contentKey, icon, placement = "right", disableBeacon = true, kind = "step", autoOpen = false, skipAutoClick = false, closeOnNext = null }) {
+  return { target, mobileTarget, titleKey, contentKey, icon, placement, disableBeacon, kind, autoOpen, skipAutoClick, closeOnNext };
 }
 
 const citizenSteps = [
@@ -117,6 +117,7 @@ const citizenSteps = [
   }),
   step({
     target: '[data-tour="chatbot-button"]',
+    mobileTarget: '[data-tour="chatbot-mobile"]',
     titleKey: "tour.citizen.chatbot.title",
     contentKey: "tour.citizen.chatbot.content",
     icon: "smart_toy",
@@ -124,6 +125,7 @@ const citizenSteps = [
   }),
   step({
     target: '[data-tour="nav-settings"]',
+    mobileTarget: '[data-tour="profile-mobile"]',
     titleKey: "tour.citizen.settings.title",
     contentKey: "tour.citizen.settings.content",
     icon: "settings",
@@ -195,6 +197,7 @@ const rescuerSteps = [
   }),
   step({
     target: '[data-tour="nav-settings"]',
+    mobileTarget: '[data-tour="profile-mobile"]',
     titleKey: "tour.rescuer.settings.title",
     contentKey: "tour.rescuer.settings.content",
     icon: "settings",

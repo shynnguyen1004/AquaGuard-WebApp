@@ -36,6 +36,7 @@ export default function MobileHeader({ onChatToggle, onNavigate }) {
           {/* Chatbot button */}
           <button
             onClick={onChatToggle}
+            data-tour="chatbot-mobile"
             className="size-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors relative"
           >
             <span className="material-symbols-outlined filled-icon text-primary">chat</span>
@@ -53,6 +54,7 @@ export default function MobileHeader({ onChatToggle, onNavigate }) {
           {/* Avatar — opens dropdown */}
           <button
             onClick={() => setShowProfile((p) => !p)}
+            data-tour="profile-mobile"
             className="rounded-full focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
           >
             <img

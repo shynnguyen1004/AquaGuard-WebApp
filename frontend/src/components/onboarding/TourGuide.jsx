@@ -33,11 +33,16 @@ export default function TourGuide() {
     () =>
       rawSteps.map((s) => {
         const isCenter = s.kind === "welcome" || s.kind === "finish";
+        // Some desktop targets (sidebar settings, floating chatbot) are
+        // display:none on mobile — spotlighting them collapses the overlay into
+        // a black stripe. Retarget to their mobile-header equivalents instead.
+        const useMobileTarget = isMobile && typeof s.mobileTarget === "string";
+        const target = useMobileTarget ? s.mobileTarget : s.target;
         let placement = s.placement;
         if (isMobile && !isCenter) {
-          const target = typeof s.target === "string" ? s.target : "";
+          const tgt = typeof target === "string" ? target : "";
           // Mobile bottom nav lives at the bottom edge — flip tooltip above.
-          if (target.startsWith('[data-tour="nav-')) {
+          if (tgt.startsWith('[data-tour="nav-')) {
             placement = "top";
           } else if (placement === "left" || placement === "right") {
             // Side placements overflow on narrow viewports — let joyride pick.
@@ -45,8 +50,14 @@ export default function TourGuide() {
           }
         }
         return {
-          target: s.target,
+          target,
           placement,
+          // On mobile every target is already in view (fixed bottom nav, sticky
+          // header, on-screen map controls, centered modal). react-joyride's
+          // scroll step can get stuck on the mobile map page (its container is
+          // `overflow-y-auto`), leaving the overlay dark with no tooltip — so
+          // skip scrolling entirely on mobile.
+          skipScroll: isMobile,
           disableBeacon: s.disableBeacon,
           title: t(s.titleKey),
           content: t(s.contentKey),
@@ -54,7 +65,9 @@ export default function TourGuide() {
             icon: s.icon,
             kind: s.kind,
             autoOpen: s.autoOpen,
-            skipAutoClick: s.skipAutoClick,
+            // Retargeted mobile steps only highlight the button — don't fire the
+            // desktop click (which would open a panel or navigate away).
+            skipAutoClick: s.skipAutoClick || useMobileTarget,
             closeOnNext: s.closeOnNext,
           },
         };
@@ -116,7 +129,6 @@ export default function TourGuide() {
       showProgress={false}
       showSkipButton={false}
       disableOverlayClose
-      disableScrolling={false}
       spotlightClicks={true}
       tooltipComponent={TourTooltip}
       callback={handleCallback}
