@@ -29,9 +29,20 @@ export default function TourGuide() {
 
   const rawSteps = useMemo(() => getStepsForRole(role), [role]);
 
+  // On mobile, drop steps whose targets only exist after navigating to another
+  // page + async rendering (map controls, SOS form fields). Those targets aren't
+  // mounted when react-joyride evaluates them, so it shows a dark loader and
+  // auto-advances past them — cascading the tour to a random later step. The
+  // remaining steps all target always-present elements (bottom nav, mobile
+  // header), so the mobile tour stays a reliable overview.
+  const visibleSteps = useMemo(
+    () => (isMobile ? rawSteps.filter((s) => !s.desktopOnly) : rawSteps),
+    [rawSteps, isMobile],
+  );
+
   const steps = useMemo(
     () =>
-      rawSteps.map((s) => {
+      visibleSteps.map((s) => {
         const isCenter = s.kind === "welcome" || s.kind === "finish";
         // Some desktop targets (sidebar settings, floating chatbot) are
         // display:none on mobile — spotlighting them collapses the overlay into
@@ -52,11 +63,9 @@ export default function TourGuide() {
         return {
           target,
           placement,
-          // On mobile every target is already in view (fixed bottom nav, sticky
-          // header, on-screen map controls, centered modal). react-joyride's
-          // scroll step can get stuck on the mobile map page (its container is
-          // `overflow-y-auto`), leaving the overlay dark with no tooltip — so
-          // skip scrolling entirely on mobile.
+          // Mobile targets (fixed bottom nav, sticky header, centered modal) are
+          // always in view, so react-joyride never needs to scroll — skipping it
+          // avoids the scroll step leaving the overlay dark with no tooltip.
           skipScroll: isMobile,
           disableBeacon: s.disableBeacon,
           title: t(s.titleKey),
@@ -72,7 +81,7 @@ export default function TourGuide() {
           },
         };
       }),
-    [rawSteps, t, isMobile],
+    [visibleSteps, t, isMobile],
   );
 
   // Auto-start once per user — show tour the first time they land on the

@@ -1,7 +1,12 @@
 import { ROLES } from "../../config/rbac";
 
-function step({ target, mobileTarget = null, titleKey, contentKey, icon, placement = "right", disableBeacon = true, kind = "step", autoOpen = false, skipAutoClick = false, closeOnNext = null }) {
-  return { target, mobileTarget, titleKey, contentKey, icon, placement, disableBeacon, kind, autoOpen, skipAutoClick, closeOnNext };
+// `desktopOnly` steps point at elements that only exist after navigating to
+// another page and waiting for async rendering (map controls once Leaflet
+// mounts, SOS form fields inside the modal). On mobile that target isn't ready
+// when react-joyride evaluates the step, so it shows a dark loader and then
+// auto-advances past it (cascading to a later step). They are dropped on mobile.
+function step({ target, mobileTarget = null, titleKey, contentKey, icon, placement = "right", disableBeacon = true, kind = "step", autoOpen = false, skipAutoClick = false, closeOnNext = null, desktopOnly = false }) {
+  return { target, mobileTarget, titleKey, contentKey, icon, placement, disableBeacon, kind, autoOpen, skipAutoClick, closeOnNext, desktopOnly };
 }
 
 const citizenSteps = [
@@ -32,6 +37,7 @@ const citizenSteps = [
     icon: "layers",
     placement: "left",
     skipAutoClick: true,
+    desktopOnly: true,
   }),
   step({
     target: '[data-tour="map-family"]',
@@ -39,6 +45,7 @@ const citizenSteps = [
     contentKey: "tour.citizen.mapFamily.content",
     icon: "group",
     placement: "left",
+    desktopOnly: true,
   }),
   step({
     target: '[data-tour="map-locate"]',
@@ -46,6 +53,7 @@ const citizenSteps = [
     contentKey: "tour.citizen.mapLocate.content",
     icon: "my_location",
     placement: "left",
+    desktopOnly: true,
   }),
   step({
     target: '[data-tour="map-floodzones"]',
@@ -53,6 +61,7 @@ const citizenSteps = [
     contentKey: "tour.citizen.mapFloodZones.content",
     icon: "flood",
     placement: "left",
+    desktopOnly: true,
   }),
   step({
     target: '[data-tour="nav-sos"]',
@@ -67,6 +76,7 @@ const citizenSteps = [
     icon: "add_circle",
     placement: "bottom",
     autoOpen: true,
+    desktopOnly: true,
   }),
   step({
     target: '[data-tour="sos-location"]',
@@ -75,6 +85,7 @@ const citizenSteps = [
     icon: "location_on",
     placement: "right",
     skipAutoClick: true,
+    desktopOnly: true,
   }),
   step({
     target: '[data-tour="sos-description"]',
@@ -83,6 +94,7 @@ const citizenSteps = [
     icon: "description",
     placement: "right",
     skipAutoClick: true,
+    desktopOnly: true,
   }),
   step({
     target: '[data-tour="sos-urgency"]',
@@ -91,6 +103,7 @@ const citizenSteps = [
     icon: "priority_high",
     placement: "right",
     skipAutoClick: true,
+    desktopOnly: true,
   }),
   step({
     target: '[data-tour="sos-images"]',
@@ -99,6 +112,7 @@ const citizenSteps = [
     icon: "photo_camera",
     placement: "right",
     skipAutoClick: true,
+    desktopOnly: true,
   }),
   step({
     target: '[data-tour="sos-submit"]',
@@ -108,6 +122,7 @@ const citizenSteps = [
     placement: "top",
     skipAutoClick: true,
     closeOnNext: '[data-tour="sos-close"]',
+    desktopOnly: true,
   }),
   step({
     target: '[data-tour="nav-safety"]',
@@ -180,6 +195,7 @@ const rescuerSteps = [
     icon: "layers",
     placement: "left",
     skipAutoClick: true,
+    desktopOnly: true,
   }),
   step({
     target: '[data-tour="map-locate"]',
@@ -187,6 +203,7 @@ const rescuerSteps = [
     contentKey: "tour.rescuer.mapLocate.content",
     icon: "my_location",
     placement: "left",
+    desktopOnly: true,
   }),
   step({
     target: '[data-tour="map-floodzones"]',
@@ -194,6 +211,7 @@ const rescuerSteps = [
     contentKey: "tour.rescuer.mapFloodZones.content",
     icon: "flood",
     placement: "left",
+    desktopOnly: true,
   }),
   step({
     target: '[data-tour="nav-settings"]',
