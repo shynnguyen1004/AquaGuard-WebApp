@@ -2,7 +2,7 @@
 # AquaGuard — Docker Compose (Production / VPS)
 # Usage: docker compose -f infrastructure/docker-compose.prod.yml up --build -d
 # ============================================================
-
+#add comment
 services:
   # ── PostgreSQL Database ──
   postgres:
@@ -17,7 +17,11 @@ services:
       # Consolidated schema V2 — single init script creates all 10 tables
       - ./database/init_db.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aquaguard} -d ${POSTGRES_DB:-aquaguard_db}"]
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-aquaguard} -d ${POSTGRES_DB:-aquaguard_db}',
+        ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -67,7 +71,7 @@ services:
     image: nginx:alpine
     container_name: aquaguard-nginx
     ports:
-      - "80:80"
+      - '80:80'
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
