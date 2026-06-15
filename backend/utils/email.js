@@ -60,12 +60,17 @@ async function sendEmail({ to, subject, html }) {
 // Templates — bọc trong layout chung cho đồng nhất
 // ──────────────────────────────────────────────
 
+// Logo AquaGuard (favicon-512x512.png), host trên Cloudinary để hiển thị được trong email
+const LOGO_URL =
+  "https://res.cloudinary.com/dlim2ia9h/image/upload/w_160/v1781535041/aquaguard-assets/email-logo.png";
+
 function baseLayout({ title, body }) {
   return `
   <div style="margin:0;padding:0;background:#0f172a;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
     <div style="max-width:520px;margin:0 auto;padding:32px 24px;">
       <div style="text-align:center;margin-bottom:24px;">
-        <span style="font-size:22px;font-weight:700;color:#38bdf8;">🌊 AquaGuard</span>
+        <img src="${LOGO_URL}" alt="AquaGuard" width="72" height="72" style="display:inline-block;width:72px;height:72px;border:0;outline:none;" />
+        <div style="font-size:20px;font-weight:700;color:#38bdf8;margin-top:8px;">AquaGuard</div>
       </div>
       <div style="background:#1e293b;border-radius:16px;padding:32px 28px;color:#e2e8f0;">
         <h1 style="margin:0 0 16px;font-size:20px;color:#f8fafc;">${title}</h1>

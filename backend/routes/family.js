@@ -183,8 +183,8 @@ router.put("/requests/:id/accept", authMiddleware, async (req, res) => {
         return sendNotificationEmail({
           to: info.requester_email,
           displayName: info.requester_name,
-          heading: "Lời mời kết nối gia đình đã được chấp nhận ✅",
-          message: `<strong>${info.accepter_name}</strong> đã chấp nhận lời mời kết nối gia đình của bạn. Từ giờ bạn có thể theo dõi trạng thái an toàn và vị trí của nhau trên AquaGuard.`,
+          heading: "Bạn đã có thêm một người thân trên AquaGuard ✅",
+          message: `Bạn đã trở thành bạn bè / người thân với <strong>${info.accepter_name}</strong> trên AquaGuard. Từ giờ hai bạn có thể theo dõi trạng thái an toàn và vị trí của nhau khi có sự cố.`,
         });
       })
       .catch((e) => console.error("Family accept email error:", e));
