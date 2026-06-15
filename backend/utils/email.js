@@ -103,7 +103,7 @@ async function sendWelcomeEmail({ to, displayName }) {
       </p>`,
   });
 
-  return sendEmail({ to, subject: "Chào mừng đến với AquaGuard 🌊", html });
+  return sendEmail({ to, subject: "Chào mừng đến với AquaGuard", html });
 }
 
 /**
