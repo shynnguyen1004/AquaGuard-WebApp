@@ -478,6 +478,10 @@ const en = {
     overlayWaves: "Waves",
     relative: "Family member",
     saved: "Saved",
+    statusPending: "Pending",
+    statusInProgress: "In progress",
+    statusResolved: "Resolved",
+    statusCancelled: "Cancelled",
   },
 
   reportsFeed: {

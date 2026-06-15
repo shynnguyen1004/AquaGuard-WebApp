@@ -55,35 +55,44 @@ const severityMap = {
 };
 
 const familySafetyColors = {
-  safe: { bg: "#10b981", label: "An toàn" },
-  danger: { bg: "#ef4444", label: "Nguy hiểm" },
-  injured: { bg: "#f97316", label: "Bị thương" },
-  unknown: { bg: "#94a3b8", label: "Chưa rõ" },
+  safe: { bg: "#10b981", label: "An toàn", icon: "verified_user" },
+  danger: { bg: "#ef4444", label: "Nguy hiểm", icon: "warning" },
+  injured: { bg: "#f97316", label: "Bị thương", icon: "healing" },
+  unknown: { bg: "#94a3b8", label: "Chưa rõ", icon: "help" },
 };
 
-// Family member icon (person pin) — uses unique filter IDs to avoid SVG conflicts
-function createFamilyIcon(safetyStatus) {
-  const color = familySafetyColors[safetyStatus]?.bg || "#94a3b8";
-  const filterId = `fshadow-${safetyStatus}`;
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44" style="pointer-events:none">
-      <defs>
-        <filter id="${filterId}" x="-20%" y="-10%" width="140%" height="130%">
-          <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.3)" />
-        </filter>
-      </defs>
-      <path d="M18 0C9.16 0 2 7.16 2 16c0 12 16 28 16 28s16-16 16-28C34 7.16 26.84 0 18 0z" 
-            fill="${color}" filter="url(#${filterId})" />
-      <circle cx="18" cy="12" r="5" fill="white" />
-      <path d="M10 22c0-4.4 3.6-6 8-6s8 1.6 8 6" fill="white" opacity="0.8" />
-    </svg>
+// Avatar URL for a family member — use their real avatar, else a generated one
+// tinted with their safety-status colour so the marker stays readable.
+function getFamilyAvatarUrl(member) {
+  if (member.avatarUrl) return member.avatarUrl;
+  const color = (familySafetyColors[member.safetyStatus]?.bg || "#94a3b8").replace("#", "");
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(member.displayName || "User")}&background=${color}&color=fff&size=64&bold=true`;
+}
+
+// Family member icon — avatar inside a colour-coded ring with a status dot and a
+// pointer tail, mirroring the polished SOS avatar markers.
+function createFamilyAvatarIcon({ avatarUrl, safetyStatus }) {
+  const status = familySafetyColors[safetyStatus] ? safetyStatus : "unknown";
+  const color = familySafetyColors[status].bg;
+  // "group" people glyph so the marker reads as a family member at a glance,
+  // clearly distinct from the SOS victim avatars.
+  const peopleSvg = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>`;
+  const html = `
+    <div class="family-avatar-marker family-avatar-marker--${status}" style="--ring:${color}">
+      <div class="family-avatar-marker__pin">
+        <div class="family-avatar-marker__avatar">
+          <img src="${avatarUrl}" alt="" referrerpolicy="no-referrer" />
+        </div>
+        <span class="family-avatar-marker__badge">${peopleSvg}</span>
+      </div>
+    </div>
   `;
   return L.divIcon({
-    html: svg,
-    className: "family-pin-icon",
-    iconSize: [36, 44],
-    iconAnchor: [18, 44],
-    popupAnchor: [0, -44],
+    html,
+    className: "family-avatar-marker-icon",
+    iconSize: [48, 56],
+    iconAnchor: [24, 52],
+    popupAnchor: [0, -50],
   });
 }
 
@@ -220,11 +229,13 @@ export default function FloodMap({ onReady }) {
     return icon;
   }, [savedLabel]);
 
-  const getFamilyIcon = useCallback((safetyStatus) => {
-    const key = safetyStatus || "unknown";
+  const getFamilyIcon = useCallback((member) => {
+    const safetyStatus = member.safetyStatus || "unknown";
+    const avatarUrl = getFamilyAvatarUrl(member);
+    const key = `${safetyStatus}|${avatarUrl}`;
     const cached = familyIconCacheRef.current.get(key);
     if (cached) return cached;
-    const icon = createFamilyIcon(key);
+    const icon = createFamilyAvatarIcon({ avatarUrl, safetyStatus });
     familyIconCacheRef.current.set(key, icon);
     return icon;
   }, []);
@@ -565,9 +576,79 @@ export default function FloodMap({ onReady }) {
   return (
     <div className="flex-1 relative min-h-[60vh] xl:min-h-0">
       <style>{`
-        .custom-pin-icon, .family-pin-icon, .my-location-icon { background: none !important; border: none !important; }
-        .family-pin-icon { cursor: pointer !important; pointer-events: auto !important; }
+        .custom-pin-icon, .family-avatar-marker-icon, .my-location-icon { background: none !important; border: none !important; }
+        .family-avatar-marker-icon { cursor: pointer !important; pointer-events: auto !important; }
         .sos-avatar-marker-icon { background: none !important; border: none !important; }
+
+        /* ── Family member avatar marker ── */
+        .family-avatar-marker { position: relative; width: 48px; height: 56px; }
+        .family-avatar-marker__pin {
+          position: absolute;
+          top: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 44px;
+          height: 44px;
+          border-radius: 9999px;
+          background: var(--ring);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 6px 16px rgba(0,0,0,0.28);
+        }
+        .family-avatar-marker__pin::after {
+          content: "";
+          position: absolute;
+          bottom: -5px;
+          left: 50%;
+          transform: translateX(-50%) rotate(45deg);
+          width: 14px;
+          height: 14px;
+          background: var(--ring);
+          border-radius: 3px;
+          z-index: -1;
+        }
+        .family-avatar-marker__avatar {
+          width: 36px;
+          height: 36px;
+          border-radius: 9999px;
+          overflow: hidden;
+          border: 2px solid #fff;
+          background: #e2e8f0;
+        }
+        .family-avatar-marker__avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+        .family-avatar-marker__badge {
+          position: absolute;
+          bottom: -2px;
+          right: -2px;
+          width: 18px;
+          height: 18px;
+          border-radius: 9999px;
+          background: #fff;
+          color: var(--ring);
+          border: 1.5px solid var(--ring);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+        }
+        .family-avatar-marker__badge svg {
+          width: 12px;
+          height: 12px;
+          display: block;
+        }
+        .family-avatar-marker--danger .family-avatar-marker__pin {
+          animation: familyPulse 1.4s ease-in-out infinite;
+        }
+        @keyframes familyPulse {
+          0%, 100% { box-shadow: 0 6px 16px rgba(0,0,0,0.28), 0 0 0 0 rgba(239,68,68,0.55); }
+          50% { box-shadow: 0 6px 16px rgba(0,0,0,0.28), 0 0 0 8px rgba(239,68,68,0); }
+        }
 
         .sos-avatar-marker {
           position: relative;
@@ -642,8 +723,9 @@ export default function FloodMap({ onReady }) {
         }
 
         .leaflet-popup-content-wrapper {
-          border-radius: 16px !important; 
+          border-radius: 16px !important;
           padding: 0 !important;
+          overflow: hidden !important;
           box-shadow: 0 10px 40px rgba(0,0,0,0.15) !important;
           background: white !important;
         }
@@ -651,6 +733,19 @@ export default function FloodMap({ onReady }) {
           background: #1e293b !important;
         }
         .leaflet-popup-content { margin: 0 !important; min-width: 220px; }
+        /* Neutral, readable close button on the family popup (light & dark) */
+        .family-popup .leaflet-popup-close-button {
+          color: #94a3b8 !important;
+          font-size: 20px !important;
+          top: 8px !important;
+          right: 8px !important;
+          font-weight: 700 !important;
+          transition: color 0.15s, transform 0.15s !important;
+        }
+        .family-popup .leaflet-popup-close-button:hover {
+          color: #475569 !important;
+          transform: scale(1.15) !important;
+        }
         .leaflet-popup-tip {
           box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
           background: white !important;
@@ -979,9 +1074,20 @@ export default function FloodMap({ onReady }) {
                         <span className="material-symbols-outlined text-[11px]">check_circle</span>
                         {t("floodMap.saved")}
                       </span>
-                    ) : (
-                      <span>{p.rawStatus}</span>
-                    )}
+                    ) : (() => {
+                      const sosStatusMeta = {
+                        pending: { label: t("floodMap.statusPending"), cls: "bg-red-100 text-red-700", icon: "schedule" },
+                        in_progress: { label: t("floodMap.statusInProgress"), cls: "bg-amber-100 text-amber-700", icon: "sync" },
+                        cancelled: { label: t("floodMap.statusCancelled"), cls: "bg-slate-100 text-slate-600", icon: "cancel" },
+                      };
+                      const meta = sosStatusMeta[p.rawStatus] || { label: p.rawStatus, cls: "bg-slate-100 text-slate-600", icon: "info" };
+                      return (
+                        <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full font-bold text-[10px] ${meta.cls}`}>
+                          <span className="material-symbols-outlined text-[11px]">{meta.icon}</span>
+                          {meta.label}
+                        </span>
+                      );
+                    })()}
                     {p.createdAt ? <span>• {new Date(p.createdAt).toLocaleTimeString(language === "vi" ? "vi-VN" : "en-US")}</span> : ""}
                     {p.assignedName ? <span>• {p.assignedName}</span> : ""}
                   </div>
@@ -1024,48 +1130,73 @@ export default function FloodMap({ onReady }) {
             <Marker
               key={`family-${member.id}`}
               position={[member.latitude, member.longitude]}
-              icon={getFamilyIcon(member.safetyStatus)}
+              icon={getFamilyIcon(member)}
               eventHandlers={{ click: () => {} }}
             >
-              <Popup>
-                <div className="p-4 min-w-[200px] bg-white dark:bg-slate-800 rounded-2xl">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="size-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: familySafetyColors[member.safetyStatus]?.bg || '#94a3b8' }}>
-                      {(member.displayName || '?').split(' ').map(w => w[0]).join('').slice(0, 2)}
-                    </div>
-                    <div>
-                      <p className="font-black text-sm text-slate-900 dark:text-white">{member.displayName}</p>
-                      <p className="text-[10px] text-slate-500">{member.relation || t("floodMap.relative")}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: familySafetyColors[member.safetyStatus]?.bg || '#94a3b8' }}>
-                      {familySafetyColors[member.safetyStatus]?.label || t("floodMap.unknownLocation")}
-                    </span>
-                    {member.healthNote && (
-                      <p className="text-[11px] text-slate-500 flex items-center gap-1">
-                        <span className="material-symbols-outlined text-xs">medical_information</span>
-                        {member.healthNote}
-                      </p>
-                    )}
-                    {member.phoneNumber && (
-                      <p className="text-[11px] text-slate-500 flex items-center gap-1">
-                        <span className="material-symbols-outlined text-xs">call</span>
-                        {member.phoneNumber}
-                      </p>
-                    )}
-                    {/* Directions button */}
-                    {myLocation && (
-                      <button
-                        onClick={() => fetchRoute(myLocation, { lat: member.latitude, lng: member.longitude }, member.displayName)}
-                        className="mt-2 w-full flex items-center justify-center gap-1 px-3 py-1.5 bg-blue-500 text-white text-[11px] font-bold rounded-lg hover:bg-blue-600 transition-colors"
+              <Popup className="family-popup">
+                {(() => {
+                  const status = familySafetyColors[member.safetyStatus] ? member.safetyStatus : "unknown";
+                  const c = familySafetyColors[status];
+                  return (
+                    <div className="w-[240px] font-sans bg-white dark:bg-slate-900">
+                      {/* Header — avatar with a colour-coded ring */}
+                      <div className="flex items-center gap-3 pl-4 pr-9 pt-4 pb-3">
+                        <div className="size-12 rounded-full p-[2.5px] shrink-0 shadow-sm" style={{ background: c.bg }}>
+                          <img
+                            src={getFamilyAvatarUrl(member)}
+                            alt=""
+                            referrerPolicy="no-referrer"
+                            className="size-full rounded-full object-cover border-2 border-white dark:border-slate-900"
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-black text-[15px] text-slate-900 dark:text-white leading-tight truncate">{member.displayName}</p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1 mt-0.5">
+                            <span className="material-symbols-outlined text-[13px]">family_restroom</span>
+                            {member.relation || t("floodMap.relative")}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Status banner — soft tint of the status colour */}
+                      <div
+                        className="mx-4 rounded-xl px-3 py-2 flex items-center gap-2"
+                        style={{ background: `${c.bg}1f` }}
                       >
-                        <span className="material-symbols-outlined text-sm">directions</span>
-                        {t("floodMap.directions")}
-                      </button>
-                    )}
-                  </div>
-                </div>
+                        <span className="material-symbols-outlined text-[16px] filled-icon" style={{ color: c.bg }}>{c.icon}</span>
+                        <span className="text-[12px] font-bold" style={{ color: c.bg }}>{c.label}</span>
+                      </div>
+
+                      {/* Body */}
+                      <div className="px-4 pt-2.5 pb-4 space-y-2">
+                        {member.healthNote && (
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-start gap-1.5">
+                            <span className="material-symbols-outlined text-[15px] text-slate-400 mt-px">medical_information</span>
+                            <span className="break-words">{member.healthNote}</span>
+                          </p>
+                        )}
+                        {member.phoneNumber && (
+                          <a
+                            href={`tel:${member.phoneNumber}`}
+                            className="text-[12px] text-slate-600 dark:text-slate-300 flex items-center gap-1.5 hover:text-primary transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-[15px] text-slate-400">call</span>
+                            {member.phoneNumber}
+                          </a>
+                        )}
+                        {myLocation && (
+                          <button
+                            onClick={() => fetchRoute(myLocation, { lat: member.latitude, lng: member.longitude }, member.displayName)}
+                            className="mt-1 w-full flex items-center justify-center gap-1.5 px-3 py-2.5 bg-primary text-white text-[12px] font-bold rounded-xl hover:bg-primary/90 shadow-md shadow-primary/25 transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">directions</span>
+                            {t("floodMap.directions")}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </Popup>
             </Marker>
           ))}

@@ -478,6 +478,10 @@ const vi = {
     overlayWaves: "Sóng biển",
     relative: "Người thân",
     saved: "Đã cứu",
+    statusPending: "Chờ xử lý",
+    statusInProgress: "Đang xử lý",
+    statusResolved: "Đã giải quyết",
+    statusCancelled: "Đã hủy",
   },
 
   reportsFeed: {
