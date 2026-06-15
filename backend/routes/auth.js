@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const pool = require("../db");
 const { authMiddleware, requireAdmin, requireRoles } = require("../middleware/auth");
+const { sendWelcomeEmail, isValidEmail } = require("../utils/email");
 
 // ── Twilio Verify SDK ──
 const twilio = require("twilio");
@@ -176,7 +177,7 @@ async function buildMyRescueGroupPayload(userId) {
  */
 router.post("/register", async (req, res) => {
   try {
-    const { phone_number, password, display_name, role, role_password, gender, date_of_birth } = req.body;
+    const { phone_number, password, display_name, role, role_password, gender, date_of_birth, email } = req.body;
 
     if (!phone_number || !password) {
       return res.status(400).json({
@@ -220,6 +221,15 @@ router.post("/register", async (req, res) => {
       });
     }
 
+    // Validate email if provided (optional field)
+    const trimmedEmail = email ? String(email).trim() : "";
+    if (trimmedEmail && !isValidEmail(trimmedEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email format.",
+      });
+    }
+
     // Validate date_of_birth if provided
     let parsedDob = null;
     if (date_of_birth) {
@@ -251,9 +261,9 @@ router.post("/register", async (req, res) => {
 
     // Insert user with gender and date_of_birth
     const result = await pool.query(
-      `INSERT INTO users (phone_number, password_hash, display_name, role, gender, date_of_birth)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, phone_number, display_name, role, avatar_url, is_active, created_at, gender, date_of_birth`,
+      `INSERT INTO users (phone_number, password_hash, display_name, role, gender, date_of_birth, email)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, phone_number, display_name, role, avatar_url, is_active, created_at, gender, date_of_birth, email`,
       [
         phone_number,
         password_hash,
@@ -261,10 +271,18 @@ router.post("/register", async (req, res) => {
         role || "citizen",
         gender || "",
         parsedDob ? parsedDob.toISOString().slice(0, 10) : null,
+        trimmedEmail || null,
       ]
     );
 
     const user = result.rows[0];
+
+    // Gửi email chào mừng (fire-and-forget — không chặn response, lỗi không làm hỏng đăng ký)
+    if (trimmedEmail) {
+      sendWelcomeEmail({ to: trimmedEmail, displayName: user.display_name }).catch((e) =>
+        console.error("Welcome email error:", e)
+      );
+    }
 
     // Generate JWT
     const token = jwt.sign(

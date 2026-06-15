@@ -28,6 +28,7 @@ export default function LoginPage() {
   const [requestError, setRequestError] = useState("");
   const [gender, setGender] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
+  const [email, setEmail] = useState("");
 
   const normalizedPhone = normalizePhone(phoneNumber);
   const hasPhoneValue = phoneNumber.trim().length > 0;
@@ -149,12 +150,19 @@ export default function LoginPage() {
       return;
     }
 
+    // Validate email if provided (optional)
+    const trimmedEmail = email.trim();
+    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setRequestError(t("loginPage.emailInvalid"));
+      return;
+    }
+
     // Role password will be validated by the backend
     setRolePasswordError("");
 
     setIsSigningIn(true);
     try {
-      await registerWithPhone(normalizedPhone, password, displayName, selectedRole, rolePassword, gender, dateOfBirth);
+      await registerWithPhone(normalizedPhone, password, displayName, selectedRole, rolePassword, gender, dateOfBirth, trimmedEmail);
       navigate("/", { replace: true });
     } catch (err) {
       // Show role password error from backend in the right field
@@ -668,6 +676,31 @@ export default function LoginPage() {
                             className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all text-sm [color-scheme:dark]"
                           />
                         </div>
+                      </div>
+
+                      {/* Email (optional) */}
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          {t("loginPage.email")}
+                          <span className="text-slate-500 font-normal"> ({t("loginPage.optional")})</span>
+                        </label>
+                        <div className="relative">
+                          <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg">
+                            mail
+                          </span>
+                          <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder={t("loginPage.emailPlaceholder")}
+                            inputMode="email"
+                            autoComplete="email"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl pl-11 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all text-sm"
+                          />
+                        </div>
+                        <p className="mt-1.5 text-xs text-slate-500">
+                          {t("loginPage.emailHint")}
+                        </p>
                       </div>
 
                       {/* Back / Next buttons */}
