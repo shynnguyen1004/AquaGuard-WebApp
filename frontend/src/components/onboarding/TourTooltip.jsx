@@ -17,7 +17,6 @@ export default function TourTooltip({
   backProps,
   primaryProps,
   skipProps,
-  closeProps,
   tooltipProps,
 }) {
   const { t } = useLanguage();
@@ -55,10 +54,11 @@ export default function TourTooltip({
       {...tooltipProps}
       className={`relative ${width} bg-white dark:bg-slate-900 rounded-2xl shadow-2xl shadow-slate-900/20 border border-slate-200 dark:border-slate-700 overflow-hidden`}
     >
-      {/* Close button (top-right) */}
+      {/* Close button (top-right) — behaves exactly like "Skip tour":
+          ends the whole tour instead of just advancing/closing the step */}
       <button
-        {...closeProps}
-        aria-label={t("tour.close")}
+        {...skipProps}
+        aria-label={t("tour.skip")}
         className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 z-10 size-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
       >
         <span className="material-symbols-outlined text-base">close</span>

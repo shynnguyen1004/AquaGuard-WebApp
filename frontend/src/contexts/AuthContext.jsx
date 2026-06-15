@@ -101,6 +101,18 @@ export function AuthProvider({ children }) {
     saveRoleToStorage(resolved, "session");
   };
 
+  // ── Update the authenticated user (e.g. after editing profile in Settings) ──
+  const updateUser = (updates) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...updates };
+      // Phone-auth sessions live in sessionStorage, Firebase sessions in localStorage
+      const storageType = next.uid?.startsWith("phone_") ? "session" : "local";
+      saveUserToStorage(next, storageType);
+      return next;
+    });
+  };
+
   // ── Restore session on mount ──
   useEffect(() => {
     migrateLegacyPhoneSessionToTab();
@@ -358,7 +370,7 @@ export function AuthProvider({ children }) {
       value={{
         user, role, token, loading, error, needsRoleSelection, isFirstLogin,
         loginWithGoogle, loginWithPhonePassword, registerWithPhone,
-        selectRole, logout, clearError, clearFirstLogin,
+        selectRole, updateUser, logout, clearError, clearFirstLogin,
       }}
     >
       {children}

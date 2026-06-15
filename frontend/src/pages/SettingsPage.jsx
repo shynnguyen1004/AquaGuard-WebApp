@@ -9,7 +9,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 
 export default function SettingsPage({ defaultTab = "profile" }) {
-  const { user, token, role } = useAuth();
+  const { user, token, role, updateUser } = useAuth();
   const { t, language, setLanguage } = useLanguage();
   const isCitizen = role === "citizen";
   const isAdmin = role === "admin";
@@ -328,6 +328,12 @@ export default function SettingsPage({ defaultTab = "profile" }) {
       const data = await res.json();
       if (data.success) {
         setProfileMessage({ type: "success", text: t("settings.profile.profileUpdated") });
+        // Sync the edited name/email into the global auth state so the
+        // sidebar, header and dashboard reflect it immediately
+        updateUser({
+          displayName: profile.displayName,
+          email: profile.email,
+        });
         window.dispatchEvent(
           new CustomEvent("profile_updated", {
             detail: {
