@@ -89,7 +89,7 @@ function baseLayout({ title, body }) {
 async function sendWelcomeEmail({ to, displayName }) {
   const name = displayName?.trim() || "bạn";
   const html = baseLayout({
-    title: `Chào mừng ${name} đến với AquaGuard! 🎉`,
+    title: `Chào mừng ${name} đến với AquaGuard!`,
     body: `
       <p style="margin:0 0 14px;line-height:1.6;">
         Tài khoản của bạn đã được tạo thành công. Từ giờ bạn có thể gửi yêu cầu cứu hộ (SOS),

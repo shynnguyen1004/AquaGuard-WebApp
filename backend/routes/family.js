@@ -1,7 +1,7 @@
 const express = require("express");
 const pool = require("../db");
 const { authMiddleware } = require("../middleware/auth");
-const { sendNotificationEmail } = require("../utils/email");
+const { createNotification } = require("../utils/notifications");
 
 const router = express.Router();
 
@@ -82,27 +82,22 @@ router.post("/request", authMiddleware, async (req, res) => {
       [req.user.id, receiver_id, relation || ""]
     );
 
-    // Gửi email thông báo cho người nhận lời mời (fire-and-forget)
+    // Thông báo in-app cho người nhận lời mời (không gửi email — fire-and-forget)
     pool
-      .query(
-        `SELECT r.email AS receiver_email, r.display_name AS receiver_name,
-                s.display_name AS sender_name
-         FROM users r, users s
-         WHERE r.id = $1 AND s.id = $2`,
-        [receiver_id, req.user.id]
-      )
+      .query(`SELECT display_name AS sender_name FROM users WHERE id = $1`, [req.user.id])
       .then(({ rows }) => {
         const info = rows[0];
-        if (!info || !info.receiver_email) return;
+        if (!info) return;
         const relText = relation ? ` (${relation})` : "";
-        return sendNotificationEmail({
-          to: info.receiver_email,
-          displayName: info.receiver_name,
-          heading: "Bạn có lời mời kết nối gia đình trên AquaGuard 👨‍👩‍👧",
-          message: `<strong>${info.sender_name}</strong> vừa gửi cho bạn một lời mời kết nối gia đình${relText}. Hãy mở ứng dụng AquaGuard → mục <strong>Gia đình</strong> để chấp nhận hoặc từ chối lời mời.`,
+        return createNotification({
+          userId: receiver_id,
+          type: "family_request",
+          title: "Lời mời kết nối gia đình",
+          body: `${info.sender_name} vừa gửi cho bạn một lời mời kết nối gia đình${relText}.`,
+          metadata: { senderId: req.user.id },
         });
       })
-      .catch((e) => console.error("Family request email error:", e));
+      .catch((e) => console.error("Family request notification error:", e));
 
     return res.status(201).json({ success: true, data: result.rows[0] });
   } catch (err) {
@@ -168,26 +163,21 @@ router.put("/requests/:id/accept", authMiddleware, async (req, res) => {
 
     const connection = result.rows[0];
 
-    // Gửi email báo cho người gửi lời mời rằng đã được chấp nhận (fire-and-forget)
+    // Báo in-app cho người gửi lời mời rằng đã được chấp nhận (không gửi email — fire-and-forget)
     pool
-      .query(
-        `SELECT rq.email AS requester_email, rq.display_name AS requester_name,
-                ac.display_name AS accepter_name
-         FROM users rq, users ac
-         WHERE rq.id = $1 AND ac.id = $2`,
-        [connection.requester_id, req.user.id]
-      )
+      .query(`SELECT display_name AS accepter_name FROM users WHERE id = $1`, [req.user.id])
       .then(({ rows }) => {
         const info = rows[0];
-        if (!info || !info.requester_email) return;
-        return sendNotificationEmail({
-          to: info.requester_email,
-          displayName: info.requester_name,
-          heading: "Bạn đã có thêm một người thân trên AquaGuard ✅",
-          message: `Bạn đã trở thành bạn bè / người thân với <strong>${info.accepter_name}</strong> trên AquaGuard. Từ giờ hai bạn có thể theo dõi trạng thái an toàn và vị trí của nhau khi có sự cố.`,
+        if (!info) return;
+        return createNotification({
+          userId: connection.requester_id,
+          type: "family_accepted",
+          title: "Đã kết nối người thân",
+          body: `${info.accepter_name} đã chấp nhận lời mời kết nối gia đình của bạn.`,
+          metadata: { accepterId: req.user.id },
         });
       })
-      .catch((e) => console.error("Family accept email error:", e));
+      .catch((e) => console.error("Family accept notification error:", e));
 
     return res.json({ success: true, data: connection });
   } catch (err) {

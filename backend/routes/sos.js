@@ -3,6 +3,7 @@ const pool = require("../db");
 const { upload, uploadToCloudinary } = require("../utils/upload");
 const { authMiddleware, requireAdmin, requireRoles } = require("../middleware/auth");
 const { getLiveLocations } = require("../redisClient");
+const { createNotification } = require("../utils/notifications");
 
 const router = express.Router();
 
@@ -112,6 +113,75 @@ router.post("/", authMiddleware, requireRoles(["citizen"]), upload.array("images
 
     // Log the creation
     await logStatusChange(newRequest.id, req.user.id, null, "pending");
+
+    // ── Cảnh báo KHẨN CẤP cho người thân (family đã accepted): in-app + email ──
+    // Kèm địa chỉ + tọa độ + link Google Maps. Fire-and-forget — không chặn response.
+    const sosLat = newRequest.latitude;
+    const sosLng = newRequest.longitude;
+    const hasCoords = sosLat != null && sosLng != null;
+    const coordText = hasCoords
+      ? `${Number(sosLat).toFixed(6)}, ${Number(sosLng).toFixed(6)}`
+      : null;
+    const mapsLink = hasCoords
+      ? `https://www.google.com/maps?q=${sosLat},${sosLng}`
+      : null;
+
+    pool
+      .query(
+        `SELECT u.id, u.email, u.display_name,
+                (SELECT display_name FROM users WHERE id = $1) AS sender_name
+         FROM family_connections fc
+         JOIN users u ON u.id = CASE
+           WHEN fc.requester_id = $1 THEN fc.receiver_id
+           ELSE fc.requester_id
+         END
+         WHERE (fc.requester_id = $1 OR fc.receiver_id = $1)
+           AND fc.status = 'accepted'`,
+        [req.user.id]
+      )
+      .then(({ rows }) => {
+        // Nội dung in-app (text thuần)
+        const bodyParts = [
+          `${rows[0]?.sender_name || "Người thân"} đang gặp nguy hiểm và cần cứu hộ KHẨN CẤP.`,
+          `Địa chỉ: ${location}.`,
+        ];
+        if (coordText) bodyParts.push(`Vị trí: ${coordText}.`);
+        const inAppBody = bodyParts.join(" ");
+
+        // Nội dung email (HTML)
+        const emailMessage =
+          `<strong style="color:#ef4444;">${rows[0]?.sender_name || "Người thân"} đang gặp nguy hiểm</strong> và vừa gửi một yêu cầu cứu hộ KHẨN CẤP trên AquaGuard.` +
+          `<br/><br/>` +
+          `<strong>Địa chỉ:</strong> ${location}<br/>` +
+          (coordText ? `<strong>Vị trí (tọa độ):</strong> ${coordText}<br/>` : "") +
+          (mapsLink ? `<a href="${mapsLink}" style="color:#38bdf8;">Xem vị trí trên Google Maps</a><br/>` : "") +
+          `<br/>Hãy mở AquaGuard ngay để theo dõi và hỗ trợ.`;
+
+        for (const member of rows) {
+          createNotification({
+            userId: member.id,
+            type: "family_sos",
+            title: "KHẨN CẤP: Người thân đang gặp nguy hiểm!",
+            body: inAppBody,
+            metadata: {
+              requestId: newRequest.id,
+              senderId: req.user.id,
+              address: location,
+              latitude: sosLat,
+              longitude: sosLng,
+            },
+            email: member.email
+              ? {
+                  to: member.email,
+                  displayName: member.display_name,
+                  heading: "KHẨN CẤP: Người thân của bạn đang gặp nguy hiểm",
+                  message: emailMessage,
+                }
+              : null,
+          }).catch(() => {});
+        }
+      })
+      .catch((e) => console.error("Family SOS notification error:", e));
 
     return res.status(201).json({ success: true, data: newRequest });
   } catch (err) {
@@ -466,6 +536,30 @@ router.put("/:id/accept", authMiddleware, requireRoles(["rescuer"]), async (req,
       citizenLongitude: request.longitude,
     });
 
+    // Thông báo cho citizen chủ request rằng đã có cứu hộ nhận (in-app + email)
+    pool
+      .query(`SELECT email, display_name FROM users WHERE id = $1`, [request.user_id])
+      .then(({ rows }) => {
+        const owner = rows[0];
+        if (!owner) return;
+        return createNotification({
+          userId: request.user_id,
+          type: "sos_accepted",
+          title: "Đội cứu hộ đang đến!",
+          body: `${rescuerName} đã nhận yêu cầu cứu hộ của bạn và đang trên đường tới.`,
+          metadata: { requestId: parseInt(id), rescuerId: req.user.id },
+          email: owner.email
+            ? {
+                to: owner.email,
+                displayName: owner.display_name,
+                heading: "Đội cứu hộ đã nhận yêu cầu của bạn",
+                message: `<strong>${rescuerName}</strong> đã nhận yêu cầu cứu hộ của bạn và đang trên đường tới. Hãy giữ liên lạc và theo dõi trên AquaGuard.`,
+              }
+            : null,
+        });
+      })
+      .catch((e) => console.error("SOS accepted notification error:", e));
+
     return res.json({ success: true, data: request });
   } catch (err) {
     console.error("Accept SOS error:", err);
@@ -561,7 +655,32 @@ router.put("/:id/complete", authMiddleware, async (req, res) => {
       requestId: parseInt(id),
     });
 
-    return res.json({ success: true, data: result.rows[0] });
+    // Thông báo cho citizen chủ request rằng đã cứu hộ xong (in-app + email)
+    const resolvedReq = result.rows[0];
+    pool
+      .query(`SELECT email, display_name FROM users WHERE id = $1`, [resolvedReq.user_id])
+      .then(({ rows }) => {
+        const owner = rows[0];
+        if (!owner) return;
+        return createNotification({
+          userId: resolvedReq.user_id,
+          type: "sos_resolved",
+          title: "Yêu cầu cứu hộ đã hoàn tất",
+          body: "Yêu cầu cứu hộ của bạn đã được xử lý xong. Chúc bạn an toàn!",
+          metadata: { requestId: parseInt(id) },
+          email: owner.email
+            ? {
+                to: owner.email,
+                displayName: owner.display_name,
+                heading: "Yêu cầu cứu hộ của bạn đã hoàn tất",
+                message: "Yêu cầu cứu hộ của bạn đã được xử lý xong. Nếu bạn vẫn cần hỗ trợ, hãy gửi yêu cầu mới trên AquaGuard. Chúc bạn an toàn!",
+              }
+            : null,
+        });
+      })
+      .catch((e) => console.error("SOS resolved notification error:", e));
+
+    return res.json({ success: true, data: resolvedReq });
   } catch (err) {
     console.error("Complete SOS error:", err);
     return res.status(500).json({ success: false, message: "Lỗi server" });

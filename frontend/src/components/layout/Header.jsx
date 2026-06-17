@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { api } from "../../services/api";
+import NotificationBell from "../notifications/NotificationBell";
 
 /**
  * Extract a short city/locality string from a full address.
@@ -111,14 +112,7 @@ export default function Header() {
         </div>
 
         {/* Notifications */}
-        <button
-          className="size-9 md:size-10 rounded-xl flex items-center justify-center relative shrink-0 transition-colors hover:brightness-125 bg-slate-100 dark:bg-[#1e2333] border border-slate-200 dark:border-[#252a38] text-slate-500 dark:text-[#8891a8]"
-        >
-          <span className="material-symbols-outlined text-xl">notifications</span>
-          <span
-            className="absolute top-1.5 right-1.5 md:top-2 md:right-2 size-2 rounded-full bg-red-500 border-2 border-white dark:border-[#171b26]"
-          />
-        </button>
+        <NotificationBell />
       </div>
     </header>
   );

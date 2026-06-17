@@ -3,6 +3,7 @@ import { ROLES, getRoleLabel, getRoleBadgeClasses } from "../../config/rbac";
 import { useAuth } from "../../contexts/AuthContext";
 import AdminFloodMapEditor from "../../components/map/AdminFloodMapEditor";
 import SystemAnalytics from "./SystemAnalytics";
+import NotificationBell from "../../components/notifications/NotificationBell";
 import { getStoredToken } from "../../utils/authStorage";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
@@ -325,14 +326,19 @@ export default function AdminDashboard({ activePage = "admin" }) {
     <div className="flex-1 overflow-y-auto">
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
         {/* Header */}
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <span className="material-symbols-outlined filled-icon text-danger text-2xl">admin_panel_settings</span>
-            <h1 className="text-2xl lg:text-3xl font-black tracking-tight">Admin Dashboard</h1>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+              <span className="material-symbols-outlined filled-icon text-danger text-2xl">admin_panel_settings</span>
+              <h1 className="text-2xl lg:text-3xl font-black tracking-tight">Admin Dashboard</h1>
+            </div>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Manage users, rescue teams, and monitor system status
+            </p>
           </div>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Manage users, rescue teams, and monitor system status
-          </p>
+          <div className="hidden lg:block shrink-0">
+            <NotificationBell />
+          </div>
         </div>
 
         {/* Tabs — hide when navigated from sidebar sub-page */}

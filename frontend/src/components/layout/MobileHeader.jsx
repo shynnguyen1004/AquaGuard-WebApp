@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { getRoleBadgeClasses } from "../../config/rbac";
+import NotificationBell from "../notifications/NotificationBell";
 
 export default function MobileHeader({ onChatToggle, onNavigate }) {
   const { user, logout } = useAuth();
@@ -51,19 +52,23 @@ export default function MobileHeader({ onChatToggle, onNavigate }) {
             <img src="/images/Logo/Tranparent_Dark/TD_App_Logo.png" alt="AquaGuard" className="h-12 w-auto hidden dark:block" />
           </div>
 
-          {/* Avatar — opens dropdown */}
-          <button
-            onClick={() => setShowProfile((p) => !p)}
-            data-tour="profile-mobile"
-            className="rounded-full focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
-          >
-            <img
-              alt="Profile"
-              className="size-9 rounded-full border-2 border-primary/20 object-cover"
-              src={avatarUrl}
-              referrerPolicy="no-referrer"
-            />
-          </button>
+          {/* Notifications + Avatar */}
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            {/* Avatar — opens dropdown */}
+            <button
+              onClick={() => setShowProfile((p) => !p)}
+              data-tour="profile-mobile"
+              className="rounded-full focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+            >
+              <img
+                alt="Profile"
+                className="size-9 rounded-full border-2 border-primary/20 object-cover"
+                src={avatarUrl}
+                referrerPolicy="no-referrer"
+              />
+            </button>
+          </div>
         </div>
       </header>
 

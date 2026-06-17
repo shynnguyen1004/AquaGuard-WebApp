@@ -307,12 +307,38 @@ const en = {
     about: "About Us",
     admin: "Admin Dashboard",
     "admin-requests": "SOS Requests",
+    "admin-notifications": "Send Notifications",
     "admin-users": "User Management",
     "admin-teams": "Rescue Teams",
     "admin-sensors": "Flood Sensors",
     "admin-analytics": "System Analytics",
     settings: "Settings",
     logout: "Logout",
+  },
+
+  // ── Notifications ──
+  notifications: {
+    title: "Notifications",
+    markAllRead: "Mark all as read",
+    empty: "No notifications yet",
+    // Admin send page
+    sendTitle: "Send Notification",
+    sendSubtitle: "Send a notification to all users or a specific user.",
+    recipients: "Recipients",
+    targetAll: "All users",
+    targetAllDesc: "Send to every user in the system.",
+    targetUser: "A specific user",
+    targetUserDesc: "Send to one specific user only.",
+    selectUser: "Select recipient",
+    searchUserPlaceholder: "Search by name or phone number...",
+    msgTitle: "Title",
+    msgTitlePlaceholder: "Enter notification title...",
+    msgBody: "Message",
+    msgBodyPlaceholder: "Enter notification message...",
+    send: "Send notification",
+    sending: "Sending...",
+    sentToast: "Notification sent to {count} user(s).",
+    sendError: "Failed to send notification. Please try again.",
   },
 
   // ── Header ──

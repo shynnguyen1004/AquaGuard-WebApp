@@ -13,6 +13,7 @@ import SettingsPage from "./SettingsPage";
 import AboutUsPage from "./AboutUsPage";
 import AdminDashboard from "./admin/AdminDashboard";
 import AdminSOSRequestsPage from "./admin/AdminSOSRequestsPage";
+import AdminNotificationsPage from "./admin/AdminNotificationsPage";
 import RescuerDashboard from "./rescuer/RescuerDashboard";
 import RescuerTeamPage from "./rescuer/RescuerTeamPage";
 import CitizenSOSPage from "./citizen/CitizenSOSPage";
@@ -123,6 +124,12 @@ export default function Dashboard() {
         );
 
       // ── Admin pages ──
+      case "admin-notifications":
+        return (
+          <main className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900/50 relative overflow-hidden">
+            <AdminNotificationsPage />
+          </main>
+        );
       case "admin":
       case "admin-users":
       case "admin-requests":

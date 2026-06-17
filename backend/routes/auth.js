@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const pool = require("../db");
 const { authMiddleware, requireAdmin, requireRoles } = require("../middleware/auth");
 const { sendWelcomeEmail, isValidEmail } = require("../utils/email");
+const { createNotification } = require("../utils/notifications");
 
 // ── Twilio Verify SDK ──
 const twilio = require("twilio");
@@ -283,6 +284,14 @@ router.post("/register", async (req, res) => {
         console.error("Welcome email error:", e)
       );
     }
+
+    // Notification chào mừng in-app (fire-and-forget)
+    createNotification({
+      userId: user.id,
+      type: "welcome",
+      title: "Chào mừng đến với AquaGuard!",
+      body: "Tài khoản của bạn đã được tạo. Hãy hoàn thiện hồ sơ và kết nối người thân để được hỗ trợ nhanh nhất khi cần.",
+    }).catch((e) => console.error("Welcome notification error:", e));
 
     // Generate JWT
     const token = jwt.sign(

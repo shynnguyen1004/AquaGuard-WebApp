@@ -6,6 +6,7 @@ import FamilySafetyBoard from "../components/dashboard/FamilySafetyBoard";
 import DashboardQuickActions from "../components/dashboard/DashboardQuickActions";
 import PendingFamilyInvites from "../components/dashboard/PendingFamilyInvites";
 import SOSRequestHistory from "../components/dashboard/SOSRequestHistory";
+import NotificationBell from "../components/notifications/NotificationBell";
 import { api } from "../services/api";
 
 const SAFETY_OPTIONS = [
@@ -56,7 +57,7 @@ export default function DashboardHome({ onNavigate }) {
             </h1>
           </div>
 
-          {/* Safety Status Chip — broadcast your status */}
+          {/* Safety Status Chip — broadcast your status + Notifications */}
           <div className="flex items-center gap-2 flex-shrink-0">
             <span className="text-xs text-slate-400 dark:text-slate-500 hidden sm:inline font-medium">
               {language === "vi" ? "Trạng thái:" : "Status:"}
@@ -84,6 +85,9 @@ export default function DashboardHome({ onNavigate }) {
                 );
               })}
             </div>
+
+            {/* Notifications */}
+            <NotificationBell />
           </div>
         </div>
 

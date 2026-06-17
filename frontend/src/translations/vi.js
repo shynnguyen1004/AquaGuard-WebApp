@@ -307,12 +307,38 @@ const vi = {
     about: "Giới thiệu",
     admin: "Quản trị viên",
     "admin-requests": "Yêu cầu SOS",
+    "admin-notifications": "Gửi thông báo",
     "admin-users": "Quản lý người dùng",
     "admin-teams": "Đội cứu hộ",
     "admin-sensors": "Cảm biến lũ",
     "admin-analytics": "Phân tích hệ thống",
     settings: "Cài đặt",
     logout: "Đăng xuất",
+  },
+
+  // ── Thông báo ──
+  notifications: {
+    title: "Thông báo",
+    markAllRead: "Đánh dấu đã đọc tất cả",
+    empty: "Chưa có thông báo nào",
+    // Trang admin gửi thông báo
+    sendTitle: "Gửi thông báo",
+    sendSubtitle: "Gửi thông báo tới toàn bộ người dùng hoặc một người cụ thể.",
+    recipients: "Đối tượng nhận",
+    targetAll: "Tất cả người dùng",
+    targetAllDesc: "Gửi cho toàn bộ người dùng trong hệ thống.",
+    targetUser: "Một người dùng",
+    targetUserDesc: "Chỉ gửi cho một người dùng cụ thể.",
+    selectUser: "Chọn người nhận",
+    searchUserPlaceholder: "Tìm theo tên hoặc số điện thoại...",
+    msgTitle: "Tiêu đề",
+    msgTitlePlaceholder: "Nhập tiêu đề thông báo...",
+    msgBody: "Nội dung",
+    msgBodyPlaceholder: "Nhập nội dung thông báo...",
+    send: "Gửi thông báo",
+    sending: "Đang gửi...",
+    sentToast: "Đã gửi thông báo cho {count} người dùng.",
+    sendError: "Gửi thông báo thất bại. Vui lòng thử lại.",
   },
 
   // ── Tiêu đề ──
