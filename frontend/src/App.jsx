@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { LiveLocationProvider } from "./contexts/LiveLocationContext";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { ToastProvider } from "./components/common/Toast";
 import ErrorBoundary from "./components/common/ErrorBoundary";
@@ -16,24 +17,26 @@ export default function App() {
       <BrowserRouter>
         <LanguageProvider>
           <AuthProvider>
-            <ToastProvider>
-              <Routes>
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-                <Route path="/unauthorized" element={<UnauthorizedPage />} />
-                <Route
-                  path="/"
-                  element={
-                    <ProtectedRoute>
-                      <LocationGate>
-                        <Dashboard />
-                      </LocationGate>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </ToastProvider>
+            <LiveLocationProvider>
+              <ToastProvider>
+                <Routes>
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                  <Route path="/unauthorized" element={<UnauthorizedPage />} />
+                  <Route
+                    path="/"
+                    element={
+                      <ProtectedRoute>
+                        <LocationGate>
+                          <Dashboard />
+                        </LocationGate>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </ToastProvider>
+            </LiveLocationProvider>
           </AuthProvider>
         </LanguageProvider>
       </BrowserRouter>

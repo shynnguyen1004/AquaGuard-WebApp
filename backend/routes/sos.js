@@ -2,10 +2,43 @@ const express = require("express");
 const pool = require("../db");
 const { upload, uploadToCloudinary } = require("../utils/upload");
 const { authMiddleware, requireAdmin, requireRoles } = require("../middleware/auth");
+const { getLiveLocations } = require("../redisClient");
 
 const router = express.Router();
 
+// ── Helper: overlay live Redis positions onto active requests ──
+// PostgreSQL user_locations only holds first/last positions, so continuous
+// movement during a session lives in Redis. Override victim (user_id) and
+// rescuer (assigned_to) coords for pending/in_progress requests.
+async function enrichWithLiveLocations(rows) {
+  const active = rows.filter(
+    (r) => r.status === "pending" || r.status === "in_progress"
+  );
+  if (active.length === 0) return rows;
 
+  const ids = new Set();
+  active.forEach((r) => {
+    if (r.user_id) ids.add(r.user_id);
+    if (r.assigned_to) ids.add(r.assigned_to);
+  });
+
+  const live = await getLiveLocations(Array.from(ids));
+  if (live.size === 0) return rows;
+
+  for (const r of active) {
+    const victim = live.get(r.user_id);
+    if (victim) {
+      r.latitude = victim.lat;
+      r.longitude = victim.lng;
+    }
+    const rescuer = r.assigned_to ? live.get(r.assigned_to) : null;
+    if (rescuer) {
+      r.rescuer_latitude = rescuer.lat;
+      r.rescuer_longitude = rescuer.lng;
+    }
+  }
+  return rows;
+}
 
 // ── Helper: broadcast to a tracking room ──
 function broadcastToRoom(req, requestId, message) {
@@ -160,7 +193,8 @@ router.get("/all", authMiddleware, requireRoles(["citizen", "rescuer", "admin"])
        ORDER BY r.created_at DESC`
     );
 
-    return res.json({ success: true, data: result.rows });
+    const data = await enrichWithLiveLocations(result.rows);
+    return res.json({ success: true, data });
   } catch (err) {
     console.error("Get all requests error:", err);
     return res.status(500).json({ success: false, message: "Lỗi server" });
@@ -228,7 +262,8 @@ router.get("/team", authMiddleware, requireRoles(["rescuer"]), async (req, res) 
       [group.id]
     );
 
-    return res.json({ success: true, data: result.rows, group });
+    const data = await enrichWithLiveLocations(result.rows);
+    return res.json({ success: true, data, group });
   } catch (err) {
     console.error("Get team requests error:", err);
     return res.status(500).json({ success: false, message: "Lỗi server" });

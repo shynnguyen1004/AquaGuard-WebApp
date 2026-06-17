@@ -466,6 +466,7 @@ const en = {
     showFamily: "Show family",
     myLocation: "My location",
     myLocationLabel: "My location",
+    rescuerOnline: "Rescue team (online)",
     hideFloodZones: "Hide flood zones",
     showFloodZones: "Show flood zones",
     routeTo: "Route to {name}",

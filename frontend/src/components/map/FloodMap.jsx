@@ -118,6 +118,33 @@ function createMyLocationIcon() {
 
 const myLocationIcon = createMyLocationIcon();
 
+// Live rescuer icon (blue teardrop + medical cross) — a moving marker for
+// rescuers who are currently "online", streamed from the Redis hot store.
+function createLiveRescuerIcon() {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="48" viewBox="0 0 44 52">
+      <defs>
+        <filter id="lrs" x="-20%" y="-10%" width="140%" height="130%">
+          <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.3)" />
+        </filter>
+      </defs>
+      <path d="M22 0C11 0 2 9 2 20c0 15 20 32 20 32s20-17 20-32C42 9 33 0 22 0z"
+            fill="#2563eb" filter="url(#lrs)" />
+      <circle cx="22" cy="16" r="8" fill="white" opacity="0.95" />
+      <path d="M22 12v8M18 16h8" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" />
+    </svg>
+  `;
+  return L.divIcon({
+    html: `<div class="live-rescuer-marker">${svg}</div>`,
+    className: "live-rescuer-icon",
+    iconSize: [40, 48],
+    iconAnchor: [20, 48],
+    popupAnchor: [0, -48],
+  });
+}
+
+const liveRescuerIcon = createLiveRescuerIcon();
+
 // ── SOS icon (avatar + colored ring) ──
 const SOS_STAGE_COLOR = {
   pending: "#ef4444",
@@ -191,7 +218,7 @@ function parseLocation(location) {
 }
 
 export default function FloodMap({ onReady }) {
-  const { token, role } = useAuth();
+  const { token, role, user } = useAuth();
   const isCitizen = role === "citizen";
   const { t, language } = useLanguage();
   const [markers, setMarkers] = useState([]);
@@ -211,10 +238,10 @@ export default function FloodMap({ onReady }) {
   const [routeInfo, setRouteInfo] = useState(null); // { distance, duration }
   const [showFloodZones, setShowFloodZones] = useState(true);
   const locationWatchIdRef = useRef(null);
-  const lastLocationSyncRef = useRef({ lat: null, lng: null, at: 0 });
   const hasCenteredOnUserRef = useRef(false);
 
   const [sosPins, setSosPins] = useState([]);
+  const [liveRescuers, setLiveRescuers] = useState([]); // online rescuers from Redis
   const sosIconCacheRef = useRef(new Map()); // `${stage}|${avatarUrl}` -> Leaflet icon
   const familyIconCacheRef = useRef(new Map()); // safetyStatus -> Leaflet icon
 
@@ -294,27 +321,30 @@ export default function FloodMap({ onReady }) {
     }
   }, [token, t]);
 
-  const syncMyLocation = useCallback((loc, force = false) => {
-    if (!token || !loc) return;
+  // Poll live rescuer positions from the Redis hot store (exclude self).
+  const pollLiveRescuers = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/locations/live?role=rescuer`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (!json?.success) return;
+      const list = (json.data || []).filter(
+        (u) =>
+          Number.isFinite(u.lat) &&
+          Number.isFinite(u.lng) &&
+          u.userId !== user?.id
+      );
+      setLiveRescuers(list);
+    } catch (err) {
+      console.warn("[FloodMap] live rescuers poll error:", err);
+    }
+  }, [token, user?.id]);
 
-    const prev = lastLocationSyncRef.current;
-    const now = Date.now();
-    const movedEnough = prev.lat == null
-      || Math.abs(prev.lat - loc.lat) >= 0.00005
-      || Math.abs(prev.lng - loc.lng) >= 0.00005;
-    const shouldSync = force || movedEnough || now - prev.at >= 5000;
-
-    if (!shouldSync) return;
-
-    lastLocationSyncRef.current = { lat: loc.lat, lng: loc.lng, at: now };
-
-    fetch(`${API_BASE}/family/location`, {
-      method: "PUT",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ latitude: loc.lat, longitude: loc.lng }),
-    }).catch(() => { });
-  }, [token]);
-
+  // Note: this component no longer writes the user's position to Postgres. The
+  // always-on LiveLocationProvider streams it to the Redis hot store instead;
+  // here we only track it locally to render the "my location" marker + recenter.
   const startLiveLocationTracking = useCallback(({
     recenter = false,
     showPermissionAlert = false,
@@ -342,7 +372,6 @@ export default function FloodMap({ onReady }) {
           hasCenteredOnUserRef.current = true;
         }
         setLocating(false);
-        syncMyLocation(loc, true);
 
         locationWatchIdRef.current = navigator.geolocation.watchPosition(
           (watchPos) => {
@@ -351,7 +380,6 @@ export default function FloodMap({ onReady }) {
               lng: watchPos.coords.longitude,
             };
             setMyLocation(nextLoc);
-            syncMyLocation(nextLoc);
           },
           (watchErr) => {
             console.warn("[FloodMap] GPS watch error:", watchErr.message);
@@ -379,7 +407,7 @@ export default function FloodMap({ onReady }) {
       },
       { enableHighAccuracy: true, timeout: 15000 }
     );
-  }, [syncMyLocation]);
+  }, []);
 
   // Change Windy overlay via postMessage
   const changeWindyOverlay = (overlay) => {
@@ -468,6 +496,14 @@ export default function FloodMap({ onReady }) {
       clearInterval(interval);
     };
   }, [token, pollSosRequests]);
+
+  // Live rescuer positions (polling the Redis-backed endpoint)
+  useEffect(() => {
+    if (!token) return;
+    pollLiveRescuers();
+    const interval = setInterval(pollLiveRescuers, 4000);
+    return () => clearInterval(interval);
+  }, [token, pollLiveRescuers]);
 
   // Manual locate button handler — requests permission if needed and keeps tracking continuously
   const handleLocateMe = () => {
@@ -576,7 +612,9 @@ export default function FloodMap({ onReady }) {
   return (
     <div className="flex-1 relative min-h-[60vh] xl:min-h-0">
       <style>{`
-        .custom-pin-icon, .family-avatar-marker-icon, .my-location-icon { background: none !important; border: none !important; }
+        .custom-pin-icon, .family-avatar-marker-icon, .my-location-icon, .live-rescuer-icon { background: none !important; border: none !important; }
+        .live-rescuer-marker { animation: liveRescuerBob 1.6s ease-in-out infinite; transform-origin: bottom center; }
+        @keyframes liveRescuerBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
         .family-avatar-marker-icon { cursor: pointer !important; pointer-events: auto !important; }
         .sos-avatar-marker-icon { background: none !important; border: none !important; }
 
@@ -1091,6 +1129,28 @@ export default function FloodMap({ onReady }) {
                     {p.createdAt ? <span>• {new Date(p.createdAt).toLocaleTimeString(language === "vi" ? "vi-VN" : "en-US")}</span> : ""}
                     {p.assignedName ? <span>• {p.assignedName}</span> : ""}
                   </div>
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+
+          {/* Live rescuer markers (online, streamed from Redis) */}
+          {liveRescuers.map((r) => (
+            <Marker
+              key={`live-rescuer-${r.userId}`}
+              position={[r.lat, r.lng]}
+              icon={liveRescuerIcon}
+              zIndexOffset={500}
+            >
+              <Popup>
+                <div className="p-3 bg-white dark:bg-slate-800 rounded-2xl">
+                  <p className="font-black text-sm text-blue-600 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-base">local_shipping</span>
+                    {t("floodMap.rescuerOnline")}
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    {r.lat.toFixed(5)}, {r.lng.toFixed(5)}
+                  </p>
                 </div>
               </Popup>
             </Marker>

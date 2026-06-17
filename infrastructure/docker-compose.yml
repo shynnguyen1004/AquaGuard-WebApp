@@ -25,6 +25,19 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # ── Redis (live-location hot store) ──
+  redis:
+    image: redis:7-alpine
+    container_name: aquaguard-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   # ── Backend API Server ──
   backend:
     build:
@@ -38,6 +51,8 @@ services:
     environment:
       # Override DATABASE_URL to point to Docker postgres service
       DATABASE_URL: postgresql://aquaguard:aquaguard_pass@postgres:5432/aquaguard_db
+      # Live-location hot store (overrides any REDIS_URL in .env for local Docker)
+      REDIS_URL: redis://redis:6379
     volumes:
       # Bind mount for hot-reload (node --watch)
       - ../backend:/app
@@ -46,6 +61,8 @@ services:
     command: ["node", "--watch", "index.js"]
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
 

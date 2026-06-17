@@ -15,7 +15,7 @@
 
 > **Status:** 🚀 Active Development — EPICS 8th Competition Build
 
-[Live Demo](https://aqua-guard-web-app.vercel.app) · [iOS App](https://github.com/shynnguyen1004/AquaGuard-iOS) · [Report a Bug](https://github.com/shynnguyen1004/AquaGuard-WebApp/issues) · [Request a Feature](https://github.com/shynnguyen1004/AquaGuard-WebApp/issues)
+[Live Demo](https://aquaguard.vn) · [iOS App](https://github.com/shynnguyen1004/AquaGuard-iOS) · [Report a Bug](https://github.com/shynnguyen1004/AquaGuard-WebApp/issues) · [Request a Feature](https://github.com/shynnguyen1004/AquaGuard-WebApp/issues)
 
 </div>
 
@@ -126,75 +126,66 @@ A full **Role-Based Access Control** system powers three distinct user experienc
 - **Report Issue Form:** Citizens can submit bug reports, feature requests, and data issues with file attachments.
 
 ### 🔐 Authentication & Sessions
-- **Firebase Auth:** Google Sign-In and Phone OTP (with invisible reCAPTCHA) — no username/password required.
-- **First-Login Role Selection:** New users choose their role (Citizen, Rescuer, or Admin) via a guided modal — persisted to Firestore.
-- **Persistent Sessions:** Auth state restored on page reload via `onAuthStateChanged` + `localStorage` fallback.
-- **Resilient Auth Chain:** If the backend API is unreachable, the app automatically falls back to Firebase user data — zero downtime for end users.
+- **Phone + Password Auth:** Primary login is Vietnamese phone number (`+84...`) + password, hashed with bcrypt and issued a role-encoded **JWT** (7-day expiry) by the backend.
+- **Optional Google Sign-In:** Firebase Google sign-in is available as a secondary option.
+- **Role at Registration:** Users pick their role (Citizen, Rescuer, or Admin) during sign-up; Admin/Rescuer roles require a shared role password.
+- **OTP Password Reset:** "Forgot password" sends an SMS OTP via **Twilio Verify**, then issues a short-lived reset session.
+- **Transactional Email:** Welcome email on registration and family-invite/accept notifications are sent via **Resend** (fire-and-forget, never blocks the request).
+- **Persistent Sessions:** JWT + user are stored client-side and restored on reload; falls back to Firebase user data if the backend is unreachable.
 
 ---
 
 ## 🛠 Tech Stack
 
-### Frontend (`/client`)
+### Frontend (`/frontend`)
 
 | Technology | Version | Purpose |
 |---|---|---|
 | **React** | 19 | Component-based UI framework |
 | **Vite** | 6 | Build tool & dev server |
-| **Tailwind CSS** | 4 | Utility-first CSS styling |
+| **Tailwind CSS** | 4 | Utility-first CSS styling (`@tailwindcss/vite`) |
 | **React Router DOM** | 7 | Client-side routing |
-| **Firebase SDK** | 12 | Auth (Google/Phone OTP) + Firestore real-time DB |
+| **Firebase SDK** | 12 | Optional Google sign-in |
 | **Leaflet + React Leaflet** | 1.9 / 5.0 | Interactive map rendering |
-| **React Router DOM** | 7 | SPA routing |
+| **Recharts** | 3 | Charts (analytics) |
+| **react-joyride** | 3 | Guided onboarding tours |
 
-### Backend (`/server`)
+### Backend (`/backend`)
 
 | Technology | Version | Purpose |
 |---|---|---|
-| **Node.js** | 20+ | JavaScript runtime |
+| **Node.js** | 20+ | JavaScript runtime (CommonJS) |
 | **Express.js** | 4 | REST API framework |
-| **PostgreSQL / MySQL** | — | Primary relational database (via migrations) |
-| **Firebase Admin SDK** | — | Server-side Firebase token verification |
-| **Redis** | — | Caching, rate limiting, session management |
-| **JWT** | — | Secure, role-encoded access tokens |
+| **PostgreSQL** (`pg`) | — | Primary relational database — raw SQL, no ORM |
+| **ws** | 8 | Native WebSocket server for live rescue tracking |
+| **JWT** + **bcrypt** | — | Role-encoded access tokens + password hashing |
+| **Resend** | — | Transactional email |
+| **Twilio Verify** | — | SMS OTP for password reset |
 | **Multer + Cloudinary** | — | Image upload and CDN storage |
 
 ### Architecture
 
 ```
 AquaGuard Web
-├── frontend/           # React 19 + Vite SPA
+├── frontend/               # React 19 + Vite SPA  (ESM)
 │   └── src/
-│       ├── config/         # Firebase init, RBAC config
-│       ├── contexts/       # AuthContext, LanguageContext
-│       ├── hooks/          # useRescueTracking (WebSocket)
-│       ├── services/       # API service layer
-│       ├── translations/   # i18n (vi.json, en.json)
-│       ├── utils/          # Auth storage, phone utils
-│       ├── pages/          # Page components by role
-│       │   ├── admin/      # AdminDashboard, AdminSOSRequests
-│       │   ├── rescuer/    # RescuerDashboard, RescuerTeamPage
-│       │   └── citizen/    # CitizenSOSPage
-│       └── components/     # Reusable UI components
-│           ├── map/        # FloodMap, AdminFloodMapEditor, MapLegend
-│           ├── layout/     # Sidebar, MobileNav, Header, RightPanel
-│           ├── auth/       # ProtectedRoute, RoleSelectionModal, LocationGate
-│           ├── chat/       # AI ChatBot (Groq/Llama)
-│           ├── dashboard/  # ActiveSOSBanner, FamilySafetyBoard, QuickActions, SOSHistory
-│           ├── rescue/     # RescueRequestForm, RescueRequestCard, RescueTrackingMap
-│           ├── reports/    # FloodNewsFeed, ReportIssueForm
-│           ├── safety/     # SafetyGuides, EmergencyContacts
-│           ├── alerts/     # ActiveAlerts, AlertCard
-│           └── actions/    # QuickActions, EmergencySupport
-├── server/             # Node.js + Express REST API
-│   └── src/
-│       ├── config/         # DB, Redis, Firebase Admin
-│       ├── models/         # Database models
-│       ├── controllers/    # Route controllers
-│       ├── routes/         # API route definitions
-│       └── middlewares/    # Auth, Role, Upload, RateLimit
-├── database/           # init_db.sql (schema + seed data)
-└── infrastructure/     # Docker Compose, Makefile
+│       ├── config/             # Firebase init, RBAC config
+│       ├── contexts/           # AuthContext, LanguageContext
+│       ├── hooks/              # WebSocket rescue-tracking hook
+│       ├── services/           # API service layer (VITE_API_BASE_URL)
+│       ├── translations/       # i18n (vi.js, en.js)
+│       ├── utils/              # Auth storage, phone utils
+│       ├── pages/              # Page components by role (admin/ rescuer/ citizen/)
+│       └── components/         # Reusable UI (map, layout, auth, chat, dashboard,
+│                               #   rescue, reports, safety, alerts, onboarding, ...)
+├── backend/                # Node.js + Express REST API + WebSocket  (CommonJS)
+│   ├── index.js                # Entry point: Express, CORS, rate limits, WS server
+│   ├── db.js                   # Shared pg Pool (auto-SSL for cloud DBs)
+│   ├── routes/                 # auth.js, sos.js, family.js, analytics.js (logic inline)
+│   ├── middleware/             # auth.js (JWT + role guards), rateLimit.js
+│   ├── utils/                  # email.js (Resend), upload.js (Cloudinary)
+│   └── migrations/             # Raw .sql migrations (applied manually)
+└── infrastructure/         # docker-compose.yml, Makefile, database/init_db.sql
 ```
 
 ---
@@ -235,13 +226,13 @@ git clone https://github.com/shynnguyen1004/AquaGuard-WebApp.git
 cd AquaGuard-WebApp
 
 # 2. Copy env templates
-cp .env.example .env
-cp server/.env.example server/.env
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
 
-# 3. Điền API keys vào .env và server/.env (nhờ team lead cấp)
+# 3. Điền API keys vào backend/.env và frontend/.env (nhờ team lead cấp)
 
-# 4. Khởi chạy toàn bộ hệ thống
-docker compose up --build
+# 4. Khởi chạy toàn bộ hệ thống (compose file nằm trong infrastructure/)
+docker compose -f infrastructure/docker-compose.yml up --build
 ```
 
 Sau khi chạy xong:
@@ -249,208 +240,108 @@ Sau khi chạy xong:
 - 🔌 **Backend API:** http://localhost:5001/api/health
 - 🐘 **PostgreSQL:** localhost:5433 (user: `aquaguard`, pass: `aquaguard_pass`, db: `aquaguard_db`)
 
-> 📌 Database sẽ tự động được khởi tạo với schema và dữ liệu mẫu từ `database/init_db.sql`.
+> 📌 Database sẽ tự động được khởi tạo với schema và dữ liệu mẫu từ `infrastructure/database/init_db.sql`.
 
-Các lệnh Docker hữu ích:
+Các lệnh Docker hữu ích (hoặc dùng `make -f infrastructure/Makefile <target>`):
 ```bash
-# Dừng toàn bộ services
-docker compose down
+DC="docker compose -f infrastructure/docker-compose.yml"
 
-# Xem logs
-docker compose logs -f backend
-docker compose logs -f frontend
+$DC down                       # Dừng toàn bộ services (giữ data)
+$DC logs -f backend            # Xem logs backend
+$DC down -v && $DC up --build  # Reset database (xoá data, chạy lại init_db.sql)
+$DC up postgres backend        # Chỉ chạy backend + database
 
-# Reset database (xoá data cũ, chạy lại init)
-docker compose down -v && docker compose up --build
-
-# Chỉ chạy backend + database (không cần frontend container)
-docker compose up postgres backend
+# Thêm 1 package npm cho backend → phải build lại & làm mới anonymous node_modules volume:
+$DC up -d --build --renew-anon-volumes backend
 ```
+
+> ⚠️ Backend chạy `node --watch` nên sửa file `.js` tự reload. Nhưng đổi `backend/.env` thì phải `up -d` để recreate container (lệnh `restart` không nạp lại env).
 
 ---
 
 ### 🖥️ Manual Setup (Without Docker)
 
 #### Prerequisites
+- **Node.js** >= 20.x, **npm** >= 10.x
+- A **PostgreSQL** instance (local, Docker, or a cloud provider like Neon)
 
-Ensure the following are installed on your machine:
-
-- **Node.js** >= 20.x
-- **npm** >= 10.x
-- **PostgreSQL** or **MySQL** (running locally or via Docker)
-- A **Firebase** project with Authentication (Google + Phone) and Firestore enabled
-- *(Optional)* **Redis** for caching and rate limiting
-
----
-
-### 1. Clone the Repository
+#### 1. Backend (`/backend`)
 
 ```bash
-git clone https://github.com/shynnguyen1004/AquaGuard-WebApp.git
-cd AquaGuard-WebApp
-```
-
----
-
-### 2. Set Up the Backend (`/server`)
-
-#### Install Dependencies
-
-```bash
-cd server
+cd backend
 npm install
+cp .env.example .env          # rồi điền giá trị thật
+npm run dev                   # node --watch index.js → http://localhost:5001
 ```
 
-#### Configure Environment Variables
+Tạo schema bằng cách nạp `infrastructure/database/init_db.sql` vào database của bạn
+(ví dụ: `psql "$DATABASE_URL" -f infrastructure/database/init_db.sql`).
+Không có migration runner — các file trong `backend/migrations/` là SQL chạy thủ công.
 
-Create a `.env` file in the `/server` directory:
-
-```env
-# Server
-PORT=5000
-NODE_ENV=development
-
-# Database
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=aquaguard_db
-DB_USER=your_db_user
-DB_PASSWORD=your_db_password
-
-# Firebase Admin SDK
-FIREBASE_PROJECT_ID=your-project-id
-FIREBASE_CLIENT_EMAIL=your-client-email@...
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-
-# JWT
-JWT_SECRET=your_super_secret_jwt_key
-JWT_EXPIRES_IN=7d
-
-# Redis (optional)
-REDIS_HOST=localhost
-REDIS_PORT=6379
-
-# Cloudinary (image uploads)
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
-```
-
-> 📌 You can download your Firebase service account credentials from **Firebase Console → Project Settings → Service Accounts → Generate new private key**.
-
-#### Run Database Migrations
+#### 2. Frontend (`/frontend`)
 
 ```bash
-npm run migrate
-```
-
-#### Start the Backend Server
-
-```bash
-# Development (with hot reload)
-npm run dev
-
-# Production
-npm start
-```
-
-The API will be available at `http://localhost:5000`.
-
----
-
-### 3. Set Up the Frontend (`/client`)
-
-#### Install Dependencies
-
-```bash
-cd ../client
+cd frontend
 npm install
-```
-
-#### Configure Environment Variables
-
-Create a `.env` file in the `/client` directory:
-
-```env
-# Backend API
-VITE_API_BASE_URL=http://localhost:5000/api/v1
-
-# Firebase Client SDK
-VITE_FIREBASE_API_KEY=your_api_key
-VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your-project-id
-VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-VITE_FIREBASE_APP_ID=your_app_id
-
-# Optional: OpenWeatherMap weather overlays
-VITE_OWM_API_KEY=your_owm_api_key
-```
-
-#### Start the Frontend Dev Server
-
-```bash
-npm run dev
-```
-
-The app will be available at `http://localhost:5173`.
-
----
-
-### 4. Run Both Servers Concurrently (Optional)
-
-From the project root, you can run both servers with a single command using `concurrently`:
-
-```bash
-# Install concurrently at root (one-time)
-npm install -g concurrently
-
-# Run both
-concurrently "npm run dev --prefix server" "npm run dev --prefix client"
+cp .env.example .env          # rồi điền giá trị thật
+npm run dev                   # vite → http://localhost:5173
+npm run build                 # production build
 ```
 
 ---
 
 ## 🔑 Environment Variables Summary
 
+Env files theo từng package (đều được git-ignore): `backend/.env` và `frontend/.env`.
+
 | Variable | Location | Required | Description |
 |---|---|:---:|---|
-| `PORT` | `/server/.env` | ✅ | Backend server port |
-| `DB_HOST`, `DB_NAME`, etc. | `/server/.env` | ✅ | Database connection config |
-| `FIREBASE_PROJECT_ID` | `/server/.env` | ✅ | Firebase Admin SDK credentials |
-| `JWT_SECRET` | `/server/.env` | ✅ | JWT signing secret |
-| `REDIS_HOST` | `/server/.env` | — | Redis connection (optional) |
-| `CLOUDINARY_*` | `/server/.env` | — | Image upload credentials |
-| `VITE_API_BASE_URL` | `/client/.env` | ✅ | Backend API base URL |
-| `VITE_FIREBASE_*` | `/client/.env` | ✅ | Firebase client SDK config |
-| `VITE_OWM_API_KEY` | `/client/.env` | — | OpenWeatherMap API key (optional) |
+| `DATABASE_URL` | `backend/.env` | ✅ | PostgreSQL connection string (auto-SSL cho cloud DB) |
+| `JWT_SECRET` | `backend/.env` | ✅ | JWT signing secret |
+| `PORT` | `backend/.env` | — | Backend port (mặc định 5001) |
+| `CLOUDINARY_URL` | `backend/.env` | — | Image upload (Cloudinary) |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_VERIFY_SERVICE_SID` | `backend/.env` | — | SMS OTP (Twilio Verify) |
+| `RESEND_API_KEY` / `EMAIL_FROM` | `backend/.env` | — | Transactional email (Resend) |
+| `VITE_API_BASE_URL` / `VITE_WS_URL` | `frontend/.env` | ✅ | Backend REST + WebSocket URLs |
+| `VITE_FIREBASE_*` | `frontend/.env` | ✅ | Firebase client SDK (Google sign-in) |
+| `VITE_GROQ_API_KEY` | `frontend/.env` | — | AI ChatBot (Groq/Llama) |
+| `VITE_OWM_API_KEY` / `VITE_WINDY_API_KEY` / `VITE_GOOGLE_MAPS_API_KEY` | `frontend/.env` | — | Weather overlays, forecast, geocoding |
+
+> ⚠️ Mọi biến `VITE_` được nhúng vào bundle và lộ ra trình duyệt — không đặt secret ở đó.
 
 ---
 
 ## 📡 API Overview
 
+Base URL: `<backend>/api`. All protected routes use a `Bearer <JWT>` header. Representative endpoints (see `backend/routes/` for the full list):
+
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| `POST` | `/api/v1/auth/login` | — | Verify Firebase token, return custom JWT |
-| `POST` | `/api/v1/auth/register` | — | Register new user with role |
-| `GET` | `/api/v1/auth/me` | 🔒 JWT | Get current user profile |
-| `GET` | `/api/v1/flood-zones` | — | Fetch all flood zones |
-| `POST` | `/api/v1/flood-zones` | 🔒 Admin | Create new flood zone |
-| `POST` | `/api/v1/reports` | 🔒 JWT | Submit a flood report with images |
-| `GET` | `/api/v1/reports/nearby` | 🔒 JWT | Get reports within a radius |
-| `POST` | `/api/v1/rescue-requests` | 🔒 Citizen | Create a rescue request |
-| `PATCH` | `/api/v1/rescue-requests/:id/assign` | 🔒 Rescuer | Accept a rescue mission |
-| `GET` | `/api/v1/resources/nearby` | 🔒 JWT | Find shelters and resources nearby |
+| `POST` | `/api/auth/register` | — | Register with phone + password + role |
+| `POST` | `/api/auth/login` | — | Login, returns JWT |
+| `POST` | `/api/auth/forgot-password` · `/verify-otp` · `/reset-password` | — | SMS OTP password reset (Twilio) |
+| `GET` · `PUT` | `/api/auth/profile` | 🔒 JWT | Get / update current user profile |
+| `POST` | `/api/auth/rescue-groups` · `/:id/invite` | 🔒 Rescuer | Create rescue group / invite members |
+| `POST` | `/api/sos` | 🔒 Citizen | Create an SOS request (with images) |
+| `GET` | `/api/sos/my` · `/all` · `/team` | 🔒 JWT | List own / all / team SOS requests |
+| `PUT` | `/api/sos/:id/assign` · `/accept` · `/complete` · `/cancel` | 🔒 Rescuer | Mission lifecycle transitions |
+| `GET` | `/api/family/search` | 🔒 JWT | Find a user by phone number |
+| `POST` · `PUT` | `/api/family/request` · `/requests/:id/accept` | 🔒 JWT | Send / accept family connection (triggers email) |
+| `GET` | `/api/analytics/overview` · `/users` · `/rescue` | 🔒 Admin | System-wide analytics |
+| `GET` | `/api/health` | — | Health check (used by uptime monitor) |
 
 ---
 
 ## 🗺️ Deployment
 
-The frontend is deployed on **Vercel** with automatic deployments from the `main` branch.
+| Part | Hosted on | Notes |
+|---|---|---|
+| **Frontend** | **Vercel** — `aquaguard.vn` (+ `www`) and the `*.vercel.app` subdomain | Auto-deploys on push to `main`. |
+| **Backend API + WebSocket** | **Render** (`aquaguard-api.onrender.com`) | Free tier sleeps after ~15 min idle; an UptimeRobot monitor pings `/api/health` to keep it warm. |
+| **PostgreSQL** | **Neon** (serverless Postgres) | Connected via `DATABASE_URL`; SSL auto-enabled. |
+| **Email** | **Resend** | Sends from the DNS-verified domain `aquaguard.vn`. |
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/shynnguyen1004/AquaGuard-WebApp)
-
-For the backend, any Node.js-compatible platform works (Railway, Render, Fly.io, AWS EC2).
+Production secrets are configured as environment variables on each platform (Render / Vercel), not committed to the repo.
 
 ---
 
@@ -469,8 +360,10 @@ For the backend, any Node.js-compatible platform works (Railway, Render, Fly.io,
 - [x] Family connection system (search by phone, invite, accept/reject)
 - [x] Active SOS Banner on Dashboard with push-to-SOS
 - [x] SOS Request History widget
-- [x] Firebase Auth (Google + Phone OTP)
-- [x] First-login Role Selection Modal
+- [x] Phone + Password Auth (bcrypt + JWT) with optional Google sign-in
+- [x] OTP password reset via Twilio Verify
+- [x] Transactional email via Resend (welcome + family invite/accept notifications)
+- [x] Role selection at registration
 - [x] Mobile-responsive layout with Bottom Navigation
 - [x] AI ChatBot integration (Groq / Llama 3.3 70B)
 - [x] Bilingual support (Vietnamese + English)
@@ -485,16 +378,15 @@ For the backend, any Node.js-compatible platform works (Railway, Render, Fly.io,
 - [ ] **Forecast layer** integration (Google Flood Hub / GloFAS API)
 
 **Backend**
-- [x] Firebase Auth token verification middleware
-- [x] JWT role-based authorization
-- [x] FloodZone CRUD API
-- [x] SOS CRUD API with image upload (Cloudinary)
-- [x] Family connection API (search, request, accept, reject, status)
+- [x] JWT auth middleware with role-based guards (`requireAdmin`, `requireRoles`)
+- [x] Phone + password auth with bcrypt; in-memory rate limiting on auth routes
+- [x] SOS CRUD API with image upload (Cloudinary) + mission lifecycle
+- [x] Family connection API (search, request, accept, reject, status) with email notifications
 - [x] Profile API (CRUD with GPS coordinates)
 - [x] Rescue Group API (create, join, manage)
-- [x] Real-time rescue tracking via Firebase Realtime Database
-- [ ] **Geospatial queries** (`$near`, `$geoWithin`) for nearby resources
-- [ ] **Redis caching** for flood zone tiles
+- [x] Real-time rescue tracking via native WebSocket (`ws`) server
+- [x] Admin analytics API
+- [ ] **Geospatial queries** for nearby shelters/resources
 - [ ] **Trust Score system** for community report verification
 
 ---
@@ -528,10 +420,10 @@ Please follow the [Conventional Commits](https://www.conventionalcommits.org/) s
 
 ### 1. Đăng nhập & Chọn vai trò
 
-1. Truy cập [AquaGuard Web](https://aqua-guard-web-app.vercel.app).
-2. Đăng nhập bằng **Google** hoặc **Số điện thoại** (OTP).
-3. Lần đầu đăng nhập: chọn vai trò **Citizen** từ modal chọn vai trò.
-4. Hệ thống sẽ lưu vai trò vào Firestore — không cần chọn lại.
+1. Truy cập [AquaGuard Web](https://aquaguard.vn).
+2. **Đăng ký** bằng **số điện thoại + mật khẩu** (hoặc đăng nhập bằng **Google**). Khi đăng ký có thể nhập thêm email để nhận thông báo.
+3. Khi đăng ký: chọn vai trò **Citizen** (vai trò Rescuer/Admin cần mật khẩu vai trò).
+4. Vai trò được lưu cùng tài khoản — không cần chọn lại ở các lần đăng nhập sau.
 
 ### 2. Dashboard — Trang chủ
 

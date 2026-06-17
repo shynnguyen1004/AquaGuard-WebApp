@@ -466,6 +466,7 @@ const vi = {
     showFamily: "Hiện người thân",
     myLocation: "Vị trí của tôi",
     myLocationLabel: "Vị trí của tôi",
+    rescuerOnline: "Đội cứu hộ (trực tuyến)",
     hideFloodZones: "Ẩn vùng ngập",
     showFloodZones: "Hiện vùng ngập",
     routeTo: "Đường đến {name}",

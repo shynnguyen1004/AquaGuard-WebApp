@@ -5,11 +5,13 @@ const { WebSocketServer } = require("ws");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const pool = require("./db");
+const { setLiveLocation, removeLivePresence } = require("./redisClient");
 
 const authRoutes = require("./routes/auth");
 const sosRoutes = require("./routes/sos");
 const familyRoutes = require("./routes/family");
 const analyticsRoutes = require("./routes/analytics");
+const locationRoutes = require("./routes/locations");
 const { rateLimit } = require("./middleware/rateLimit");
 
 const app = express();
@@ -60,6 +62,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/sos", sosRoutes);
 app.use("/api/family", familyRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/locations", locationRoutes);
 
 // ── Health check ──
 app.get("/api/health", (req, res) => {
@@ -74,19 +77,17 @@ const wss = new WebSocketServer({ server });
 // Track connected clients: Map<requestId, Map<userId, ws>>
 const trackingRooms = new Map();
 
-async function persistTrackingLocation({ requestId, userId, role, latitude, longitude }) {
-  if (
-    !requestId ||
-    !userId ||
-    !role ||
-    !Number.isFinite(latitude) ||
-    !Number.isFinite(longitude)
-  ) {
+/**
+ * Durable START/END flush: PostgreSQL user_locations keeps only the FIRST and
+ * LAST position of a tracking session (not every update — that's Redis's job).
+ * This preserves a "last known location" for the family map across Redis/server
+ * restarts.
+ */
+async function persistDurableLocation(userId, latitude, longitude) {
+  if (!userId || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     return;
   }
-
   try {
-    // Write to centralized user_locations table (single source of truth)
     await pool.query(
       `INSERT INTO user_locations (user_id, latitude, longitude, updated_at)
        VALUES ($1, $2, $3, NOW())
@@ -96,31 +97,63 @@ async function persistTrackingLocation({ requestId, userId, role, latitude, long
              updated_at = NOW()`,
       [userId, latitude, longitude]
     );
-
-    // Also update rescue_requests for map snapshot tracking
-    if (role === "citizen") {
-      await pool.query(
-        `UPDATE rescue_requests
-         SET latitude = $1,
-             longitude = $2,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE id = $3
-           AND user_id = $4`,
-        [latitude, longitude, requestId, userId]
-      );
-    } else if (role === "rescuer") {
-      await pool.query(
-        `UPDATE rescue_requests
-         SET rescuer_latitude = $1,
-             rescuer_longitude = $2,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE id = $3
-           AND assigned_to = $4`,
-        [latitude, longitude, requestId, userId]
-      );
-    }
   } catch (err) {
-    console.warn("[WS] Failed to persist tracking location:", err.message);
+    console.warn("[WS] Failed to persist durable location:", err.message);
+  }
+}
+
+/**
+ * Handle one live location fix from a client. Used by both `presence_location`
+ * (continuous, always-on) and the legacy `location_update` (room) message.
+ *   1. Broadcast to the active tracking room (if joined) — every update, smooth.
+ *   2. First fix of the session → durable START in Postgres.
+ *   3. Hot store: write to Redis (lightly throttled to respect Upstash quota).
+ */
+function handleLocation(ws, latitude, longitude) {
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+
+  const roomId = ws.trackingRequestId;
+  const inTrackingSession = Boolean(roomId && trackingRooms.has(roomId));
+
+  // 1. Broadcast to other members of the active tracking room
+  if (inTrackingSession) {
+    const payload = JSON.stringify({
+      type: "location_update",
+      userId: ws.userId,
+      role: ws.userRole,
+      latitude,
+      longitude,
+      timestamp: Date.now(),
+    });
+    trackingRooms.get(roomId).forEach((client, clientId) => {
+      if (clientId !== ws.userId && client.readyState === 1) {
+        client.send(payload);
+      }
+    });
+  }
+
+  // Remember the latest fix for the durable END flush on disconnect
+  ws.lastLocation = { latitude, longitude };
+
+  // 2. Postgres holds only the FIRST/LAST fix of a *tracking session* (a
+  //    citizen + rescuer joined to a room). Pure presence updates never touch
+  //    Postgres — they live in Redis only.
+  if (inTrackingSession && !ws.firstFixPersisted) {
+    ws.firstFixPersisted = true;
+    persistDurableLocation(ws.userId, latitude, longitude);
+  }
+
+  // 3. Hot store in Redis, throttled (moved >= ~5.5m OR >= 2s elapsed)
+  const now = Date.now();
+  const prev = ws.lastRedisLocation;
+  const movedEnough =
+    !prev ||
+    Math.abs(prev.latitude - latitude) >= 0.00005 ||
+    Math.abs(prev.longitude - longitude) >= 0.00005;
+  if (movedEnough || now - (ws.lastRedisAt || 0) >= 2000) {
+    ws.lastRedisLocation = { latitude, longitude };
+    ws.lastRedisAt = now;
+    setLiveLocation(ws.userId, ws.userRole, latitude, longitude);
   }
 }
 
@@ -145,8 +178,10 @@ wss.on("connection", (ws, req) => {
   ws.userId = userData.id;
   ws.userRole = userData.role;
   ws.isAlive = true;
-  ws.lastPersistedLocation = null;
-  ws.lastPersistedAt = 0;
+  ws.firstFixPersisted = false;
+  ws.lastLocation = null;
+  ws.lastRedisLocation = null;
+  ws.lastRedisAt = 0;
 
   ws.on("pong", () => { ws.isAlive = true; });
 
@@ -174,48 +209,12 @@ wss.on("connection", (ws, req) => {
         break;
       }
 
+      // Continuous always-on presence (sent whenever logged in) and the legacy
+      // room message share the same path. Both update Redis + (first/last) Postgres,
+      // and broadcast to the active tracking room if one was joined.
+      case "presence_location":
       case "location_update": {
-        // Broadcast location to other members of the same tracking room
-        const latitude = Number(msg.latitude);
-        const longitude = Number(msg.longitude);
-        const roomId = ws.trackingRequestId;
-        if (!roomId || !trackingRooms.has(roomId)) return;
-        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
-
-        const room = trackingRooms.get(roomId);
-        const payload = JSON.stringify({
-          type: "location_update",
-          userId: ws.userId,
-          role: ws.userRole,
-          latitude,
-          longitude,
-          timestamp: Date.now(),
-        });
-
-        room.forEach((client, clientId) => {
-          if (clientId !== ws.userId && client.readyState === 1) {
-            client.send(payload);
-          }
-        });
-
-        const now = Date.now();
-        const prev = ws.lastPersistedLocation;
-        const movedEnough = !prev
-          || Math.abs(prev.latitude - latitude) >= 0.00005
-          || Math.abs(prev.longitude - longitude) >= 0.00005;
-        const shouldPersist = movedEnough || now - ws.lastPersistedAt >= 5000;
-
-        if (shouldPersist) {
-          ws.lastPersistedLocation = { latitude, longitude };
-          ws.lastPersistedAt = now;
-          persistTrackingLocation({
-            requestId: roomId,
-            userId: ws.userId,
-            role: ws.userRole,
-            latitude,
-            longitude,
-          });
-        }
+        handleLocation(ws, Number(msg.latitude), Number(msg.longitude));
         break;
       }
 
@@ -233,6 +232,12 @@ wss.on("connection", (ws, req) => {
         trackingRooms.delete(roomId);
       }
     }
+    // Durable END: flush the last fix to Postgres only if this was a tracking
+    // session. Pure presence sockets leave nothing in Postgres (Redis only).
+    if (roomId && ws.lastLocation) {
+      persistDurableLocation(ws.userId, ws.lastLocation.latitude, ws.lastLocation.longitude);
+    }
+    removeLivePresence(ws.userId, ws.userRole);
     console.log(`[WS] User ${ws.userId} disconnected`);
   });
 });
