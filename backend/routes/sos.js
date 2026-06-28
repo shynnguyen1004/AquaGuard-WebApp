@@ -114,75 +114,6 @@ router.post("/", authMiddleware, requireRoles(["citizen"]), upload.array("images
     // Log the creation
     await logStatusChange(newRequest.id, req.user.id, null, "pending");
 
-    // ── Cảnh báo KHẨN CẤP cho người thân (family đã accepted): in-app + email ──
-    // Kèm địa chỉ + tọa độ + link Google Maps. Fire-and-forget — không chặn response.
-    const sosLat = newRequest.latitude;
-    const sosLng = newRequest.longitude;
-    const hasCoords = sosLat != null && sosLng != null;
-    const coordText = hasCoords
-      ? `${Number(sosLat).toFixed(6)}, ${Number(sosLng).toFixed(6)}`
-      : null;
-    const mapsLink = hasCoords
-      ? `https://www.google.com/maps?q=${sosLat},${sosLng}`
-      : null;
-
-    pool
-      .query(
-        `SELECT u.id, u.email, u.display_name,
-                (SELECT display_name FROM users WHERE id = $1) AS sender_name
-         FROM family_connections fc
-         JOIN users u ON u.id = CASE
-           WHEN fc.requester_id = $1 THEN fc.receiver_id
-           ELSE fc.requester_id
-         END
-         WHERE (fc.requester_id = $1 OR fc.receiver_id = $1)
-           AND fc.status = 'accepted'`,
-        [req.user.id]
-      )
-      .then(({ rows }) => {
-        // Nội dung in-app (text thuần)
-        const bodyParts = [
-          `${rows[0]?.sender_name || "Người thân"} đang gặp nguy hiểm và cần cứu hộ KHẨN CẤP.`,
-          `Địa chỉ: ${location}.`,
-        ];
-        if (coordText) bodyParts.push(`Vị trí: ${coordText}.`);
-        const inAppBody = bodyParts.join(" ");
-
-        // Nội dung email (HTML)
-        const emailMessage =
-          `<strong style="color:#ef4444;">${rows[0]?.sender_name || "Người thân"} đang gặp nguy hiểm</strong> và vừa gửi một yêu cầu cứu hộ KHẨN CẤP trên AquaGuard.` +
-          `<br/><br/>` +
-          `<strong>Địa chỉ:</strong> ${location}<br/>` +
-          (coordText ? `<strong>Vị trí (tọa độ):</strong> ${coordText}<br/>` : "") +
-          (mapsLink ? `<a href="${mapsLink}" style="color:#38bdf8;">Xem vị trí trên Google Maps</a><br/>` : "") +
-          `<br/>Hãy mở AquaGuard ngay để theo dõi và hỗ trợ.`;
-
-        for (const member of rows) {
-          createNotification({
-            userId: member.id,
-            type: "family_sos",
-            title: "KHẨN CẤP: Người thân đang gặp nguy hiểm!",
-            body: inAppBody,
-            metadata: {
-              requestId: newRequest.id,
-              senderId: req.user.id,
-              address: location,
-              latitude: sosLat,
-              longitude: sosLng,
-            },
-            email: member.email
-              ? {
-                  to: member.email,
-                  displayName: member.display_name,
-                  heading: "KHẨN CẤP: Người thân của bạn đang gặp nguy hiểm",
-                  message: emailMessage,
-                }
-              : null,
-          }).catch(() => {});
-        }
-      })
-      .catch((e) => console.error("Family SOS notification error:", e));
-
     return res.status(201).json({ success: true, data: newRequest });
   } catch (err) {
     console.error("Create SOS error:", err);
@@ -679,6 +610,43 @@ router.put("/:id/complete", authMiddleware, async (req, res) => {
         });
       })
       .catch((e) => console.error("SOS resolved notification error:", e));
+
+    // Thông báo cho người thân (family đã accepted) rằng người đó đã được cứu an toàn
+    // (in-app + email, fire-and-forget — không chặn response)
+    pool
+      .query(
+        `SELECT u.id, u.email, u.display_name,
+                (SELECT display_name FROM users WHERE id = $1) AS owner_name
+         FROM family_connections fc
+         JOIN users u ON u.id = CASE
+           WHEN fc.requester_id = $1 THEN fc.receiver_id
+           ELSE fc.requester_id
+         END
+         WHERE (fc.requester_id = $1 OR fc.receiver_id = $1)
+           AND fc.status = 'accepted'`,
+        [resolvedReq.user_id]
+      )
+      .then(({ rows }) => {
+        for (const member of rows) {
+          const ownerName = rows[0]?.owner_name || "Người thân";
+          createNotification({
+            userId: member.id,
+            type: "family_sos_resolved",
+            title: "Người thân đã được cứu hộ an toàn",
+            body: `${ownerName} đã được đội cứu hộ hỗ trợ thành công và hiện đã an toàn.`,
+            metadata: { requestId: parseInt(id), ownerId: resolvedReq.user_id },
+            email: member.email
+              ? {
+                  to: member.email,
+                  displayName: member.display_name,
+                  heading: "Người thân của bạn đã được cứu hộ an toàn",
+                  message: `<strong>${ownerName}</strong> đã được đội cứu hộ hỗ trợ thành công và hiện đã an toàn. Bạn có thể yên tâm. Hãy mở AquaGuard để xem chi tiết.`,
+                }
+              : null,
+          }).catch(() => {});
+        }
+      })
+      .catch((e) => console.error("Family SOS resolved notification error:", e));
 
     return res.json({ success: true, data: resolvedReq });
   } catch (err) {

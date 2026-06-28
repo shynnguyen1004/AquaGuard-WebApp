@@ -7,7 +7,7 @@ const TYPE_META = {
   welcome: { icon: "celebration", color: "text-primary", bg: "bg-primary/10" },
   family_request: { icon: "group_add", color: "text-primary", bg: "bg-primary/10" },
   family_accepted: { icon: "diversity_1", color: "text-emerald-500", bg: "bg-emerald-500/10" },
-  family_sos: { icon: "sos", color: "text-danger", bg: "bg-danger/10" },
+  family_sos_resolved: { icon: "verified", color: "text-emerald-500", bg: "bg-emerald-500/10" },
   sos_accepted: { icon: "local_shipping", color: "text-warning", bg: "bg-warning/10" },
   sos_resolved: { icon: "task_alt", color: "text-emerald-500", bg: "bg-emerald-500/10" },
   admin_announcement: { icon: "campaign", color: "text-primary", bg: "bg-primary/10" },

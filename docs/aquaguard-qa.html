@@ -1,0 +1,1554 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AquaGuard — Bộ câu hỏi & trả lời phản biện</title>
+<style>
+  :root {
+    --bg: #0b1220;
+    --panel: #111a2e;
+    --panel2: #16213c;
+    --line: #233456;
+    --text: #e6edf7;
+    --muted: #9fb0c9;
+    --primary: #11a0b6;
+    --primary2: #38bdf8;
+    --ok: #10b981;
+    --warn: #f59e0b;
+    --road: #6366f1;
+    --danger: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    font-size: 15px;
+  }
+  .layout { display: flex; min-height: 100vh; }
+
+  /* Sidebar */
+  aside {
+    width: 290px;
+    flex-shrink: 0;
+    background: var(--panel);
+    border-right: 1px solid var(--line);
+    padding: 20px 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+  aside .brand {
+    padding: 0 20px 16px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 12px;
+  }
+  aside .brand h1 { font-size: 19px; margin: 0; color: var(--primary2); }
+  aside .brand p { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+  aside nav a {
+    display: block;
+    padding: 7px 20px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13.5px;
+    border-left: 3px solid transparent;
+  }
+  aside nav a:hover { background: var(--panel2); color: var(--text); }
+  aside nav a.part { color: var(--primary2); font-weight: 700; margin-top: 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .5px; }
+  aside nav a.sub { padding-left: 34px; font-size: 12.5px; }
+
+  /* Main */
+  main { flex: 1; max-width: 1000px; margin: 0 auto; padding: 36px 40px 120px; }
+  header.hero {
+    background: linear-gradient(135deg, #0e2a3a, #0b1220);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 28px 30px;
+    margin-bottom: 30px;
+  }
+  header.hero h1 { margin: 0 0 6px; font-size: 28px; }
+  header.hero p { margin: 4px 0; color: var(--muted); }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+  .legend span { font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; }
+  .toolbar { margin: 18px 0 26px; }
+  .toolbar input {
+    width: 100%;
+    padding: 12px 16px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    color: var(--text);
+    font-size: 14px;
+  }
+
+  .lang-switch { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+  .lang-switch button {
+    background: var(--panel);
+    border: none;
+    color: var(--muted);
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .lang-switch button + button { border-left: 1px solid var(--line); }
+  .lang-switch button.active { background: var(--primary); color: #04222a; }
+  .lang-hidden { display: none !important; }
+
+  .part-title {
+    font-size: 22px;
+    margin: 44px 0 6px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--primary);
+    color: var(--primary2);
+  }
+  .part-intro { color: var(--muted); font-size: 13.5px; margin: 0 0 14px; }
+  h3.section { font-size: 17px; margin: 28px 0 10px; color: #cfe3ff; }
+
+  .qa {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    margin: 12px 0;
+    overflow: hidden;
+  }
+  .qa > .q {
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    color: var(--text);
+    padding: 15px 18px;
+    font-size: 14.5px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .qa > .q:hover { background: var(--panel2); }
+  .qnum {
+    flex-shrink: 0;
+    background: var(--primary);
+    color: #04222a;
+    font-weight: 800;
+    border-radius: 7px;
+    min-width: 28px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    padding: 0 5px;
+    margin-top: 1px;
+  }
+  .qtext { flex: 1; }
+  .qa > .a {
+    padding: 4px 18px 18px 58px;
+    color: #d4deef;
+    font-size: 14px;
+    border-top: 1px solid var(--line);
+    display: none;
+  }
+  .qa.open > .a { display: block; }
+  .qa > .a p { margin: 10px 0; }
+  .qa > .a ul { margin: 8px 0; padding-left: 20px; }
+  .qa > .a li { margin: 5px 0; }
+  .qa > .a code {
+    background: #0a1426;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 1px 6px;
+    font-size: 12.5px;
+    color: #7fd3ff;
+  }
+  .qa > .a strong.lead { color: #fff; }
+
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-left: auto;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .b-ok { background: rgba(16,185,129,.16); color: #4ade80; border: 1px solid rgba(16,185,129,.4); }
+  .b-partial { background: rgba(245,158,11,.16); color: #fbbf24; border: 1px solid rgba(245,158,11,.4); }
+  .b-road { background: rgba(99,102,241,.18); color: #a5b4fc; border: 1px solid rgba(99,102,241,.45); }
+
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .d-ok { background: #10b981; }
+  .d-partial { background: #f59e0b; }
+  .d-road { background: #6366f1; }
+
+  .note {
+    background: rgba(17,160,182,.08);
+    border-left: 3px solid var(--primary);
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin: 12px 0;
+    font-size: 13px;
+    color: #bfe6ee;
+  }
+  .controls { display: flex; gap: 10px; margin-bottom: 18px; }
+  .controls button {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--muted);
+    padding: 8px 14px;
+    border-radius: 9px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .controls button:hover { color: var(--text); border-color: var(--primary); }
+  table.kv { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+  table.kv td { border: 1px solid var(--line); padding: 7px 10px; }
+  table.kv td:first-child { color: var(--muted); width: 45%; }
+  footer { color: var(--muted); font-size: 12.5px; text-align: center; margin-top: 50px; }
+  @media (max-width: 860px) {
+    aside { display: none; }
+    main { padding: 20px 16px 80px; }
+    .qa > .a { padding-left: 18px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside>
+    <div class="brand">
+      <h1>🌊 AquaGuard</h1>
+      <p><span class="lang-vi">Bộ câu hỏi phản biện & kịch bản demo</span><span class="lang-en lang-hidden">Q&A defense set & demo scenarios</span></p>
+    </div>
+    <nav>
+      <a class="part" href="#part1"><span class="lang-vi">Phần 1 · Kỹ thuật & hội đồng</span><span class="lang-en lang-hidden">Part 1 · Technical & panel</span></a>
+      <a class="sub" href="#p1s1"><span class="lang-vi">1. Kiến trúc & kỹ thuật</span><span class="lang-en lang-hidden">1. Architecture & engineering</span></a>
+      <a class="sub" href="#p1s2"><span class="lang-vi">2. Dữ liệu & bản đồ lũ</span><span class="lang-en lang-hidden">2. Data & flood map</span></a>
+      <a class="sub" href="#p1s3"><span class="lang-vi">3. UX & sử dụng thực tế</span><span class="lang-en lang-hidden">3. UX & real-world use</span></a>
+      <a class="sub" href="#p1s4"><span class="lang-vi">4. An toàn, bảo mật, riêng tư</span><span class="lang-en lang-hidden">4. Safety, security, privacy</span></a>
+      <a class="sub" href="#p1s5"><span class="lang-vi">5. Triển khai & vận hành</span><span class="lang-en lang-hidden">5. Deployment & operations</span></a>
+      <a class="sub" href="#p1s6"><span class="lang-vi">6. Edge case & thách thức</span><span class="lang-en lang-hidden">6. Edge cases & challenges</span></a>
+      <a class="sub" href="#p1s7"><span class="lang-vi">7. So sánh & đổi mới</span><span class="lang-en lang-hidden">7. Comparison & innovation</span></a>
+      <a class="part" href="#part2"><span class="lang-vi">Phần 2 · Người dùng thực</span><span class="lang-en lang-hidden">Part 2 · Real users</span></a>
+      <a class="sub" href="#p2s1"><span class="lang-vi">1. Người dân vùng lũ</span><span class="lang-en lang-hidden">1. Flood-zone residents</span></a>
+      <a class="sub" href="#p2s2"><span class="lang-vi">2. Đội cứu hộ</span><span class="lang-en lang-hidden">2. Rescue teams</span></a>
+      <a class="sub" href="#p2s3"><span class="lang-vi">3. Chính quyền địa phương</span><span class="lang-en lang-hidden">3. Local authorities</span></a>
+      <a class="sub" href="#p2s4"><span class="lang-vi">4. Người thân ở xa</span><span class="lang-en lang-hidden">4. Family far away</span></a>
+      <a class="part" href="#part3"><span class="lang-vi">Phần 3 · Kịch bản thực tế</span><span class="lang-en lang-hidden">Part 3 · Real-world scenarios</span></a>
+      <a class="part" href="#part4"><span class="lang-vi">Phần 4 · Stress-test</span><span class="lang-en lang-hidden">Part 4 · Stress tests</span></a>
+      <a class="part" href="#part5"><span class="lang-vi">Phần 5 · Demo failover</span><span class="lang-en lang-hidden">Part 5 · Failover demo</span></a>
+    </nav>
+  </aside>
+
+  <main>
+    <header class="hero">
+      <h1><span class="lang-vi">AquaGuard — Bộ câu hỏi & trả lời phản biện</span><span class="lang-en lang-hidden">AquaGuard — Defense Q&A Set</span></h1>
+      <p><span class="lang-vi">Tài liệu chuẩn bị cho phần hỏi đáp với hội đồng kỹ thuật, người dùng thực và các kịch bản demo.</span><span class="lang-en lang-hidden">A document prepared for Q&A with technical panels, real users, and demo scenarios.</span></p>
+      <p><span class="lang-vi">Mọi câu trả lời được căn cứ trên kiến trúc thực tế của dự án (React 19 + Vite · Node/Express · PostgreSQL/Neon · Redis/Upstash · WebSocket <code>ws</code> · Resend · Twilio · Cloudinary · Firebase).</span><span class="lang-en lang-hidden">Every answer is grounded in the project's actual architecture (React 19 + Vite · Node/Express · PostgreSQL/Neon · Redis/Upstash · WebSocket <code>ws</code> · Resend · Twilio · Cloudinary · Firebase).</span></p>
+      <div class="legend">
+        <span><span class="dot d-ok"></span> <span class="lang-vi">Đã triển khai trong sản phẩm</span><span class="lang-en lang-hidden">Implemented in the product</span></span>
+        <span><span class="dot d-partial"></span> <span class="lang-vi">Có một phần / cần cấu hình</span><span class="lang-en lang-hidden">Partially in place / needs config</span></span>
+        <span><span class="dot d-road"></span> <span class="lang-vi">Định hướng / roadmap (chưa có trong code)</span><span class="lang-en lang-hidden">Direction / roadmap (not in code yet)</span></span>
+      </div>
+      <div class="lang-switch" style="margin-top:14px;">
+        <button id="lang-vi-btn" class="active" onclick="setLanguage('vi')">🇻🇳 Tiếng Việt</button>
+        <button id="lang-en-btn" onclick="setLanguage('en')">🇬🇧 English</button>
+      </div>
+    </header>
+
+    <div class="toolbar">
+      <input id="search" type="text" placeholder="🔎 Tìm nhanh trong câu hỏi & câu trả lời..." />
+    </div>
+    <div class="controls">
+      <button onclick="toggleAll(true)"><span class="lang-vi">Mở tất cả</span><span class="lang-en lang-hidden">Expand all</span></button>
+      <button onclick="toggleAll(false)"><span class="lang-vi">Thu gọn tất cả</span><span class="lang-en lang-hidden">Collapse all</span></button>
+    </div>
+
+    <div class="note">
+      <span class="lang-vi"><strong>Nguyên tắc trả lời:</strong> trung thực về phạm vi hiện tại. Phần lớn câu hỏi “khó” (mesh offline, LoRa, AI dự báo, message broker, máy chủ dự phòng tự động) <em>chưa</em> nằm trong code — chúng được đánh dấu <span class="dot d-road"></span> roadmap. Đừng tuyên bố là đã có nếu chưa có; hãy nói rõ “hiện tại / định hướng”.</span>
+      <span class="lang-en lang-hidden"><strong>Answering principle:</strong> be honest about current scope. Most of the "hard" questions (offline mesh, LoRa, AI forecasting, message broker, automatic failover) are <em>not</em> in the code yet — they are marked <span class="dot d-road"></span> roadmap. Never claim something exists when it doesn't; say clearly "current state / direction."</span>
+    </div>
+
+    <!-- ================= PART 1 ================= -->
+    <h2 class="part-title" id="part1"><span class="lang-vi">PHẦN 1 — Câu hỏi kỹ thuật & học thuật</span><span class="lang-en lang-hidden">PART 1 — Technical & academic questions</span></h2>
+    <p class="part-intro"><span class="lang-vi">Câu hỏi mà giám khảo kỹ thuật hoặc người chấm học thuật thường đặt ra.</span><span class="lang-en lang-hidden">Questions a technical panel or academic grader is likely to ask.</span></p>
+
+    <h3 class="section" id="p1s1"><span class="lang-vi">1. Kiến trúc & kỹ thuật</span><span class="lang-en lang-hidden">1. Architecture & engineering</span></h3>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">1</span><span class="qtext"><span class="lang-vi">Hệ thống dùng cơ chế theo dõi thời gian thực nào — WebSocket hay polling? Vì sao chọn cách đó?</span><span class="lang-en lang-hidden">What real-time tracking mechanism does the system use — WebSocket or polling? Why that choice?</span></span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p><strong class="lead">Cả hai — dùng đúng chỗ.</strong></p>
+        <ul>
+          <li><strong>WebSocket</strong> (native <code>ws</code>, chung HTTP server trong <code>backend/index.js</code>) cho luồng GPS độ trễ thấp: (a) <em>presence luôn-bật</em> — mỗi client đăng nhập mở 1 socket, gửi <code>presence_location</code>; (b) <em>phòng theo dõi từng ca</em> — citizen ↔ rescuer trao đổi vị trí trực tiếp khi đang cứu hộ.</li>
+          <li><strong>Polling</strong> cho dữ liệu ít gấp hơn, nơi đơn giản &amp; chịu lỗi quan trọng hơn realtime: bản đồ lũ poll <code>/api/sos/all</code> mỗi 5s và <code>/api/locations/live</code> mỗi 4s.</li>
+        </ul>
+        <p><strong>Lý do:</strong> WebSocket cho phép đẩy vị trí mượt (sub-giây) mà không spam HTTP; còn polling đơn giản, không cần giữ kết nối, hồi phục dễ khi mạng chập chờn — phù hợp đặc thù vùng lũ. Đây là kiến trúc “đẩy cho cái cần tức thời, kéo cho cái cần ổn định”.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p><strong class="lead">Both — each where it fits.</strong></p>
+        <ul>
+          <li><strong>WebSocket</strong> (native <code>ws</code>, sharing the HTTP server in <code>backend/index.js</code>) for low-latency GPS flows: (a) <em>always-on presence</em> — every logged-in client opens one socket and sends <code>presence_location</code>; (b) <em>per-request tracking rooms</em> — citizen ↔ rescuer exchange location directly during an active rescue.</li>
+          <li><strong>Polling</strong> for less urgent data, where simplicity &amp; fault tolerance matter more than realtime: the flood map polls <code>/api/sos/all</code> every 5s and <code>/api/locations/live</code> every 4s.</li>
+        </ul>
+        <p><strong>Why:</strong> WebSocket pushes smooth (sub-second) location updates without spamming HTTP; polling is simple, doesn't need a held connection, and recovers easily on flaky networks — a good fit for flood zones. It's a "push what needs to be instant, pull what needs to be stable" architecture.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">2</span><span class="qtext"><span class="lang-vi">Độ trễ tối đa chấp nhận được giữa vị trí thật và vị trí hiển thị trên bản đồ là bao nhiêu?</span><span class="lang-en lang-hidden">What's the maximum acceptable lag between a real position and what's shown on the map?</span></span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p>Trong <strong>phòng theo dõi WebSocket</strong>, vị trí được broadcast gần như tức thời (mỗi fix, &lt;1s) giữa citizen và rescuer.</p>
+        <p>Với <strong>bản đồ tổng quan</strong>, độ trễ là chu kỳ polling: <strong>4–5 giây</strong>. Presence trên Redis có TTL <code>60s</code> — quá 60s không cập nhật thì coi là “offline”. Server còn throttle ghi Redis (di chuyển ≥ ~5,5m hoặc ≥ 2s) để tiết kiệm quota Upstash.</p>
+        <p>Mục tiêu thực tế: <strong>≤ 5 giây cho bản đồ, &lt; 1 giây cho ca đang theo dõi</strong> — đủ cho điều phối cứu hộ (xuồng/người di chuyển chậm).</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p>In a <strong>WebSocket tracking room</strong>, location is broadcast almost instantly (each fix, &lt;1s) between citizen and rescuer.</p>
+        <p>For the <strong>overview map</strong>, the lag is the polling cycle: <strong>4–5 seconds</strong>. Redis presence has a <code>60s</code> TTL — no update past 60s and a user is treated as "offline." The server also throttles Redis writes (move ≥ ~5.5m or ≥ 2s elapsed) to save Upstash quota.</p>
+        <p>Practical target: <strong>≤ 5 seconds for the map, &lt; 1 second for an active tracking session</strong> — enough for coordinating rescue (boats/people move slowly).</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">3</span><span class="qtext"><span class="lang-vi">Hệ thống xử lý quá tải khi hàng nghìn người dùng online đồng thời ra sao?</span><span class="lang-en lang-hidden">How does the system handle overload with thousands of concurrent online users?</span></span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p><strong>Hiện tại:</strong></p>
+        <ul>
+          <li><strong>Redis hot store</strong> tách toàn bộ tải vị trí khỏi PostgreSQL — presence không bao giờ chạm DB; chỉ fix đầu/cuối của 1 ca theo dõi mới ghi Postgres.</li>
+          <li><strong>Throttle ghi</strong> (5,5m / 2s) giảm mạnh số lệnh ghi.</li>
+          <li><strong>Rate limiter</strong> (<code>middleware/rateLimit.js</code>) chặn lạm dụng các endpoint nhạy (login, register, gửi thông báo).</li>
+          <li><strong>Index DB</strong> đầy đủ cho các truy vấn nóng (status, pending, created_at...).</li>
+        </ul>
+        <p><strong>Giới hạn cần nói thật:</strong> backend hiện chạy <em>1 instance Render free tier</em>. Để chịu hàng nghìn user đồng thời cần (roadmap): nâng plan, chạy nhiều instance sau load balancer, và Redis pub/sub để đồng bộ WebSocket giữa các instance.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p><strong>Today:</strong></p>
+        <ul>
+          <li><strong>Redis hot store</strong> takes all location load off PostgreSQL — presence never touches the DB; only the first/last fix of a tracking session is written to Postgres.</li>
+          <li><strong>Write throttling</strong> (5.5m / 2s) sharply cuts the number of writes.</li>
+          <li><strong>Rate limiter</strong> (<code>middleware/rateLimit.js</code>) blocks abuse of sensitive endpoints (login, register, sending notifications).</li>
+          <li><strong>Full DB indexes</strong> for hot queries (status, pending, created_at...).</li>
+        </ul>
+        <p><strong>Honest limit:</strong> the backend currently runs as <em>1 Render free-tier instance</em>. Handling thousands of concurrent users needs (roadmap): a paid plan, multiple instances behind a load balancer, and Redis pub/sub to sync WebSocket state across instances.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">4</span><span class="qtext"><span class="lang-vi">Cơ chế gửi dữ liệu GPS lên server — push hay pull? Tần suất bao nhiêu?</span><span class="lang-en lang-hidden">Is GPS data sent to the server via push or pull? At what frequency?</span></span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p><strong>Push</strong> từ thiết bị qua WebSocket. Frontend dùng <code>navigator.geolocation.watchPosition</code> (<code>enableHighAccuracy</code>, <code>maximumAge: 3000</code>) và gửi <code>presence_location</code> khi vị trí đổi. Server áp throttle: chỉ ghi Redis khi <strong>di chuyển ≥ ~5,5m hoặc ≥ 2 giây</strong> trôi qua, nên tần suất hiệu dụng ~0,5 Hz khi đứng yên và cao hơn khi di chuyển.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p><strong>Push</strong> from the device over WebSocket. The frontend uses <code>navigator.geolocation.watchPosition</code> (<code>enableHighAccuracy</code>, <code>maximumAge: 3000</code>) and sends <code>presence_location</code> whenever the position changes. The server throttles writes: it only writes to Redis when <strong>movement ≥ ~5.5m or ≥ 2 seconds</strong> have elapsed, so the effective rate is ~0.5 Hz when stationary and higher while moving.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">5</span><span class="qtext"><span class="lang-vi">Nếu mất kết nối Internet, app hoạt động thế nào ở chế độ offline?</span><span class="lang-en lang-hidden">If the Internet connection drops, how does the app behave offline?</span></span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p><strong>Thành thật:</strong> bản web hiện tại <em>cần kết nối</em> để gửi SOS (POST <code>/api/sos</code>) và stream GPS. Khi mất mạng, WebSocket đóng và frontend tự kết nối lại khi có mạng.</p>
+        <p><strong>Roadmap (đã thiết kế hướng đi):</strong> hàng đợi SOS lưu local (localStorage/IndexedDB hoặc PWA Service Worker + Background Sync) → tự flush khi có tín hiệu; fallback SMS qua Twilio. Xem chi tiết ở Phần 3 (Kịch bản 1) và Phần 5.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p><strong>Honestly:</strong> the current web app <em>needs a connection</em> to send an SOS (POST <code>/api/sos</code>) and stream GPS. When the network drops, the WebSocket closes and the frontend automatically reconnects once a connection returns.</p>
+        <p><strong>Roadmap (direction already designed):</strong> a local SOS queue (localStorage/IndexedDB or PWA Service Worker + Background Sync) → auto-flush when a signal returns; SMS fallback via Twilio. See details in Part 3 (Scenario 1) and Part 5.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">6</span><span class="qtext"><span class="lang-vi">Backend scale ngang hay dọc? Vì sao?</span><span class="lang-en lang-hidden">Does the backend scale horizontally or vertically? Why?</span></span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p><strong>Hiện tại: scale dọc</strong> — 1 instance Express trên Render, nâng tài nguyên khi cần. Đây là lựa chọn hợp lý cho giai đoạn MVP free-tier và vì WebSocket giữ trạng thái phòng (<code>trackingRooms</code>) trong bộ nhớ tiến trình.</p>
+        <p><strong>Hướng scale ngang (roadmap):</strong> tầng dữ liệu đã sẵn sàng — PostgreSQL (Neon) và Redis (Upstash) đều là dịch vụ độc lập, dùng chung qua 1 client (<code>db.js</code>, <code>redisClient.js</code>). Để scale ngang chỉ cần chuyển <code>trackingRooms</code> sang Redis pub/sub và đặt nhiều instance sau load balancer. App backend gần như stateless ngoài map phòng đó.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p><strong>Today: vertical</strong> — 1 Express instance on Render, scaled up on resources as needed. That's the sensible choice for a free-tier MVP stage and because the WebSocket layer keeps room state (<code>trackingRooms</code>) in the process's memory.</p>
+        <p><strong>Horizontal direction (roadmap):</strong> the data layer is already ready for it — PostgreSQL (Neon) and Redis (Upstash) are both independent services, accessed through a single shared client (<code>db.js</code>, <code>redisClient.js</code>). Scaling horizontally would just need moving <code>trackingRooms</code> to Redis pub/sub and placing multiple instances behind a load balancer. The backend app is nearly stateless outside that one room map.</p>
+        </div>
+      </div>
+    </div>
+
+    <h3 class="section" id="p1s2"><span class="lang-vi">2. Dữ liệu & bản đồ lũ</span><span class="lang-en lang-hidden">2. Data & flood map</span></h3>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">7</span><span class="qtext"><span class="lang-vi">Dữ liệu lũ thời gian thực đến từ đâu — API chính phủ, cảm biến IoT, hay báo cáo người dùng?</span><span class="lang-en lang-hidden">Where does the real-time flood data come from — a government API, IoT sensors, or user reports?</span></span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p>Bản đồ AquaGuard chồng nhiều lớp:</p>
+        <ul>
+          <li><strong>Vùng lũ (flood zones):</strong> do <strong>admin nhập/biên tập</strong> (<code>AdminFloodMapEditor.jsx</code>), lưu ở Firebase Firestore (collection <code>flood_zones</code>) với mức độ (critical/severe/moderate/low/safe) và mực nước. Đây là dữ liệu <em>người vận hành kiểm duyệt</em>, không phải tự động.</li>
+          <li><strong>Thời tiết thực:</strong> lớp phủ <strong>Windy API</strong> (mưa, gió, mây, nhiệt độ, áp suất, sóng) — dữ liệu khí tượng thật.</li>
+          <li><strong>SOS &amp; vị trí cứu hộ:</strong> báo cáo người dùng thật-thời gian-thực (citizen gửi SOS, rescuer stream vị trí qua Redis).</li>
+        </ul>
+        <p><strong>Roadmap:</strong> tích hợp API cảnh báo của KTTV/chính quyền và cảm biến IoT mực nước (menu admin đã có mục “Flood Sensors”).</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p>The AquaGuard map layers several sources:</p>
+        <ul>
+          <li><strong>Flood zones:</strong> entered/edited by an <strong>admin</strong> (<code>AdminFloodMapEditor.jsx</code>), stored in Firebase Firestore (<code>flood_zones</code> collection) with a severity level (critical/severe/moderate/low/safe) and water level. This is <em>human-moderated</em> data, not automatic.</li>
+          <li><strong>Real weather:</strong> a <strong>Windy API</strong> overlay (rain, wind, clouds, temperature, pressure, waves) — real meteorological data.</li>
+          <li><strong>SOS &amp; rescuer location:</strong> genuine real-time user reports (citizens send SOS, rescuers stream location via Redis).</li>
+        </ul>
+        <p><strong>Roadmap:</strong> integrate the national hydro-meteorological agency's/government's alert API and IoT water-level sensors (the admin menu already has a "Flood Sensors" entry).</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">8</span><span class="qtext"><span class="lang-vi">Yếu tố nào quyết định độ chính xác của bản đồ lũ trực tiếp? Sai số được đánh giá thế nào?</span><span class="lang-en lang-hidden">What determines the accuracy of the live flood map? How is the error margin assessed?</span></span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <ul>
+          <li><strong>Vùng lũ:</strong> độ chính xác phụ thuộc người admin cập nhật — đây là dữ liệu được kiểm duyệt, đánh đổi “tự động real-time” lấy “đáng tin cậy”.</li>
+          <li><strong>Vị trí người/cứu hộ:</strong> phụ thuộc GPS thiết bị (<code>enableHighAccuracy</code>). Geohash của Redis GEO có sai số ~0,6m nên hệ thống <em>cố ý đọc lat/lng gốc từ hash</em> thay vì toạ độ GEO đã giải mã, để tránh sai lệch.</li>
+          <li><strong>Thời tiết:</strong> độ phân giải theo Windy.</li>
+        </ul>
+        <p><strong>Roadmap:</strong> điểm tin cậy (confidence score) phân biệt dữ liệu cảm biến đã xác minh vs báo cáo người dùng — xem Phần 4, Stress-test B.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <ul>
+          <li><strong>Flood zones:</strong> accuracy depends on the admin who updates it — this is moderated data, trading "automatic real-time" for "trustworthy."</li>
+          <li><strong>People/rescuer location:</strong> depends on device GPS (<code>enableHighAccuracy</code>). Redis GEO's geohash has ~0.6m of error, so the system <em>deliberately reads the original lat/lng from the hash</em> instead of the decoded GEO coordinate, to avoid drift.</li>
+          <li><strong>Weather:</strong> resolution follows Windy's.</li>
+        </ul>
+        <p><strong>Roadmap:</strong> a confidence score distinguishing verified sensor data from user reports — see Part 4, Stress-test B.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">9</span><span class="qtext"><span class="lang-vi">Khi dữ liệu bản đồ lũ và toạ độ GPS của nạn nhân mâu thuẫn, hệ thống ưu tiên cái nào?</span><span class="lang-en lang-hidden">When flood-map data conflicts with a victim's GPS coordinates, which does the system trust?</span></span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p><strong>Ưu tiên GPS thực của nạn nhân</strong> để điều phối cứu hộ — vì đó là vị trí con người cần đến. Bản đồ lũ là <em>lớp ngữ cảnh</em> (đường nào ngập, vùng nào nguy hiểm) giúp chọn lối tiếp cận, không thay thế vị trí nạn nhân.</p>
+        <p>Trong code, request <code>pending/in_progress</code> luôn lấy toạ độ live (<code>COALESCE(loc.latitude, r.latitude)</code> + overlay Redis) làm nguồn sự thật về vị trí nạn nhân.</p>
+        <p><strong>Roadmap:</strong> khi GPS rơi vào vùng bất khả thi (giữa sông), đối chiếu với lớp địa hình/lũ để gắn cờ “GPS nghi sai” — xem Phần 3, Kịch bản 5.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p><strong>The victim's actual GPS wins</strong> for dispatching rescue — because that's the location a human needs to reach. The flood map is a <em>context layer</em> (which roads are flooded, which areas are dangerous) that helps pick an approach route, not a replacement for the victim's location.</p>
+        <p>In code, a <code>pending/in_progress</code> request always reads the live coordinate (<code>COALESCE(loc.latitude, r.latitude)</code> plus a Redis overlay) as the source of truth for the victim's location.</p>
+        <p><strong>Roadmap:</strong> when GPS lands somewhere impossible (mid-river), cross-check against the terrain/flood layer and flag "GPS possibly wrong" — see Part 3, Scenario 5.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">10</span><span class="qtext"><span class="lang-vi">Bản đồ cập nhật bao lâu một lần? Có đủ nhanh cho lũ quét đột ngột không?</span><span class="lang-en lang-hidden">How often does the map update? Is that fast enough for a sudden flash flood?</span></span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p>Các lớp <em>động</em> (SOS, vị trí cứu hộ) cập nhật mỗi <strong>4–5 giây</strong> qua polling, đủ nhanh cho điều phối. Lớp <em>vùng lũ</em> cập nhật khi admin chỉnh — đây là điểm yếu với lũ quét đột ngột vì phụ thuộc con người.</p>
+        <p><strong>Bù lại cho lũ quét:</strong> chính các SOS thời gian thực và lớp mưa Windy đóng vai trò tín hiệu sớm. <strong>Roadmap:</strong> cảm biến IoT mực nước + cảnh báo tự động để vùng lũ tự cập nhật giây/phút.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p>The <em>dynamic</em> layers (SOS, rescuer location) update every <strong>4–5 seconds</strong> via polling — fast enough for dispatch. The <em>flood zone</em> layer updates only when an admin edits it — a weak point for sudden flash floods, since it depends on a human.</p>
+        <p><strong>What compensates for flash floods:</strong> real-time SOS reports and the Windy rain layer act as early signals. <strong>Roadmap:</strong> IoT water-level sensors + automatic alerts so flood zones update themselves within seconds/minutes.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">11</span><span class="qtext"><span class="lang-vi">Dữ liệu lũ lịch sử được lưu và dùng để cải thiện dự báo ra sao?</span><span class="lang-en lang-hidden">How is historical flood data stored and used to improve forecasting?</span></span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p><strong>Đã lưu lịch sử vận hành:</strong> <code>rescue_requests</code> (kèm toạ độ, thời điểm, mức độ), <code>rescue_request_logs</code> (toàn bộ thay đổi trạng thái — audit trail), <code>user_locations</code> (vị trí đầu/cuối ca), <code>audit_logs</code>. Đây là kho dữ liệu vàng cho phân tích sau lũ.</p>
+        <p><strong>Đã dùng:</strong> trang phân tích admin (<code>/api/analytics/overview|users|rescue</code>) thống kê theo khu vực, thời gian, hiệu suất đội.</p>
+        <p><strong>Roadmap:</strong> dùng lịch sử SOS theo toạ độ để tạo “bản đồ nhiệt vùng nguy cơ” và huấn luyện mô hình dự báo.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p><strong>Operational history already stored:</strong> <code>rescue_requests</code> (with coordinates, timing, severity), <code>rescue_request_logs</code> (every status change — an audit trail), <code>user_locations</code> (first/last position per session), <code>audit_logs</code>. This is a goldmine for post-flood analysis.</p>
+        <p><strong>Already used:</strong> the admin analytics pages (<code>/api/analytics/overview|users|rescue</code>) report by area, time, and team performance.</p>
+        <p><strong>Roadmap:</strong> use coordinate-tagged SOS history to build a "risk-zone heatmap" and train a forecasting model.</p>
+        </div>
+      </div>
+    </div>
+
+    <h3 class="section" id="p1s3"><span class="lang-vi">3. UX & sử dụng thực tế</span><span class="lang-en lang-hidden">3. UX & real-world use</span></h3>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">12</span><span class="qtext"><span class="lang-vi">Dân vùng lũ thường dùng điện thoại cũ, pin yếu — app tối ưu cho ràng buộc đó ra sao?</span><span class="lang-en lang-hidden">Flood-zone residents often use old phones with weak batteries — how is the app optimized for that constraint?</span></span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <ul>
+          <li><strong>Web app nhẹ</strong> — không cần cài đặt, mở bằng trình duyệt; build Vite tối ưu, tile bản đồ Google Maps tải theo vùng nhìn.</li>
+          <li><strong>Throttle GPS</strong> (chỉ gửi khi di chuyển ≥5,5m / ≥2s) giảm tiêu hao pin &amp; dữ liệu.</li>
+          <li><strong>Polling 4–5s</strong> thay vì giữ nhiều kết nối nặng cho bản đồ.</li>
+          <li>Có <strong>chế độ tối</strong>, UI tối giản.</li>
+        </ul>
+        <p><strong>Roadmap:</strong> đóng gói PWA để cache offline, “chế độ tiết kiệm pin” giảm tần suất GPS, và bản rút gọn chỉ-nút-SOS.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <ul>
+          <li><strong>Lightweight web app</strong> — no install, opens in the browser; an optimized Vite build, Google Maps tiles loaded per viewport.</li>
+          <li><strong>GPS throttling</strong> (only sends when moved ≥5.5m / ≥2s) cuts battery &amp; data use.</li>
+          <li><strong>4–5s polling</strong> instead of holding many heavy connections for the map.</li>
+          <li>A <strong>dark mode</strong> and minimal UI.</li>
+        </ul>
+        <p><strong>Roadmap:</strong> package as a PWA for offline caching, a "battery saver mode" that reduces GPS frequency, and a stripped-down SOS-button-only version.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">13</span><span class="qtext"><span class="lang-vi">Một nạn nhân đang hoảng loạn vẫn dùng được app trong 10 giây bằng cách nào?</span><span class="lang-en lang-hidden">How can a panicking victim still use the app within 10 seconds?</span></span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p>Luồng SOS tối giản: đăng nhập sẵn → trang SOS có <strong>nút khẩn cấp lớn</strong>, GPS tự lấy nền (<code>watchPosition</code>), chỉ cần điền mô tả ngắn + (tuỳ chọn) ảnh rồi gửi. Vị trí và toạ độ tự đính kèm. Người thân được cảnh báo tức thì (in-app + email) ngay khi gửi.</p>
+        <p>Có <strong>tour onboarding</strong> (react-joyride) dạy dùng nhanh từ lần đầu.</p>
+        <p><strong>Roadmap:</strong> nút SOS giữ-3-giây gửi ngay không cần nhập gì (mô tả mặc định), để đạt mốc &lt;10s tuyệt đối.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p>A minimal SOS flow: already logged in → the SOS page has a <strong>large emergency button</strong>, GPS is grabbed in the background (<code>watchPosition</code>), the user just types a short description + (optionally) a photo, then sends. Location and coordinates attach automatically. Family members are alerted instantly (in-app + email) the moment it's sent.</p>
+        <p>There's an <strong>onboarding tour</strong> (react-joyride) that teaches fast usage on the first visit.</p>
+        <p><strong>Roadmap:</strong> a hold-for-3-seconds SOS button that sends immediately with no input required (a default description), to hit an absolute &lt;10s mark.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">14</span><span class="qtext"><span class="lang-vi">Giao diện đội cứu hộ và nạn nhân có khác nhau không? Phân quyền theo vai trò thế nào?</span><span class="lang-en lang-hidden">Do rescuers and victims see different interfaces? How does role-based access work?</span></span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p><strong>Có — RBAC đầy đủ.</strong> Ba vai trò trong DB: <code>citizen</code>, <code>rescuer</code>, <code>admin</code>. Mỗi vai trò có khu trang riêng (<code>pages/citizen</code>, <code>pages/rescuer</code>, <code>pages/admin</code>), gác bởi <code>ProtectedRoute.jsx</code> ở frontend và middleware <code>requireRoles([...])</code>, <code>requireAdmin</code> ở backend. JWT mang <code>role</code>; mọi endpoint nhạy đều kiểm vai trò.</p>
+        <ul>
+          <li>Citizen: gửi SOS, xem bản đồ + người thân.</li>
+          <li>Rescuer: nhận nhiệm vụ theo <strong>nhóm cứu hộ</strong> (chỉ leader/co-leader được accept), bản đồ chiến thuật.</li>
+          <li>Admin: dashboard điều phối, phân công nhóm, phân tích, biên tập vùng lũ.</li>
+        </ul>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p><strong>Yes — full RBAC.</strong> Three roles in the DB: <code>citizen</code>, <code>rescuer</code>, <code>admin</code>. Each role has its own page area (<code>pages/citizen</code>, <code>pages/rescuer</code>, <code>pages/admin</code>), guarded by <code>ProtectedRoute.jsx</code> on the frontend and <code>requireRoles([...])</code>/<code>requireAdmin</code> middleware on the backend. The JWT carries <code>role</code>; every sensitive endpoint checks it.</p>
+        <ul>
+          <li>Citizen: send SOS, view the map + family.</li>
+          <li>Rescuer: accept assignments through a <strong>rescue group</strong> (only leader/co-leader can accept), tactical map.</li>
+          <li>Admin: dispatch dashboard, group assignment, analytics, flood-zone editing.</li>
+        </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">15</span><span class="qtext"><span class="lang-vi">Người không biết chữ hoặc người già ở nông thôn có dùng được không?</span><span class="lang-en lang-hidden">Can illiterate people or elderly rural residents use this?</span></span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p><strong>Hiện tại:</strong> UI nhiều biểu tượng trực quan (Material Symbols), màu trạng thái rõ (đỏ=khẩn, vàng=đang xử lý, xanh=an toàn), nút lớn — giảm phụ thuộc chữ. Có song ngữ Việt/Anh.</p>
+        <p><strong>Thẳng thắn:</strong> vẫn cần đọc tối thiểu. Giải pháp thực tế cho nhóm này là <strong>proxy-SOS</strong>: người thân ở xa gửi hộ (xem Phần 3, Kịch bản 4 — roadmap). <strong>Roadmap thêm:</strong> nút SOS thuần biểu tượng + hướng dẫn bằng giọng nói, hỗ trợ tiếng dân tộc.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p><strong>Today:</strong> the UI leans on visual icons (Material Symbols), clear status colors (red=urgent, yellow=in progress, green=safe), and large buttons — reducing reliance on text. Vietnamese/English bilingual support exists.</p>
+        <p><strong>Honestly:</strong> some minimal reading is still required. The practical solution for this group is <strong>proxy-SOS</strong>: a remote family member sends on their behalf (see Part 3, Scenario 4 — roadmap). <strong>Further roadmap:</strong> an icon-only SOS button + voice guidance, support for ethnic-minority languages.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">16</span><span class="qtext"><span class="lang-vi">App đã được kiểm thử với người dùng thật trong môi trường mô phỏng lũ chưa?</span><span class="lang-en lang-hidden">Has the app been tested with real users in a simulated flood environment?</span></span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p><strong>Trung thực:</strong> dự án không có bộ test tự động hay linter (theo CLAUDE.md). “Kiểm thử” hiện là chạy thực tế qua Docker/dev server và diễn tập luồng end-to-end (citizen gửi SOS → admin phân nhóm → rescuer nhận → theo dõi → hoàn tất). Chưa có khảo nghiệm hiện trường quy mô lớn — đây là bước kế tiếp cần làm cùng đội cứu hộ địa phương.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p><strong>Honest answer:</strong> the project has no automated test suite or linter (per CLAUDE.md). "Testing" today means running it for real via Docker/dev server and rehearsing the end-to-end flow (citizen sends SOS → admin assigns group → rescuer accepts → tracks → completes). There's been no large-scale field trial yet — that's the next step, to be done together with a local rescue team.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">17</span><span class="qtext"><span class="lang-vi">Kênh nào gửi cảnh báo SOS khi không có Internet — SMS, Bluetooth mesh, hay khác?</span><span class="lang-en lang-hidden">What channel sends an SOS alert without Internet — SMS, Bluetooth mesh, or something else?</span></span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p><strong>Hiện tại:</strong> hệ thống có tích hợp <strong>Twilio SMS</strong> nhưng đang dùng cho OTP (quên mật khẩu / xác thực), <em>chưa</em> dùng làm kênh SOS dự phòng. Cảnh báo người thân hiện đi qua in-app + email (Resend).</p>
+        <p><strong>Roadmap:</strong> dùng lại Twilio làm <strong>SOS qua SMS</strong> khi mất data; xa hơn là Bluetooth/Wi-Fi mesh hoặc LoRa (xem Phần 3, Kịch bản 1).</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p><strong>Today:</strong> the system already integrates <strong>Twilio SMS</strong>, but only for OTP (password reset / verification) — <em>not yet</em> used as a backup SOS channel. Family alerts currently go through in-app + email (Resend).</p>
+        <p><strong>Roadmap:</strong> reuse Twilio for <strong>SOS over SMS</strong> when data is unavailable; further out, Bluetooth/Wi-Fi mesh or LoRa (see Part 3, Scenario 1).</p>
+        </div>
+      </div>
+    </div>
+
+    <h3 class="section" id="p1s4"><span class="lang-vi">4. An toàn, bảo mật & riêng tư</span><span class="lang-en lang-hidden">4. Safety, security & privacy</span></h3>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">18</span><span class="qtext"><span class="lang-vi">Ai có quyền truy cập dữ liệu vị trí nạn nhân? Có nguy cơ kẻ xấu khai thác không?</span><span class="lang-en lang-hidden">Who can access victim location data? Is there a risk of bad actors exploiting it?</span></span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p>Truy cập bị giới hạn theo vai trò (RBAC) + JWT bắt buộc:</p>
+        <ul>
+          <li><strong>Người thân</strong> chỉ thấy vị trí thành viên gia đình đã <code>accepted</code> trong <code>family_connections</code> (liên kết hai chiều, có đồng ý).</li>
+          <li><strong>Rescuer</strong> thấy SOS của <em>nhóm mình được phân</em> (<code>/api/sos/team</code>); admin thấy toàn cảnh để điều phối.</li>
+          <li>Vị trí live có <strong>TTL 60s</strong> trên Redis — hết khẩn cấp là tự biến mất, không lưu vết liên tục.</li>
+        </ul>
+        <p>Mỗi yêu cầu phải có token hợp lệ; WebSocket cũng xác thực JWT khi bắt tay.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p>Access is restricted by role (RBAC) and requires a valid JWT:</p>
+        <ul>
+          <li><strong>Family members</strong> only see the location of family members already <code>accepted</code> in <code>family_connections</code> (a two-way, consensual link).</li>
+          <li><strong>Rescuers</strong> see SOS requests assigned to <em>their own team</em> (<code>/api/sos/team</code>); admins see the full picture for dispatch.</li>
+          <li>Live location has a <strong>60s TTL</strong> in Redis — once the emergency ends, it vanishes on its own; there's no continuous trail.</li>
+        </ul>
+        <p>Every request must carry a valid token; the WebSocket also authenticates the JWT during its handshake.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">19</span><span class="qtext"><span class="lang-vi">Dữ liệu vị trí được mã hoá khi truyền và khi lưu thế nào?</span><span class="lang-en lang-hidden">How is location data encrypted in transit and at rest?</span></span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <ul>
+          <li><strong>Khi truyền:</strong> toàn bộ qua HTTPS (Vercel/Render) và <code>wss://</code> cho WebSocket. Redis dùng <code>rediss://</code> (TLS). DB bật SSL tự động cho host không-local (<code>db.js</code>).</li>
+          <li><strong>Khi lưu:</strong> PostgreSQL (Neon) và Redis (Upstash) đều mã hoá at-rest ở tầng nền tảng. Mật khẩu băm bằng <strong>bcrypt</strong>, không lưu plaintext.</li>
+        </ul>
+        <p><strong>Lưu ý thật:</strong> bản thân toạ độ trong DB chưa mã hoá ở mức ứng dụng (chỉ dựa at-rest của nền tảng) — đây là điểm có thể nâng cấp nếu yêu cầu tuân thủ cao hơn.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <ul>
+          <li><strong>In transit:</strong> everything goes over HTTPS (Vercel/Render) and <code>wss://</code> for the WebSocket. Redis uses <code>rediss://</code> (TLS). The DB auto-enables SSL for non-local hosts (<code>db.js</code>).</li>
+          <li><strong>At rest:</strong> both PostgreSQL (Neon) and Redis (Upstash) encrypt at rest at the platform level. Passwords are hashed with <strong>bcrypt</strong>, never stored as plaintext.</li>
+        </ul>
+        <p><strong>Honest note:</strong> the coordinates themselves are not encrypted at the application layer in the DB (only platform-level at-rest encryption applies) — this is an upgrade point if stricter compliance is required.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">20</span><span class="qtext"><span class="lang-vi">Nếu ai đó mạo danh cứu hộ để lợi dụng nạn nhân, có cơ chế phát hiện không?</span><span class="lang-en lang-hidden">If someone impersonates a rescuer to exploit a victim, is there a way to detect it?</span></span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p><strong>Có rào chắn nhiều lớp:</strong></p>
+        <ul>
+          <li>Vai trò <code>rescuer</code> chỉ do <strong>admin cấp</strong> qua <code>PUT /api/auth/users/:id/role</code> (<code>requireAdmin</code>) — không tự đăng ký thành cứu hộ.</li>
+          <li>Nhận nhiệm vụ còn cần thuộc <strong>nhóm cứu hộ đang hoạt động</strong> và là <strong>leader/co-leader</strong> — hai tầng kiểm.</li>
+          <li>Mọi hành động ghi <code>rescue_request_logs</code> + <code>audit_logs</code> (ai đổi gì, khi nào, IP) → truy vết được.</li>
+        </ul>
+        <p><strong>Roadmap:</strong> hồ sơ định danh/giấy tờ cho rescuer và huy hiệu “đã xác minh” hiển thị cho nạn nhân.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p><strong>There are multiple layers of guard rails:</strong></p>
+        <ul>
+          <li>The <code>rescuer</code> role can only be <strong>granted by an admin</strong> via <code>PUT /api/auth/users/:id/role</code> (<code>requireAdmin</code>) — no one can self-register as a rescuer.</li>
+          <li>Accepting an assignment also requires belonging to an <strong>active rescue group</strong> and being a <strong>leader/co-leader</strong> — a two-layer check.</li>
+          <li>Every action is logged to <code>rescue_request_logs</code> + <code>audit_logs</code> (who changed what, when, from which IP) → traceable.</li>
+        </ul>
+        <p><strong>Roadmap:</strong> identity/document verification for rescuers and a "verified" badge shown to victims.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">21</span><span class="qtext"><span class="lang-vi">Sau thảm hoạ, dữ liệu cá nhân nạn nhân được xử lý ra sao? Có bị bán/chia sẻ không?</span><span class="lang-en lang-hidden">After a disaster, how is victims' personal data handled? Is it ever sold or shared?</span></span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p><strong>Nguyên tắc thiết kế:</strong> dữ liệu chỉ phục vụ cứu hộ, <strong>không bán, không chia sẻ thương mại</strong>. Vị trí live tự hết hạn sau 60s (Redis TTL); chỉ giữ vị trí đầu/cuối ca để gia đình xem “điểm cuối được biết”. Xoá tài khoản sẽ <code>CASCADE</code> xoá vị trí, kết nối gia đình, thông báo của người đó.</p>
+        <p><strong>Roadmap:</strong> chính sách lưu trữ có thời hạn (auto-purge SOS đã đóng sau N tháng) và ẩn danh hoá dữ liệu lịch sử khi phân tích.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p><strong>Design principle:</strong> data serves rescue only — <strong>never sold, never shared commercially</strong>. Live location auto-expires after 60s (Redis TTL); only the first/last position per session is kept so family can see the "last known point." Deleting an account <code>CASCADE</code>s and removes that person's locations, family links, and notifications.</p>
+        <p><strong>Roadmap:</strong> a time-bound retention policy (auto-purge closed SOS requests after N months) and anonymizing historical data used for analytics.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">22</span><span class="qtext"><span class="lang-vi">App tuân thủ quy định bảo vệ dữ liệu nào — PDPA, GDPR, hay quy định địa phương?</span><span class="lang-en lang-hidden">Which data-protection regulation does the app comply with — PDPA, GDPR, or local law?</span></span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p>Định hướng tuân thủ <strong>Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân của Việt Nam</strong> (PDPD) — phù hợp vì hệ thống phục vụ trong nước (<code>aquaguard.vn</code>). Các nguyên tắc đã hiện diện trong thiết kế: thu thập tối thiểu, có sự đồng ý (liên kết gia đình hai chiều), giới hạn mục đích, quyền xoá (CASCADE).</p>
+        <p>Kiến trúc cũng tương thích tinh thần GDPR/PDPA (quyền truy cập, xoá, hạn chế xử lý). <strong>Roadmap:</strong> trang chính sách riêng tư chính thức, cơ chế export/xoá dữ liệu theo yêu cầu, nhật ký đồng ý.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p>The direction is compliance with <strong>Vietnam's Decree 13/2023/NĐ-CP on personal data protection</strong> (PDPD) — fitting, since the system serves a domestic audience (<code>aquaguard.vn</code>). Several principles already show up in the design: minimal collection, consent-based linking (two-way family connections), purpose limitation, and a right to erasure (CASCADE).</p>
+        <p>The architecture is also broadly compatible with the spirit of GDPR/PDPA (right to access, erasure, restriction of processing). <strong>Roadmap:</strong> an official privacy-policy page, on-request data export/deletion, and a consent log.</p>
+        </div>
+      </div>
+    </div>
+
+    <h3 class="section" id="p1s5"><span class="lang-vi">5. Triển khai & vận hành</span><span class="lang-en lang-hidden">5. Deployment & operations</span></h3>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">23</span><span class="qtext"><span class="lang-vi">Chi phí vận hành hàng tháng? Ai trả? Mô hình tài chính ra sao?</span><span class="lang-en lang-hidden">What's the monthly operating cost? Who pays? What's the financial model?</span></span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p><strong>Chi phí hiện tại gần như $0</strong> — toàn bộ chạy trên free tier: Vercel (frontend), Render free (backend, ngủ sau ~15’ idle, UptimeRobot ping <code>/api/health</code> mỗi 5’ giữ thức), Neon (Postgres serverless), Upstash (Redis serverless), Resend (email), Firebase (free). Chỉ tốn tên miền <code>aquaguard.vn</code>.</p>
+        <p><strong>Mô hình mở rộng:</strong> đây là dự án vì cộng đồng/phi lợi nhuận. Khi lên quy mô tỉnh: kinh phí từ ngân sách phòng chống thiên tai địa phương, tài trợ/CSR, hoặc gói B2G cho chính quyền. Chi phí scale chủ yếu là nâng plan Render/Neon/Upstash — tuyến tính, dự đoán được.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p><strong>Current cost is close to $0</strong> — everything runs on free tiers: Vercel (frontend), Render free (backend, sleeps after ~15' idle, with UptimeRobot pinging <code>/api/health</code> every 5' to keep it awake), Neon (serverless Postgres), Upstash (serverless Redis), Resend (email), Firebase (free). The only real expense is the <code>aquaguard.vn</code> domain.</p>
+        <p><strong>Funding model going forward:</strong> this is a community/non-profit project. At provincial scale, funding would come from local disaster-prevention budgets, sponsorship/CSR, or a B2G package for government. Scaling cost is mainly upgrading the Render/Neon/Upstash plans — linear and predictable.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">24</span><span class="qtext"><span class="lang-vi">Làm sao thuyết phục chính quyền tích hợp hệ thống vào quy trình ứng phó chính thức?</span><span class="lang-en lang-hidden">How do you convince local authorities to integrate this into official response procedures?</span></span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <ul>
+          <li><strong>Dashboard điều phối</strong> sẵn có cho chỉ huy (tổng SOS, đội đang hoạt động, vùng chưa được xử lý) + phân tích/báo cáo.</li>
+          <li><strong>Chi phí thấp, không khoá nhà cung cấp</strong> — đứng trên dịch vụ quản lý phổ biến, dễ bàn giao.</li>
+          <li><strong>Bổ trợ chứ không thay thế</strong> 113/114/115 — app điều phối lớp tình nguyện + đội địa phương, kết nối người dân–người thân–cứu hộ.</li>
+          <li><strong>Audit trail</strong> minh bạch cho trách nhiệm giải trình.</li>
+        </ul>
+        <p>Chiến lược: chạy thí điểm 1 xã/huyện trong mùa lũ, đo số liệu (thời gian phản hồi, số ca xử lý), rồi nhân rộng.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <ul>
+          <li>A <strong>dispatch dashboard</strong> already exists for command (total SOS, active teams, unhandled areas) plus analytics/reporting.</li>
+          <li><strong>Low cost, no vendor lock-in</strong> — built on common managed services, easy to hand over.</li>
+          <li><strong>Complements, doesn't replace,</strong> 113/114/115 — the app coordinates a layer of volunteers + local teams, connecting residents–family–rescuers.</li>
+          <li>A transparent <strong>audit trail</strong> for accountability.</li>
+        </ul>
+        <p>Strategy: run a pilot in one commune/district during flood season, measure metrics (response time, cases handled), then scale out.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">25</span><span class="qtext"><span class="lang-vi">Huấn luyện một đội cứu hộ dùng app thành thạo mất bao lâu?</span><span class="lang-en lang-hidden">How long does it take to train a rescue team to use the app well?</span></span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p>Ước tính <strong>15–30 phút</strong>. Luồng rescuer rất gọn: tham gia/ tạo nhóm → thấy danh sách SOS được phân trên bản đồ → bấm “Nhận” → bản đồ theo dõi dẫn tới nạn nhân (định tuyến OSRM) → bấm “Hoàn tất”. Có tour onboarding tương tác hướng dẫn ngay trong app. Giao diện dựa biểu tượng + màu trạng thái nên trực giác.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p>Roughly <strong>15–30 minutes</strong>. The rescuer flow is tight: join/create a group → see assigned SOS requests on the map → tap "Accept" → the tracking map guides them to the victim (OSRM routing) → tap "Complete." There's an interactive onboarding tour right inside the app. The icon-and-color-based UI makes it intuitive.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">26</span><span class="qtext"><span class="lang-vi">Hệ thống mở rộng cho loại thảm hoạ khác (cháy rừng, động đất) được không?</span><span class="lang-en lang-hidden">Can the system extend to other disaster types (wildfire, earthquake)?</span></span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p><strong>Được — kiến trúc lõi không phụ thuộc “lũ”.</strong> Vòng đời SOS (gửi → phân công → nhận → theo dõi GPS realtime → hoàn tất), nhóm cứu hộ, theo dõi người thân, dashboard điều phối đều là <em>điều phối ứng cứu tổng quát</em>. Chuyển sang cháy rừng/động đất chỉ cần đổi lớp dữ liệu bản đồ (vùng cháy/dư chấn thay vùng lũ) và bộ trường mô tả/mức độ. Hiện thương hiệu &amp; bản đồ tối ưu cho lũ, nên gọi là “một phần”.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p><strong>Yes — the core architecture isn't flood-specific.</strong> The SOS lifecycle (send → assign → accept → realtime GPS tracking → complete), rescue groups, family tracking, and the dispatch dashboard are all <em>general-purpose emergency coordination</em>. Moving to wildfire/earthquake would just mean swapping the map's data layer (burn zones/aftershocks instead of flood zones) and the description/severity fields. The branding &amp; map are currently flood-optimized, hence "partial."</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">27</span><span class="qtext"><span class="lang-vi">Ai quản lý và xác minh tài khoản cứu hộ chính thức?</span><span class="lang-en lang-hidden">Who manages and verifies official rescuer accounts?</span></span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p><strong>Admin.</strong> Mặc định mọi đăng ký là <code>citizen</code>. Chỉ admin được nâng vai trò qua <code>PUT /api/auth/users/:id/role</code> (gác bởi <code>requireAdmin</code>). Admin cũng quản lý nhóm cứu hộ (<code>/api/auth/rescue-groups/all</code>). Mọi thay đổi vai trò ghi vào <code>audit_logs</code>.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p><strong>The admin.</strong> Every registration defaults to <code>citizen</code>. Only an admin can promote a role, via <code>PUT /api/auth/users/:id/role</code> (guarded by <code>requireAdmin</code>). Admins also manage rescue groups (<code>/api/auth/rescue-groups/all</code>). Every role change is logged to <code>audit_logs</code>.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">28</span><span class="qtext"><span class="lang-vi">Nếu dự án mất tài trợ sau 6 tháng, dữ liệu và hệ thống được xử lý ra sao?</span><span class="lang-en lang-hidden">If the project loses funding after 6 months, what happens to the data and the system?</span></span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p><strong>Không bị khoá nhà cung cấp:</strong> schema chuẩn nằm trong repo (<code>infrastructure/database/init_db.sql</code>), code là mã nguồn mở-được, dữ liệu trên Postgres tiêu chuẩn → có thể <code>pg_dump</code> xuất toàn bộ và bàn giao cho cơ quan tiếp quản hoặc tự host. Free tier giúp hệ thống tiếp tục “sống” chi phí gần $0 ngay cả khi không tài trợ.</p>
+        <p><strong>Kế hoạch thoát:</strong> bàn giao dữ liệu (đã ẩn danh phần nhạy) cho chính quyền địa phương; mở mã nguồn cho cộng đồng duy trì.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p><strong>No vendor lock-in:</strong> the canonical schema lives in the repo (<code>infrastructure/database/init_db.sql</code>), the code is open-sourceable, and the data sits on standard Postgres → it can be fully exported with <code>pg_dump</code> and handed to a successor organization or self-hosted. The free tier lets the system keep "living" at near-$0 cost even without funding.</p>
+        <p><strong>Exit plan:</strong> hand over the data (sensitive parts anonymized) to local authorities; open-source the code for the community to maintain.</p>
+        </div>
+      </div>
+    </div>
+
+    <h3 class="section" id="p1s6"><span class="lang-vi">6. Edge case & thách thức</span><span class="lang-en lang-hidden">6. Edge cases & challenges</span></h3>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">29</span><span class="qtext"><span class="lang-vi">Khi hai đội cùng được điều tới một nạn nhân trong khi nạn nhân khác không ai cứu?</span><span class="lang-en lang-hidden">What if two teams get dispatched to the same victim while another victim gets none?</span></span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p><strong>Khoá trùng đã có:</strong> hành động <code>accept</code> dùng <code>UPDATE ... WHERE status='pending'/'assigned' AND (điều kiện sở hữu) RETURNING *</code> — chỉ <em>một</em> nhóm thắng; nhóm thứ hai nhận lỗi 403 “đã được nhận”. Nhờ tính nguyên tử của câu lệnh UPDATE, không thể có hai đội cùng “chiếm” một ca.</p>
+        <p><strong>Chống bỏ sót:</strong> dashboard admin + bản đồ hiển thị mọi SOS <code>pending</code> (đỏ nhấp nháy) để thấy ngay ca chưa ai nhận; admin có thể chủ động phân nhóm.</p>
+        <p><strong>Roadmap:</strong> tự gợi ý đội gần nhất (đã có hàm <code>nearbyUsers</code> trên Redis GEO) và cảnh báo ca quá hạn chưa phân.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p><strong>A duplicate-prevention lock already exists:</strong> the <code>accept</code> action uses <code>UPDATE ... WHERE status='pending'/'assigned' AND (ownership condition) RETURNING *</code> — only <em>one</em> group can win; the second gets a 403 "already accepted." Thanks to the UPDATE statement's atomicity, two teams can never both "claim" the same case.</p>
+        <p><strong>Against being missed:</strong> the admin dashboard + map shows every <code>pending</code> SOS (blinking red) so an unaccepted case is visible immediately; admins can proactively assign a group.</p>
+        <p><strong>Roadmap:</strong> auto-suggest the nearest team (the <code>nearbyUsers</code> function on Redis GEO already exists) and alert on cases left unassigned too long.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">30</span><span class="qtext"><span class="lang-vi">Nếu nạn nhân không có điện thoại, hệ thống hỗ trợ gì?</span><span class="lang-en lang-hidden">If a victim has no phone, what does the system offer?</span></span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p><strong>Hiện tại:</strong> người thân (đã liên kết) nhận cảnh báo và theo dõi được, nhưng <em>chưa</em> có nút “gửi SOS hộ”. Đây là khoảng trống đã nhận diện.</p>
+        <p><strong>Roadmap (proxy-SOS):</strong> người thân thả ghim trên bản đồ + nhập địa chỉ gần đúng để tạo SOS hộ người không có điện thoại (kèm “bán kính bất định”). Xem chi tiết Phần 3, Kịch bản 4.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p><strong>Today:</strong> linked family members get alerted and can track, but there's <em>no</em> "send SOS on their behalf" button yet. This is an identified gap.</p>
+        <p><strong>Roadmap (proxy-SOS):</strong> a family member drops a pin on the map + enters an approximate address to create an SOS on behalf of someone without a phone (with an "uncertainty radius"). See details in Part 3, Scenario 4.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">31</span><span class="qtext"><span class="lang-vi">Khi vùng bị cô lập hoàn toàn không sóng di động, app còn hữu ích không?</span><span class="lang-en lang-hidden">When an area is fully cut off with no mobile signal, is the app still useful?</span></span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p><strong>Thẳng thắn:</strong> bản web hiện cần kết nối, nên trong vùng mất sóng tuyệt đối thì người trong vùng không gửi được. Tuy nhiên hệ thống vẫn hữu ích <em>gián tiếp</em>: người thân ở nơi có sóng theo dõi “vị trí cuối được biết” và (roadmap) gửi proxy-SOS; đội cứu hộ vẫn dùng bản đồ để lập kế hoạch tiếp cận.</p>
+        <p><strong>Roadmap để dùng trực tiếp trong vùng mất sóng:</strong> hàng đợi offline + mesh ngang hàng + SMS/LoRa (Phần 3, Kịch bản 1).</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p><strong>Bluntly:</strong> the current web app needs a connection, so people inside a totally signal-dead area can't send anything. That said, the system is still useful <em>indirectly</em>: family in a connected area can watch the "last known location" and (roadmap) send a proxy-SOS; rescue teams still use the map to plan their approach.</p>
+        <p><strong>Roadmap for direct use inside dead zones:</strong> an offline queue + peer mesh + SMS/LoRa (Part 3, Scenario 1).</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">32</span><span class="qtext"><span class="lang-vi">Hệ thống phân biệt SOS thật với lỗi/spam thế nào?</span><span class="lang-en lang-hidden">How does the system tell a genuine SOS apart from an error or spam?</span></span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <ul>
+          <li><strong>Bắt buộc đăng nhập</strong> (JWT) — mọi SOS gắn với một danh tính (số điện thoại đã đăng ký), không nặc danh.</li>
+          <li><strong>Rate limiting</strong> chặn gửi dồn dập.</li>
+          <li>SOS đính kèm <strong>ảnh, mô tả, GPS</strong> → cứu hộ/admin đánh giá nhanh độ thật.</li>
+          <li>Audit trail truy ra người gửi giả.</li>
+        </ul>
+        <p><strong>Roadmap:</strong> dò GPS bất khả thi (giữa sông) gắn cờ nghi ngờ (Phần 3, Kịch bản 5); chấm điểm độ tin cậy theo lịch sử người gửi.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <ul>
+          <li><strong>Login is mandatory</strong> (JWT) — every SOS is tied to an identity (a registered phone number), never anonymous.</li>
+          <li><strong>Rate limiting</strong> blocks rapid-fire submissions.</li>
+          <li>An SOS attaches a <strong>photo, description, GPS</strong> → rescuers/admins can quickly judge plausibility.</li>
+          <li>The audit trail can trace a fake sender.</li>
+        </ul>
+        <p><strong>Roadmap:</strong> flagging implausible GPS (mid-river) as suspicious (Part 3, Scenario 5); scoring sender trustworthiness from history.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">33</span><span class="qtext"><span class="lang-vi">Nếu server trung tâm sập đúng đỉnh lũ, phương án dự phòng là gì?</span><span class="lang-en lang-hidden">If the central server goes down right at the flood peak, what's the backup plan?</span></span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p><strong>Hiện tại — chịu lỗi một phần:</strong> tầng dữ liệu tách rời (Neon, Upstash) độc lập với backend; Redis suy biến mượt (mất Redis thì tự fallback Postgres <code>user_locations</code>). Nhưng backend là <em>một</em> instance Render → là điểm-chết-đơn (SPOF) cần nói thật.</p>
+        <p><strong>Roadmap:</strong> nhiều instance sau load balancer + tự failover; hàng đợi SOS phía thiết bị để không mất yêu cầu khi server bận; quy trình leo thang thủ công (đường dây nóng) khi mọi lớp tự động thất bại. Xem câu trả lời mẫu đầy đủ ở Phần 5.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p><strong>Today — partially fault-tolerant:</strong> the data layer (Neon, Upstash) is decoupled and independent from the backend; Redis degrades gracefully (losing Redis falls back to Postgres <code>user_locations</code>). But the backend is <em>one</em> Render instance → a single point of failure (SPOF), and that needs to be said honestly.</p>
+        <p><strong>Roadmap:</strong> multiple instances behind a load balancer with auto-failover; a device-side SOS queue so requests aren't lost while the server is busy; a manual escalation process (a hotline) for when every automated layer fails. See the full sample answer in Part 5.</p>
+        </div>
+      </div>
+    </div>
+
+    <h3 class="section" id="p1s7"><span class="lang-vi">7. So sánh & đổi mới</span><span class="lang-en lang-hidden">7. Comparison & innovation</span></h3>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">34</span><span class="qtext"><span class="lang-vi">App khác gì Zalo/Facebook mà người dân vốn đã dùng để kêu cứu khi lũ?</span><span class="lang-en lang-hidden">How is this different from Zalo/Facebook, which people already use to call for help during floods?</span></span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p>Zalo/Facebook là kênh <em>truyền tin</em>, không phải hệ <em>điều phối cứu hộ</em>:</p>
+        <ul>
+          <li><strong>Định vị GPS có cấu trúc</strong> + bản đồ tập trung mọi SOS một chỗ, thay vì lời kêu cứu trôi trong dòng newsfeed.</li>
+          <li><strong>Vòng đời nhiệm vụ rõ ràng:</strong> pending → nhận → theo dõi GPS realtime → hoàn tất, có khoá chống trùng và audit.</li>
+          <li><strong>Phân vai trò</strong> citizen/rescuer/admin với quyền phù hợp.</li>
+          <li><strong>Theo dõi người thân</strong> với trạng thái an toàn, và cảnh báo tự động cho gia đình.</li>
+          <li><strong>Lớp dữ liệu lũ + thời tiết</strong> hỗ trợ quyết định tiếp cận.</li>
+        </ul>
+        <p>Nói ngắn: mạng xã hội cho bạn <em>hét lên</em>; AquaGuard <em>điều phối ai tới cứu, theo dõi đến khi an toàn</em>.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p>Zalo/Facebook are <em>messaging</em> channels, not a <em>rescue-dispatch</em> system:</p>
+        <ul>
+          <li><strong>Structured GPS positioning</strong> + a map that centralizes every SOS in one place, instead of a cry for help drifting down a newsfeed.</li>
+          <li><strong>A clear request lifecycle:</strong> pending → accepted → realtime GPS tracking → completed, with duplicate-prevention locking and an audit trail.</li>
+          <li><strong>Role separation</strong> — citizen/rescuer/admin with matching permissions.</li>
+          <li><strong>Family tracking</strong> with safety status, plus automatic alerts to family.</li>
+          <li><strong>Flood + weather data layers</strong> to inform an approach decision.</li>
+        </ul>
+        <p>Short version: social media lets you <em>shout</em>; AquaGuard <em>dispatches who comes to help and tracks until safe</em>.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">35</span><span class="qtext"><span class="lang-vi">Đã có giải pháp tương tự ở Nhật/Thái/Bangladesh chưa? App cải tiến gì?</span><span class="lang-en lang-hidden">Do similar solutions already exist in Japan/Thailand/Bangladesh? What does this app improve on?</span></span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p>Có các hệ tham chiếu: Nhật có hệ cảnh báo sớm (J-Alert) và bản đồ ngập của chính phủ; Bangladesh có mạng cảnh báo lốc/lũ cộng đồng; Thái có hệ giám sát thuỷ văn. Phần lớn thiên về <em>cảnh báo một chiều</em>.</p>
+        <p><strong>Khác biệt của AquaGuard:</strong> tập trung vào <em>điều phối cứu hộ hai chiều thời gian thực</em> — kết nối nạn nhân ↔ tình nguyện/đội địa phương ↔ người thân ↔ chỉ huy trong cùng một vòng đời, với theo dõi GPS sống và chi phí gần $0 (free-tier), dễ triển khai ở quy mô xã/huyện đang thiếu hạ tầng.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p>Reference systems exist: Japan has an early-warning system (J-Alert) and government flood maps; Bangladesh has a community cyclone/flood warning network; Thailand has hydrological monitoring. Most of these lean toward <em>one-way alerts</em>.</p>
+        <p><strong>What AquaGuard does differently:</strong> it focuses on <em>two-way, realtime rescue coordination</em> — connecting victim ↔ volunteer/local team ↔ family ↔ command within one shared lifecycle, with live GPS tracking and near-$0 cost (free-tier), making it easy to deploy at commune/district scale where infrastructure is lacking.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">36</span><span class="qtext"><span class="lang-vi">Vì sao cần app riêng thay vì tích hợp vào dịch vụ khẩn cấp sẵn có (113/114)?</span><span class="lang-en lang-hidden">Why a separate app instead of integrating with existing emergency hotlines (113/114)?</span></span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p>113/114/115 mạnh ở tiếp nhận cuộc gọi nhưng (a) thoại không mang GPS chính xác, (b) quá tải khi hàng trăm cuộc gọi cùng lúc, (c) không có bản đồ chung để chống trùng/bỏ sót, (d) không huy động được lớp tình nguyện địa phương — những người ở gần nhất.</p>
+        <p>AquaGuard <strong>bổ trợ</strong>: đính kèm toạ độ + ảnh, gom mọi ca lên một bản đồ điều phối, huy động đội/nhóm tại chỗ, và cho người thân tham gia. Mục tiêu là tích hợp <em>cùng</em> các tổng đài, không thay thế.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p>113/114/115 are strong at taking calls, but (a) voice calls don't carry precise GPS, (b) they get overloaded by hundreds of simultaneous calls, (c) there's no shared map to prevent duplicates/missed cases, (d) they can't mobilize the local volunteer layer — the people closest by.</p>
+        <p>AquaGuard <strong>complements</strong> them: it attaches coordinates + photos, gathers every case onto one dispatch map, mobilizes local teams/groups, and lets family participate. The goal is to integrate <em>alongside</em> the hotlines, not replace them.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">37</span><span class="qtext"><span class="lang-vi">Hệ thống có dùng AI/ML để dự báo khu vực nguy cơ kế tiếp không? Độ chính xác bao nhiêu?</span><span class="lang-en lang-hidden">Does the system use AI/ML to forecast the next at-risk area? What's the accuracy?</span></span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p><strong>Trung thực: chưa.</strong> Hiện không có mô hình ML dự báo trong code (có chatbot trợ lý nhưng không phải dự báo lũ). Tuyên bố con số độ chính xác lúc này sẽ là không thật.</p>
+        <p><strong>Roadmap:</strong> dữ liệu nền tảng đã sẵn (lịch sử SOS theo toạ độ/thời gian, vùng lũ, dữ liệu mưa Windy) để xây bản đồ nhiệt nguy cơ và mô hình dự báo; khi triển khai sẽ công bố độ chính xác đo trên tập kiểm thử thật, không phỏng đoán.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p><strong>Honestly: not yet.</strong> There's no forecasting ML model in the code today (there's an assistant chatbot, but it doesn't forecast floods). Quoting an accuracy number right now would not be truthful.</p>
+        <p><strong>Roadmap:</strong> the underlying data is already there (coordinate/time-tagged SOS history, flood zones, Windy rain data) to build a risk heatmap and a forecasting model; once deployed, we'll publish accuracy measured on a real test set, not a guess.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">38</span><span class="qtext"><span class="lang-vi">Trong ba năm tới, đội định hướng app phát triển theo hướng nào?</span><span class="lang-en lang-hidden">Over the next three years, where does the team plan to take the app?</span></span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p>Lộ trình: (1) chịu lỗi offline thật — PWA + hàng đợi SOS + SMS/mesh; (2) AI dự báo vùng nguy cơ từ lịch sử + cảm biến IoT mực nước; (3) tích hợp chính thức với hệ cảnh báo KTTV và tổng đài 113/115; (4) mở rộng đa thảm hoạ (cháy, động đất); (5) app native + tiếng dân tộc + nút SOS không-cần-chữ; (6) hạ tầng scale ngang đa-instance để phủ cấp tỉnh/quốc gia.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p>Roadmap: (1) real offline fault-tolerance — PWA + SOS queue + SMS/mesh; (2) AI forecasting of at-risk areas from history + IoT water-level sensors; (3) official integration with the hydro-meteorological alert system and the 113/115 hotlines; (4) multi-disaster expansion (fire, earthquake); (5) a native app + ethnic-minority languages + a text-free SOS button; (6) multi-instance horizontal-scaling infrastructure to cover provincial/national scale.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= PART 2 ================= -->
+    <h2 class="part-title" id="part2"><span class="lang-vi">PHẦN 2 — Câu hỏi từ người dùng thực</span><span class="lang-en lang-hidden">PART 2 — Questions from real users</span></h2>
+    <p class="part-intro"><span class="lang-vi">Góc nhìn người dùng cuối — hỏi bằng cảm xúc, không bằng thuật ngữ kỹ thuật.</span><span class="lang-en lang-hidden">The end-user perspective — questions asked emotionally, not in technical jargon.</span></p>
+
+    <h3 class="section" id="p2s1"><span class="lang-vi">1. Người dân vùng lũ</span><span class="lang-en lang-hidden">1. Flood-zone residents</span></h3>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">1</span><span class="qtext"><span class="lang-vi">Sau khi gửi SOS, bao lâu có người tới — và chính xác ai sẽ đến?</span><span class="lang-en lang-hidden">After I send an SOS, how long until someone arrives — and exactly who is coming?</span></span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p>Ngay khi bạn gửi, SOS hiện lập tức trên bản đồ điều phối (đỏ nhấp nháy) và người thân đã liên kết được báo ngay. Một <strong>nhóm cứu hộ</strong> sẽ nhận; khi họ bấm “Nhận”, bạn nhận thông báo <em>“Đội cứu hộ đang đến!”</em> kèm <strong>tên người/nhóm</strong> nhận nhiệm vụ (in-app + email). Thời gian phụ thuộc đội gần nhất và điều kiện thực địa, nhưng bạn luôn biết <strong>ai</strong> đang tới.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p>The moment you send it, your SOS shows up immediately on the dispatch map (blinking red), and linked family members are alerted right away. A <strong>rescue group</strong> will accept it; once they tap "Accept," you get a notification — <em>"A rescue team is on the way!"</em> — with the <strong>name of the person/group</strong> assigned (in-app + email). The exact time depends on the nearest team and field conditions, but you always know <strong>who</strong> is coming.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">2</span><span class="qtext"><span class="lang-vi">Làm sao nạn nhân biết đội cứu hộ đang ở đâu và đã lên đường chưa?</span><span class="lang-en lang-hidden">How does a victim know where the rescue team is and whether they've set out?</span></span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p>Khi đội nhận ca, một <strong>phòng theo dõi WebSocket</strong> mở ra: bạn thấy <strong>vị trí cứu hộ di chuyển realtime</strong> trên bản đồ (<code>RescueTrackingMap</code>), cùng thông báo <code>tracking_started</code>. Vị trí cập nhật mượt theo từng bước di chuyển của họ — bạn biết chắc họ đã lên đường và còn cách bao xa.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p>The moment a team accepts your case, a <strong>WebSocket tracking room</strong> opens: you see the <strong>rescuer's position move in realtime</strong> on the map (<code>RescueTrackingMap</code>), alongside a <code>tracking_started</code> notification. The position updates smoothly with their every move — so you know for certain they're on the way and how far out they are.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">3</span><span class="qtext"><span class="lang-vi">Nếu điện thoại nạn nhân hết pin/mất sóng, SOS đã gửi có còn tới tay cứu hộ không?</span><span class="lang-en lang-hidden">If a victim's phone dies or loses signal, does the SOS already sent still reach rescuers?</span></span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p><strong>Có.</strong> SOS được lưu bền vào PostgreSQL ngay khi gửi — nó <em>không</em> phụ thuộc điện thoại bạn còn online. Dù máy tắt sau đó, ca vẫn nằm trên bản đồ điều phối với <strong>vị trí cuối được biết</strong> (lưu ở <code>user_locations</code>), và đội đã nhận vẫn tiếp tục tới. Người thân vẫn theo dõi được điểm cuối đó.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p><strong>Yes.</strong> The SOS is persisted to PostgreSQL the moment it's sent — it does <em>not</em> depend on your phone staying online. Even if the device dies afterward, the case stays on the dispatch map with the <strong>last known location</strong> (stored in <code>user_locations</code>), and a team that's already accepted keeps coming. Family members can still track that last point.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">4</span><span class="qtext"><span class="lang-vi">Bản đồ lũ chính xác đến đâu? Lỡ nó báo an toàn nhưng nước đang lên thì sao?</span><span class="lang-en lang-hidden">How accurate is the flood map? What if it says "safe" while the water is actually rising?</span></span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p>Vùng lũ do người vận hành cập nhật nên có thể trễ với diễn biến đột ngột — chúng tôi không che giấu điều này. Bù lại, bạn có <strong>lớp mưa/thời tiết Windy thời gian thực</strong> và <strong>các SOS xung quanh</strong> (báo động sống từ người thật) làm tín hiệu sớm. Hãy luôn tin <em>điều bạn thấy tận mắt</em>: nếu nước đang lên, cứ gửi SOS dù bản đồ báo an toàn — SOS của bạn được ưu tiên hơn lớp vùng lũ.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p>Flood zones are updated by a human operator, so they can lag behind a sudden event — we're not hiding that. To compensate, you have the <strong>real-time Windy rain/weather layer</strong> and <strong>nearby SOS reports</strong> (live alarms from real people) as early signals. Always trust <em>what you see with your own eyes</em>: if the water is rising, send an SOS regardless of what the map says — your SOS takes priority over the flood-zone layer.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">5</span><span class="qtext"><span class="lang-vi">Làm sao nạn nhân xác minh người đến cứu là cứu hộ thật, không phải kẻ mạo danh?</span><span class="lang-en lang-hidden">How can a victim verify that whoever shows up is a real rescuer, not an impostor?</span></span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p>Tài khoản cứu hộ chỉ do <strong>admin cấp</strong> và phải thuộc <strong>nhóm cứu hộ đang hoạt động</strong>. Thông báo bạn nhận hiển thị <strong>tên người/nhóm</strong> đã nhận ca, và bạn thấy họ <strong>di chuyển đúng tới chỗ bạn</strong> trên bản đồ theo thời gian thực — khớp tên + khớp vị trí là dấu hiệu xác thực mạnh. <strong>Roadmap:</strong> huy hiệu “đã xác minh” + mã ca để đối chiếu khi gặp mặt.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p>A rescuer account can only be <strong>granted by an admin</strong> and must belong to an <strong>active rescue group</strong>. The notification you receive shows the <strong>name of the person/group</strong> who accepted, and you can watch them <strong>moving straight toward you</strong> on the realtime map — a matching name plus a matching trajectory is a strong verification signal. <strong>Roadmap:</strong> a "verified" badge + a case code to cross-check in person.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">6</span><span class="qtext"><span class="lang-vi">Nếu khu vực mất sóng hoàn toàn, nạn nhân còn dùng được app không?</span><span class="lang-en lang-hidden">If the area has zero signal, can a victim still use the app?</span></span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p>Thật lòng: mất sóng tuyệt đối thì bản web hiện chưa gửi được. Trước khi mất sóng, SOS đã gửi và vị trí cuối vẫn được giữ để cứu hộ tiếp cận; người thân ở nơi có sóng có thể (roadmap) gửi hộ. Chúng tôi đang phát triển hàng đợi offline + SMS/mesh để dùng được cả khi không sóng (Phần 3, Kịch bản 1).</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p>Honestly: with absolutely no signal, the current web app can't send anything. An SOS sent before the signal dropped, and the last known location, both remain available for rescuers; family in a signal area can (roadmap) send on their behalf. We're developing an offline queue + SMS/mesh so it works even with zero signal (Part 3, Scenario 1).</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">7</span><span class="qtext"><span class="lang-vi">App chạy mượt trên điện thoại đời cũ, cấu hình thấp mà dân vùng lũ hay dùng không?</span><span class="lang-en lang-hidden">Does the app run smoothly on the old, low-spec phones common in flood areas?</span></span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p>App là web nhẹ, mở thẳng trên trình duyệt, không cần cài. GPS và mạng được tiết chế (throttle) để đỡ tốn pin/data. Trên máy rất yếu, bản đồ nhiều marker có thể chậm — <strong>roadmap</strong> có chế độ rút gọn “chỉ nút SOS” và đóng gói PWA để nhẹ và cache hơn nữa.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p>The app is a lightweight web app, opens straight in the browser, no install needed. GPS and network use are throttled to save battery/data. On very weak devices, a map with many markers can get sluggish — <strong>roadmap</strong> includes a stripped-down "SOS button only" mode and packaging as a PWA for even lighter weight and caching.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">8</span><span class="qtext"><span class="lang-vi">App có tiếng địa phương/tiếng dân tộc cho người không thạo tiếng phổ thông không?</span><span class="lang-en lang-hidden">Does the app support local/ethnic-minority languages for people who aren't fluent in Vietnamese?</span></span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p>Hiện có <strong>song ngữ Việt/Anh</strong> đầy đủ (mỗi chuỗi nằm trong <code>translations/vi.js</code> &amp; <code>en.js</code>). Kiến trúc i18n cho phép thêm ngôn ngữ dễ dàng. <strong>Roadmap:</strong> bổ sung tiếng dân tộc thiểu số và hướng dẫn bằng biểu tượng/giọng nói cho người không đọc được chữ.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p>There's full <strong>Vietnamese/English bilingual</strong> support today (every string lives in <code>translations/vi.js</code> &amp; <code>en.js</code>). The i18n architecture makes adding more languages easy. <strong>Roadmap:</strong> add ethnic-minority languages and icon/voice guidance for people who can't read.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">9</span><span class="qtext"><span class="lang-vi">Có cần tạo tài khoản trước khi gửi SOS không? Đó có là rào cản lúc khẩn cấp?</span><span class="lang-en lang-hidden">Do you need an account before sending an SOS? Isn't that a barrier in an emergency?</span></span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p>Có, hiện cần đăng nhập — đây là đánh đổi <em>chống spam/giả mạo và gắn trách nhiệm</em> lấy sự tiện. Đăng ký chỉ cần số điện thoại + mật khẩu (rất nhanh), và đăng nhập được ghi nhớ nên lần sau mở là gửi ngay. Khuyến nghị: đăng ký trước mùa lũ. <strong>Roadmap:</strong> proxy-SOS để người thân gửi hộ, giảm rào cản cho người chưa có tài khoản.</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p>Yes, login is currently required — a deliberate trade-off of convenience for <em>anti-spam/anti-impersonation and accountability</em>. Registration only needs a phone number + password (very fast), and the session is remembered so the next time you open the app you can send immediately. Recommendation: register before flood season. <strong>Roadmap:</strong> proxy-SOS so family can send on someone's behalf, lowering the barrier for people without an account.</p>
+        </div>
+      </div>
+    </div>
+
+    <h3 class="section" id="p2s2"><span class="lang-vi">2. Đội cứu hộ</span><span class="lang-en lang-hidden">2. Rescue teams</span></h3>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">10</span><span class="qtext"><span class="lang-vi">App có tự gợi ý lộ trình tốt nhất tới nạn nhân, tính cả đường ngập/không qua được không?</span><span class="lang-en lang-hidden">Does the app suggest the best route to a victim, accounting for flooded/impassable roads?</span></span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <div class="lang-vi">
+        <p><strong>Định tuyến đã có:</strong> bản đồ vẽ lộ trình đường thật bằng <strong>OSRM</strong> (miễn phí) kèm khoảng cách + thời gian dự kiến tới nạn nhân. Lớp vùng lũ + mưa giúp cứu hộ <em>nhìn thấy</em> khu vực nên tránh.</p>
+        <p><strong>Thật:</strong> định tuyến chưa <em>tự động</em> né đường ngập (OSRM không biết điểm ngập tức thời). <strong>Roadmap:</strong> cho cứu hộ báo điểm tắc đường để tái định tuyến cho mọi người (Phần 3, Kịch bản 3).</p>
+        </div>
+        <div class="lang-en lang-hidden">
+        <p><strong>Routing already exists:</strong> the map draws a real road route using <strong>OSRM</strong> (free) with distance + estimated time to the victim. The flood and rain layers let rescuers <em>see</em> areas to avoid.</p>
+        <p><strong>Honestly:</strong> routing doesn't <em>automatically</em> avoid flooded roads yet (OSRM has no idea about instantaneous flooding). <strong>Roadmap:</strong> let rescuers report a blocked point so everyone gets rerouted (Part 3, Scenario 3).</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">11</span><span class="qtext">Khi nhiều nạn nhân gửi SOS cùng lúc, hệ thống phân đội thế nào và tránh hai đội trùng chỗ/bỏ sót ra sao?</span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <p><strong>Chống trùng:</strong> “Nhận” là thao tác nguyên tử trên DB — chỉ một nhóm chiếm được một ca; nhóm sau báo lỗi “đã được nhận”. <strong>Chống bỏ sót:</strong> mọi SOS <code>pending</code> hiện đỏ trên bản đồ &amp; dashboard admin; admin chủ động phân nhóm (<code>PUT /:id/assign</code>). <strong>Roadmap:</strong> tự gom nạn nhân gần nhau + gợi ý đội gần nhất (có sẵn Redis GEO <code>nearbyUsers</code>) — xem Phần 3, Kịch bản 2.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">12</span><span class="qtext">Cứu xong, thành viên đội ghi kết quả thế nào? Có phải nhập tay nhiều ngoài hiện trường không?</span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <p><strong>Một chạm.</strong> Hoàn tất ca chỉ cần bấm “Hoàn thành” → <code>PUT /api/sos/:id/complete</code> đổi trạng thái sang <code>resolved</code>, ghi mốc thời gian + log audit tự động, kết thúc phòng theo dõi và báo cho nạn nhân/người thân. Không cần nhập biểu mẫu dài ngoài hiện trường.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">13</span><span class="qtext">Bản đồ chỉ vị trí nạn nhân — có cho biết bao nhiêu người, có người già/trẻ em không?</span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <p>Popup SOS cho cứu hộ hiển thị <strong>tên, tuổi (tính từ ngày sinh), giới tính, địa chỉ, mức độ khẩn, mô tả và ảnh</strong> nạn nhân (truy vấn <code>/api/sos/all</code> và <code>/team</code> join hồ sơ người dùng). Nhờ có tuổi, cứu hộ biết ngay có người già/trẻ. <strong>Roadmap:</strong> trường “số người tại chỗ” nhập khi gửi SOS để đếm chính xác.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">14</span><span class="qtext">Bản đồ có hiển thị mực nước theo từng đường/ngõ, không chỉ vùng chung không?</span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <p>Mỗi điểm vùng lũ có thuộc tính <strong>mực nước (water_level)</strong> hiện trong popup, kèm mức độ màu. Tuy nhiên đây là điểm/vùng do admin đặt, chưa phải mực nước chi tiết từng con đường. <strong>Roadmap:</strong> cảm biến IoT để có mực nước theo tuyến đường thời gian thực.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">15</span><span class="qtext">Cứu hộ có liên lạc trực tiếp với nạn nhân qua app để xác nhận vị trí/sức khoẻ không?</span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <p>Popup nạn nhân có <strong>nút gọi điện trực tiếp</strong> (<code>tel:</code> số điện thoại) — kênh nhanh nhất khi có sóng. Vị trí thì được xác nhận liên tục qua theo dõi GPS realtime trong phòng tracking. Nạn nhân cũng đặt <strong>trạng thái an toàn</strong> (an toàn/nguy hiểm/bị thương) + ghi chú sức khoẻ mà cứu hộ/người thân thấy được. <strong>Roadmap:</strong> chat trong-app theo từng ca.</p>
+      </div>
+    </div>
+
+    <h3 class="section" id="p2s3">3. Chính quyền địa phương</h3>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">16</span><span class="qtext">Hệ thống có dashboard chỉ huy: tổng nạn nhân, đội đang hoạt động, vùng chưa ai xử lý không?</span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <p><strong>Có.</strong> Admin dashboard + bản đồ toàn cảnh hiển thị mọi SOS theo trạng thái (pending/in_progress/resolved), vị trí cứu hộ đang online (Redis), và thống kê qua <code>/api/analytics/overview|rescue|users</code> + <code>/api/sos/stats</code>. Ca <code>pending</code> đỏ nhấp nháy giúp thấy ngay “vùng/ca chưa ai nhận” mà không cần refresh thủ công (poll 5s).</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">17</span><span class="qtext">Hệ thống xác minh người tự nhận là tình nguyện cứu hộ là đáng tin thế nào?</span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <p>Không ai tự lên cứu hộ: <strong>admin xét và cấp vai trò</strong> <code>rescuer</code>; nhận nhiệm vụ còn cần thuộc nhóm hoạt động và là leader/co-leader. Mọi việc ghi audit. <strong>Roadmap:</strong> quy trình xác minh giấy tờ/định danh tình nguyện viên trước khi cấp quyền.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">18</span><span class="qtext">Có xuất báo cáo thống kê định dạng phù hợp để trình tỉnh/trung ương không?</span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <p>Dữ liệu thống kê đã có qua các API analytics (theo thời gian, khu vực, hiệu suất đội) và hiển thị ở trang phân tích/ báo cáo. <strong>Thật:</strong> nút “export PDF/Excel” chưa có sẵn — nhưng dữ liệu là PostgreSQL chuẩn nên xuất báo cáo rất dễ. <strong>Roadmap:</strong> xuất PDF/CSV theo mẫu báo cáo của ngành.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">19</span><span class="qtext">App có tích hợp hệ cảnh báo lũ chính thức của tỉnh/quốc gia không?</span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <p><strong>Chưa.</strong> Hiện vùng lũ do admin nhập + lớp thời tiết Windy. Menu admin đã chừa sẵn mục “Flood Sensors”. <strong>Roadmap:</strong> kết nối API cảnh báo của KTTV/Ban chỉ huy PCTT để vùng cảnh báo tự đồng bộ.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">20</span><span class="qtext">Có đường dây hỗ trợ kỹ thuật 24/7 phòng khi hệ thống lỗi giữa đêm mùa lũ không?</span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <p><strong>Thật:</strong> hiện có giám sát hạ tầng cơ bản (UptimeRobot ping <code>/api/health</code> mỗi 5’ và đánh thức backend). Chưa có đội trực 24/7 chính thức. <strong>Roadmap:</strong> cảnh báo on-call (ngưỡng tải/độ trễ), kênh hỗ trợ và quy trình leo thang thủ công cho mùa cao điểm — xem Phần 4, Stress-test A.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">21</span><span class="qtext">Ai sở hữu dữ liệu cư dân trong hệ thống? Chính quyền có toàn quyền kiểm soát không?</span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <p>Dữ liệu nằm trên PostgreSQL tiêu chuẩn (Neon), không khoá nhà cung cấp — có thể <code>pg_dump</code> bàn giao toàn bộ cho cơ quan tiếp quản, hoặc triển khai self-host trên hạ tầng của tỉnh. Mô hình hướng tới <strong>chính quyền sở hữu &amp; kiểm soát dữ liệu cư dân</strong> khi triển khai chính thức; vận hành chỉ là bên cung cấp công nghệ. <strong>Roadmap:</strong> hợp đồng xử lý dữ liệu &amp; tuỳ chọn self-host rõ ràng.</p>
+      </div>
+    </div>
+
+    <h3 class="section" id="p2s4">4. Người thân ở xa</h3>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">22</span><span class="qtext">Người thân có xem được vị trí thời gian thực của người nhà đang ở vùng lũ không?</span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <p><strong>Có.</strong> Sau khi liên kết gia đình (hai chiều, đã <code>accepted</code>), bản đồ citizen hiển thị thành viên gia đình với <strong>vị trí và trạng thái an toàn</strong> (an toàn/nguy hiểm/bị thương — màu sắc rõ), cập nhật định kỳ (poll 60s) và đọc vị trí live từ Redis. Có nút chỉ đường tới người thân.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">23</span><span class="qtext">Hệ thống có báo người thân ngay khi có cảnh báo lũ ở khu vực hoặc khi họ kích hoạt SOS không?</span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <p><strong>Có — đây là điểm mạnh.</strong> Ngay khi người nhà gửi SOS, mọi thành viên gia đình đã liên kết nhận cảnh báo <strong>in-app + email</strong> (Resend) với tiêu đề “KHẨN CẤP: Người thân đang gặp nguy hiểm!”, kèm <strong>địa chỉ, toạ độ và link Google Maps</strong>. Họ cũng được báo khi đội cứu hộ nhận ca và khi hoàn tất. Cảnh báo vùng lũ diện rộng: roadmap (đẩy theo khu vực).</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">24</span><span class="qtext">Nếu người dân không muốn bị theo dõi liên tục, họ bật/tắt chia sẻ vị trí được không?</span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <p>Chia sẻ vị trí dựa trên <strong>quyền GPS của trình duyệt</strong> — người dùng tắt quyền là ngừng stream ngay (code lắng nghe <code>permissions.onchange</code> và dừng <code>watchPosition</code>). Vị trí live tự hết hạn sau 60s khi ngừng gửi. Liên kết gia đình cũng cần đồng ý hai chiều và có thể xoá. <strong>Roadmap:</strong> công tắc “chia sẻ vị trí” tường minh trong cài đặt thay vì chỉ dựa quyền trình duyệt.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">25</span><span class="qtext">Người thân có gửi SOS hộ người nhà không có/không dùng được smartphone không?</span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <p><strong>Thật: chưa có proxy-SOS.</strong> Hiện người thân theo dõi và được cảnh báo, nhưng chưa có nút “gửi SOS hộ”. Đây là tính năng ưu tiên cao trong roadmap (thả ghim + nhập địa chỉ gần đúng, kèm bán kính bất định) — xem Phần 3, Kịch bản 4.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">26</span><span class="qtext">Hệ thống báo người thân biết người nhà đã được cứu và an toàn thế nào? Có thông báo xác nhận chính thức không?</span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <p><strong>Có.</strong> Khi cứu hộ bấm “Hoàn thành”, hệ thống gửi thông báo chính thức <em>“Yêu cầu cứu hộ đã hoàn tất”</em> tới chủ ca (in-app + email), và phòng theo dõi phát sự kiện <code>tracking_ended</code>. Pin trên bản đồ chuyển <strong>xanh “Đã cứu”</strong> vĩnh viễn. Trạng thái ca đi theo chuỗi rõ ràng: pending → nhận → đang tới → hoàn tất.</p>
+      </div>
+    </div>
+
+    <!-- ================= PART 3 ================= -->
+    <h2 class="part-title" id="part3">PHẦN 3 — Kịch bản thực tế</h2>
+    <p class="part-intro">Mỗi kịch bản mở đầu bằng bối cảnh vận hành, sau đó là câu hỏi kiểm tra cách hệ thống ứng xử trong demo trực tiếp.</p>
+
+    <h3 class="section">Kịch bản 1 — “Mất mạng hoàn toàn”</h3>
+    <div class="note">Một làng 200 người bị cô lập sau vỡ đập. Mọi trạm phát sóng trong bán kính 10km ngập. Không 4G/3G/SMS. Đội cứu hộ cách 8km và không biết có người mắc kẹt.</div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">1</span><span class="qtext">App cho nạn nhân gửi SOS khi không có mạng bằng cách nào? (queue offline, Bluetooth mesh, hoặc LoRa)</span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <p><strong>Trung thực với hội đồng:</strong> đây là giới hạn lớn nhất hiện nay và chúng tôi không giấu. Bản web hiện cần kết nối. <strong>Định hướng ba lớp:</strong> (1) <em>hàng đợi offline</em> trên thiết bị (PWA Service Worker + Background Sync / IndexedDB) lưu SOS chờ gửi; (2) <em>SMS fallback</em> qua Twilio (đã tích hợp sẵn cho OTP) khi còn chút sóng thoại; (3) xa hơn là <em>Bluetooth/Wi-Fi mesh</em> hoặc <em>LoRa</em> cho vùng mất sóng tuyệt đối. Khi demo, nói rõ đâu là “đã có / đang làm / định hướng”.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">2</span><span class="qtext">Nếu SOS lưu local khi offline, nó được gửi đi thế nào khi có tín hiệu dù chỉ thoáng qua?</span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <p><strong>Định hướng:</strong> hàng đợi local tự flush ngay khi mạng trở lại (lắng nghe <code>online</code> event / Background Sync). Mỗi SOS mang timestamp tạo nên dù gửi trễ vẫn biết thời điểm thật. Khi demo: cho máy bay-mode, bấm SOS (thấy “đã xếp hàng”), bật mạng lại → thấy hàng đợi xả và SOS lên server. (Lưu ý: hiện tính năng này là roadmap, không nên demo như đã có.)</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">3</span><span class="qtext">Các nạn nhân cùng vùng offline có lập mesh ngang hàng để điện thoại người này chuyển tiếp SOS của người kia không?</span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <p><strong>Định hướng — đây là điểm khác biệt mạnh nếu làm được.</strong> Chưa có trong code. Hướng: mỗi máy là một node mesh (BLE/Wi-Fi Direct), SOS nhảy qua nhiều máy tới máy nào chạm được sóng thì đẩy lên server. Cần app native (web không truy cập được BLE mesh đầy đủ) — nằm trong lộ trình 3 năm.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">4</span><span class="qtext">Bản đồ đội cứu hộ cập nhật ra sao khi dữ liệu nạn nhân thu thập offline chỉ đồng bộ ngắt quãng?</span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <p>Nguyên tắc hiện tại đã hỗ trợ điều này: vị trí <strong>cuối được biết</strong> luôn lưu ở <code>user_locations</code> và hiển thị kể cả khi nạn nhân offline (Redis hết hạn → đọc fallback Postgres, gắn cờ <code>online: false</code>). <strong>Roadmap để demo tốt:</strong> hiển thị rõ <strong>nhãn thời điểm đồng bộ cuối</strong> trên từng marker để cứu hộ biết dữ liệu cũ bao lâu.</p>
+      </div>
+    </div>
+
+    <h3 class="section">Kịch bản 2 — “50 SOS trong 3 phút”</h3>
+    <div class="note">Lũ quét ập vào khu đông dân lúc 2h sáng. Trong 3 phút, 50 SOS đến đồng thời. Chỉ có 6 xuồng cứu hộ trên bản đồ.</div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">5</span><span class="qtext">Hệ thống ưu tiên SOS nào được gán đội trước? (gần nhất, khẩn nhất, hay điểm tổng hợp?)</span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <p><strong>Hiện tại:</strong> mỗi SOS có <strong>mức độ khẩn</strong> (low/medium/high/critical) hiển thị rõ, và toàn bộ xếp theo thời gian; admin/đội ưu tiên thủ công theo mức độ + khoảng cách. Khoá nguyên tử đảm bảo không trùng. <strong>Roadmap (đáng demo):</strong> điểm ưu tiên <em>tổng hợp</em> = trọng số(mức độ) + khoảng cách (đã có <code>nearbyUsers</code> Redis GEO) + thời gian chờ → tự sắp xếp hàng đợi và gợi ý đội gần nhất. Khi demo, trình bày công thức điểm này như định hướng.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">6</span><span class="qtext">Hệ thống có tự gom nạn nhân gần nhau để một xuồng cứu nhiều người trong một chuyến không?</span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <p><strong>Chưa, nhưng nền tảng đã sẵn:</strong> Redis lưu GEO set theo vai trò, hàm <code>nearbyUsers(role, lat, lng, radiusKm)</code> trả về danh sách trong bán kính, sắp theo khoảng cách. <strong>Roadmap:</strong> gom cụm (clustering) các SOS trong cùng bán kính thành một “chuyến” và tối ưu lộ trình ghé nhiều điểm.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">7</span><span class="qtext">Trung tâm chỉ huy thấy ca nào đã gán, đang xử lý, chưa ai nhận theo thời gian thực ra sao?</span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <p><strong>Đã có và không cần refresh tay.</strong> Bản đồ + dashboard poll mỗi 5s: pending = đỏ nhấp nháy, in_progress = vàng, resolved = xanh. <code>/api/sos/stats</code> cho số đếm theo trạng thái. Khoảng trống (ca chưa ai nhận) nổi bật ngay lập tức — đúng yêu cầu “thấy lỗ hổng tức thì”.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">8</span><span class="qtext">Nếu một đội nhận ca rồi không tới được nạn nhân, hệ thống tái phân công thế nào?</span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <p><strong>Có cơ chế nhả thủ công:</strong> đội bấm “Huỷ/Nhả ca” → <code>PUT /api/sos/:id/cancel</code> đưa ca về <code>pending</code>, xoá phân công, ghi <code>last_cancelled_by</code> + log, và phát <code>tracking_cancelled</code>. Ca lập tức đỏ trở lại để đội khác/admin nhận. <strong>Roadmap:</strong> timeout tự nhả nếu “in_progress” quá ngưỡng mà không có cập nhật (xem Phần 4, Stress-test C).</p>
+      </div>
+    </div>
+
+    <h3 class="section">Kịch bản 3 — “Đội cứu hộ không qua được”</h3>
+    <div class="note">Một xuồng được điều tới nạn nhân. Giữa đường, một cây cầu sập chặn lối duy nhất. Đội cần đổi đường — nhưng bản đồ chưa hiện chướng ngại mới.</div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">9</span><span class="qtext">Đội cứu hộ có báo điểm tắc đường/luồng nước mới ngay trong app để bản đồ cập nhật cho mọi người tức thì không?</span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <p><strong>Thật: chưa có báo chướng ngại từ cứu hộ.</strong> Nền tảng đã sẵn — admin biên tập được điểm trên bản đồ (Firestore <code>flood_zones</code>) và mọi client poll thấy ngay. <strong>Roadmap:</strong> mở quyền cho rescuer thả điểm “tắc đường/cầu sập” → đồng bộ tức thì cho toàn hệ thống (crowdsourced obstacle). Đây là tính năng đáng demo nên ưu tiên.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">10</span><span class="qtext">Khi một đội tự đánh dấu “bị chặn”, hệ thống có tự tìm đường thay thế và tính lại ETA không?</span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <p>Định tuyến OSRM đã trả lộ trình + thời gian; cứu hộ có thể tính lại tuyến tới điểm khác. <strong>Thật:</strong> chưa tự né điểm chặn do người báo. <strong>Roadmap:</strong> khi có điểm “bị chặn”, gọi OSRM với ràng buộc tránh khu vực đó và cập nhật ETA tự động — demo được khi tính năng báo chướng ngại (câu 9) hoàn thiện.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">11</span><span class="qtext">Nạn nhân được thông báo thế nào rằng việc cứu bị trễ và một đội mới đang được điều hướng tới?</span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <p>Hệ thống thông báo đã có cho các mốc chính (đã nhận, hoàn tất) qua in-app + email, và nạn nhân thấy vị trí cứu hộ realtime nên biết họ còn xa. Khi một đội nhả ca, ca về pending và <code>tracking_cancelled</code> phát đi. <strong>Roadmap:</strong> thông báo tường minh “rescue bị trễ / đội mới đang tới” để trấn an — quản lý lo lắng của nạn nhân là vấn đề UX thật.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">12</span><span class="qtext">Nếu không có lối nào, hệ thống có tự leo thang lên đơn vị đường không/chuyên dụng không?</span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <p><strong>Chưa.</strong> Hiện admin có thể phân lại bất kỳ nhóm nào (kể cả nhóm chuyên dụng nếu được tạo). <strong>Roadmap:</strong> cờ “không có lối — cần đường không” nổi trên dashboard chỉ huy để kích hoạt đơn vị chuyên dụng/trực thăng.</p>
+      </div>
+    </div>
+
+    <h3 class="section">Kịch bản 4 — “Nạn nhân không có điện thoại”</h3>
+    <div class="note">Một cụ bà 80 tuổi mắc kẹt trên mái nhà, không có smartphone. Con gái ở Hà Nội thấy tin lũ và biết đại khái mẹ ở đâu.</div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">13</span><span class="qtext">Con gái có gửi yêu cầu cứu hộ hộ mẹ bằng cách nhập địa chỉ gần đúng hoặc thả ghim không?</span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <p><strong>Thật: đây là tính năng proxy-SOS — chưa có, và là ưu tiên cao nhất trong roadmap người dùng.</strong> Cần thiết cho người già/nông thôn không smartphone. Thiết kế: người thân thả ghim + nhập địa chỉ gần đúng → tạo SOS thay mặt, đánh dấu “gửi hộ” + bán kính bất định. Hạ tầng SOS (lưu toạ độ, ảnh, mô tả, phân công) đã sẵn để tái dùng.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">14</span><span class="qtext">Hệ thống xử lý yêu cầu mà vị trí nạn nhân không chắc chắn (chỉ biết khu vực chung) thế nào?</span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <p>Schema <code>rescue_requests</code> đã có trường <code>location</code> (text mô tả) tách khỏi <code>latitude/longitude</code>, nên một ca chỉ có địa chỉ mô tả vẫn lưu được. <strong>Roadmap:</strong> vẽ <strong>vòng tròn bán kính bất định</strong> quanh điểm phỏng đoán trên bản đồ để cứu hộ biết phạm vi cần tìm, thay vì một điểm giả-chính-xác.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">15</span><span class="qtext">Khi đội được điều đi, con gái ở Hà Nội theo dõi tiến trình nhiệm vụ thế nào?</span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <p>Cơ chế này <strong>đã hoạt động cho người thân liên kết</strong>: chuỗi trạng thái push rõ ràng — pending → đã nhận (“Đội cứu hộ đang đến”, kèm tên) → theo dõi GPS realtime → hoàn tất (“đã an toàn”), tất cả qua in-app + email. Khi proxy-SOS hoàn thiện (câu 13), người gửi hộ kế thừa đúng luồng theo dõi này.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">16</span><span class="qtext">Nếu hai người thân gửi trùng yêu cầu cho cùng một nạn nhân thì sao?</span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <p><strong>Cần khi có proxy-SOS — hiện chưa có dedupe.</strong> <strong>Roadmap:</strong> phát hiện trùng theo lân cận toạ độ + cùng người được cứu (đối chiếu danh tính/SĐT người nhà) → gộp thành một ca và liên kết nhiều người báo, tránh điều hai đội cho một nạn nhân. Logic gom cụm dùng lại được Redis GEO.</p>
+      </div>
+    </div>
+
+    <h3 class="section">Kịch bản 5 — “GPS sai vị trí”</h3>
+    <div class="note">Một nạn nhân gửi SOS. GPS đặt họ giữa sông — rõ ràng bất khả thi. Đội điều tới đó không thấy ai.</div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">17</span><span class="qtext">Hệ thống phát hiện một toạ độ GPS có khả năng sai (ví dụ giữa nước) bằng cách nào?</span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <p><strong>Chưa có kiểm tra tự động.</strong> Nền tảng đã có: lớp vùng lũ + dữ liệu địa hình có thể đối chiếu. <strong>Roadmap:</strong> khi toạ độ rơi vào vùng nước/bất khả thi → gắn cờ “GPS nghi sai” cho cứu hộ và đề nghị nạn nhân chỉnh ghim. Cross-check GPS với lớp bản đồ lũ + địa hình.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">18</span><span class="qtext">Khi GPS không tin được, app dùng phương án vị trí dự phòng nào? (cell tower, Wi-Fi, ghim tay)</span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <p>Hiện app dùng Geolocation API của trình duyệt — vốn <em>đã</em> tự kết hợp GPS + Wi-Fi + cell tower ở tầng hệ điều hành. Khi gửi SOS, nạn nhân nhập kèm <strong>địa chỉ mô tả</strong> (trường <code>location</code>) làm phương án con người. <strong>Roadmap:</strong> chuỗi fallback tường minh — GPS → Wi-Fi/cell → <strong>ghim tay</strong> trên bản đồ, hiển thị rõ đang dùng nguồn nào.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">19</span><span class="qtext">Nạn nhân có tự sửa ghim trên bản đồ nếu biết GPS sai không?</span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <p><strong>Chưa, nhưng đơn giản và đáng làm.</strong> Hiện SOS lấy toạ độ tự động từ GPS. <strong>Roadmap:</strong> thêm bước “kéo ghim để chỉnh vị trí” khi gửi SOS — một override thủ công đơn giản vẫn tốt hơn không có lựa chọn nào. Trường lat/lng đã sẵn để nhận giá trị chỉnh tay.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">20</span><span class="qtext">Việc điều quân hụt được ghi lại thế nào để đội không bị phạt và nạn nhân được phân lại ngay?</span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <p>Cơ chế đã có: đội bấm “Nhả ca” → ca về <code>pending</code>, ghi <code>last_cancelled_by</code>/<code>last_cancelled_at</code> và một dòng trong <code>rescue_request_logs</code> với ghi chú lý do. Đây là <em>audit trung lập</em> (ghi nhận sự việc, không phạt đội), và ca lập tức sẵn sàng cho đội khác/admin nhận lại — đảm bảo liên tục vận hành sau một lần điều hụt.</p>
+      </div>
+    </div>
+
+    <!-- ================= PART 4 ================= -->
+    <h2 class="part-title" id="part4">PHẦN 4 — Câu hỏi stress-test</h2>
+    <p class="part-intro">Nhiều sự cố xảy ra đồng thời — câu hỏi khó nhất, bộc lộ độ bền thật của hệ thống.</p>
+
+    <h3 class="section">Stress-test A — “Mọi thứ hỏng cùng lúc”</h3>
+    <div class="note">3h sáng, đỉnh lũ. Trạm sóng sập, mất điện 3 huyện, 200 SOS đã bắn. Server trung tâm 98% CPU. Hai trưởng đội báo app crash.</div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">1</span><span class="qtext">Khi server trung tâm đạt giới hạn — nó xếp hàng, bỏ request, hay failover sang dự phòng?</span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <p><strong>Trung thực về hiện trạng:</strong> backend là 1 instance Render → đây là điểm-chết-đơn. Cái đã có giúp giảm tải: Redis gánh toàn bộ vị trí (không đụng DB), throttle ghi, rate limiting, index DB, và Redis suy biến mượt.</p>
+        <p><strong>Định hướng ba lớp</strong> (xem câu trả lời mẫu đầy đủ ở Phần 5): (1) hàng đợi SOS phía thiết bị + retry; (2) message broker hấp thụ đỉnh; (3) load balancer tự failover sang instance dự phòng khi CPU vượt ngưỡng. <em>Lưu ý: ở bản hiện tại các lớp 2–3 là roadmap, không nên nói là đã có khi demo.</em></p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">2</span><span class="qtext">Nếu app rescuer crash giữa nhiệm vụ, nạn nhân của họ vẫn được giữ hay quay về hàng đợi chưa-ai-nhận?</span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <p><strong>Vẫn được giữ.</strong> Phân công lưu bền ở PostgreSQL (<code>status='in_progress'</code>, <code>assigned_to</code>, <code>assigned_group_id</code>) — không phụ thuộc app còn chạy hay socket còn mở. Rescuer mở lại app, đăng nhập (phiên JWT khôi phục), ca vẫn của họ và họ tiếp tục theo dõi. Ca chỉ về <code>pending</code> khi <em>chủ động</em> nhả — không tự rớt vì crash.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">3</span><span class="qtext">Dữ liệu nào còn dùng được trên thiết bị khi server không truy cập được — phân công, tile bản đồ, danh sách nạn nhân?</span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <p><strong>Hiện tại:</strong> phiên đăng nhập được lưu (khôi phục offline), và AuthContext có cơ chế fallback dữ liệu Firebase khi backend không truy cập được. Tile Google Maps đã xem được trình duyệt cache một phần. <strong>Thật:</strong> danh sách SOS và phân công <em>chưa</em> cache offline (đang là dữ liệu poll). <strong>Roadmap:</strong> PWA cache tile + cache “ca đang nhận của tôi” + danh sách nạn nhân gần nhất để dùng khi mất server.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">4</span><span class="qtext">Đội giám sát biết nền tảng đang suy giảm bằng cách nào, và quy trình leo thang thủ công là gì?</span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <p><strong>Hiện có:</strong> endpoint <code>/api/health</code> + <strong>UptimeRobot</strong> ping mỗi 5’ (cảnh báo khi backend chết/ngủ). Log server (Render) theo dõi lỗi Redis/DB. <strong>Thật:</strong> chưa có cảnh báo theo ngưỡng tải/độ trễ và chưa có quy trình on-call chính thức. <strong>Roadmap:</strong> dashboard sức khoẻ thời gian thực + cảnh báo on-call + đường dây nóng/leo thang thủ công — phải có con người dự phòng, không chỉ tự động.</p>
+      </div>
+    </div>
+
+    <h3 class="section">Stress-test B — “Dữ liệu xấu làm hỏng bản đồ”</h3>
+    <div class="note">Mười tình nguyện viên gửi báo cáo lũ giả. Bản đồ giờ hiện vùng ngập nơi thực ra khô, và khô nơi thực ra ngập. Đội bị định tuyến sai.</div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">5</span><span class="qtext">Có cơ chế kiểm chứng nào ngăn báo cáo lũ giả/sai làm hỏng bản đồ trực tiếp không?</span><span class="badge b-partial" data-badge="partial">Một phần</span></button>
+      <div class="a">
+        <p><strong>Hiện tại — phòng vệ bằng kiểm soát nguồn:</strong> vùng lũ <em>không</em> mở cho người dùng tự đăng; chỉ <strong>admin</strong> biên tập (<code>AdminFloodMapEditor</code>). Tức là kịch bản “10 tình nguyện viên bơm dữ liệu giả” bị chặn từ gốc — không có kênh crowdsource công khai để đầu độc.</p>
+        <p><strong>Roadmap</strong> (khi mở crowdsource để cập nhật nhanh hơn): ngưỡng tối thiểu số báo cáo, đối chiếu chéo với cảm biến, kiểm duyệt của admin trước khi công khai.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">6</span><span class="qtext">Admin gỡ/rollback dữ liệu bản đồ xấu nhanh đến mức nào khi phát hiện?</span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <p>Vì vùng lũ do admin quản trong Firestore, admin <strong>sửa/xoá điểm ngay</strong> và mọi client thấy thay đổi ở chu kỳ poll kế tiếp (giây). Không cần deploy lại. Khi demo: mở <code>AdminFloodMapEditor</code>, xoá một điểm sai → nó biến mất trên bản đồ người dùng gần như tức thì.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">7</span><span class="qtext">Bản đồ có điểm tin cậy cho từng vùng lũ — phân biệt dữ liệu cảm biến đã xác minh với báo cáo người dùng không?</span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <p><strong>Chưa.</strong> Hiện mọi vùng lũ là dữ liệu admin (mặc nhiên “đã kiểm duyệt”), còn lớp thời tiết là Windy (dữ liệu khí tượng). <strong>Roadmap:</strong> khi có cảm biến IoT + báo cáo người dùng, hiển thị <strong>confidence score</strong> và biểu tượng phân biệt “cảm biến xác minh” vs “người dùng báo” — chỉ báo niềm tin trực quan rất quan trọng khi cứu hộ ra quyết định sinh tử.</p>
+      </div>
+    </div>
+
+    <h3 class="section">Stress-test C — “Một ca im lặng 4 giờ”</h3>
+    <div class="note">Một nạn nhân gửi SOS 4 giờ trước. Đội được phân trong 5 phút. Nhưng 4 giờ sau vẫn “đang trên đường”, không cập nhật, không xác nhận. Gia đình gọi tổng đài đòi câu trả lời.</div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">8</span><span class="qtext">Hệ thống có timeout/leo thang khi một ca “đang xử lý” vượt ngưỡng mà không có cập nhật không?</span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <p><strong>Thật: chưa có auto-escalation.</strong> Dữ liệu cần thiết đã sẵn — <code>assigned_at</code>, <code>resolved_at</code>, và toàn bộ <code>rescue_request_logs</code> có timestamp, nên đo “im lặng bao lâu” là khả thi ngay. <strong>Roadmap (đáng demo):</strong> job định kỳ phát hiện ca <code>in_progress</code> quá ngưỡng (ví dụ 60’) không có cập nhật → tự leo thang lên admin và cảnh báo. Nói rõ con số quy tắc khi trình bày.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">9</span><span class="qtext">Điều phối viên có xem được vị trí GPS cuối của đội được phân cho đúng ca này không?</span><span class="badge b-ok" data-badge="ok">Đã có</span></button>
+      <div class="a">
+        <p><strong>Có.</strong> Hệ thống theo dõi <em>cả hai phía</em>: SOS lưu <code>rescuer_latitude/longitude</code>, và vị trí live của rescuer nằm trong Redis (<code>/api/locations/live/:userId</code>) với fallback “vị trí cuối được biết” ở <code>user_locations</code> khi họ offline. Admin tra được điểm cuối của đội gán cho ca đó — không chỉ theo dõi nạn nhân.</p>
+      </div>
+    </div>
+
+    <div class="qa">
+      <button class="q"><span class="qnum">10</span><span class="qtext">Nếu một đội im lặng hoàn toàn (không vị trí, không đổi trạng thái), hệ thống có gắn cờ họ cũng có thể gặp nạn không?</span><span class="badge b-road" data-badge="road">Roadmap</span></button>
+      <div class="a">
+        <p><strong>Chưa tự gắn cờ.</strong> Tín hiệu đã có: presence Redis hết hạn sau 60s (biết rescuer mất kết nối) và mốc thời gian log. <strong>Roadmap:</strong> logic theo dõi-kép — nếu rescuer đang giữ ca mà mất tín hiệu kéo dài, gắn cờ “đội có thể gặp nguy” trên dashboard. Cứu hộ cũng có thể trở thành nạn nhân — đây là điểm cần thể hiện rõ.</p>
+      </div>
+    </div>
+
+    <!-- ================= PART 5 ================= -->
+    <h2 class="part-title" id="part5">PHẦN 5 — Câu trả lời mẫu cho demo: dung lượng server & failover</h2>
+    <p class="part-intro">Trả lời chuẩn bị sẵn cho Stress-test A, câu 1 — dùng khi demo/pitch trực tiếp.</p>
+
+    <div class="note">
+      <strong>⚠ Lưu ý trung thực quan trọng:</strong> kiến trúc ba lớp dưới đây (queue thiết bị · message broker · failover tự động) là <strong>câu trả lời định hướng / mục tiêu thiết kế</strong>, <em>chưa</em> được triển khai trong bản hiện tại (đang chạy 1 instance Render free-tier). Khi pitch, hãy trình bày nó như <strong>kiến trúc mục tiêu</strong> và nói rõ phần nào đã có (Redis tách tải, throttle, rate-limit, suy biến mượt, lưu bền Postgres). Đừng tuyên bố các con số tải/ failover là kết quả đo thật nếu chưa chạy load test.
+    </div>
+
+    <div class="qa open">
+      <button class="q"><span class="qnum">Q</span><span class="qtext">“Khi server trung tâm đạt giới hạn — nó xếp hàng, bỏ request, hay failover sang máy dự phòng?”</span><span class="badge b-road" data-badge="scenario">Kịch bản</span></button>
+      <div class="a">
+        <p><strong class="lead">Câu mở đầu — nói trước:</strong></p>
+        <p>“Câu hỏi rất hay — và đây chính là kịch bản chúng tôi thiết kế để chống chịu. Hệ thống dùng phòng vệ ba lớp: hàng đợi cục bộ trên thiết bị, một message broker hấp thụ đỉnh tải, và failover tự động sang máy dự phòng. <strong>Không SOS nào bị bỏ.</strong>”</p>
+
+        <p><strong class="lead">1 · Hàng đợi phía thiết bị</strong> — Khi nạn nhân bấm SOS, yêu cầu được ghi vào bộ nhớ cục bộ <em>trước</em> khi gọi server. Nếu server quá tải, thiết bị tự thử lại mỗi 5 giây. Người dùng thấy “Đã gửi SOS” ngay, không phải chờ server xác nhận.</p>
+
+        <p><strong class="lead">2 · Message broker hấp thụ đỉnh</strong> — SOS vào hàng đợi trước khi chạm server chính. Nếu 500 cảnh báo đến trong 60 giây, broker giữ lại và nạp vào server theo tốc độ xử lý được — không bỏ request, chỉ trễ chút. Như một bộ giảm xóc giữa nhu cầu và năng lực.</p>
+
+        <p><strong class="lead">3 · Failover tự động</strong> — Nếu CPU server chính vượt 85%, load balancer tự chuyển traffic mới sang máy dự phòng trong &lt;30 giây. Máy dự phòng luôn chạy đồng bộ nên không mất dữ liệu khi chuyển.</p>
+
+        <table class="kv">
+          <tr><td>Ngưỡng CPU kích hoạt failover</td><td>85%</td></tr>
+          <tr><td>Thời gian kích hoạt máy dự phòng</td><td>&lt; 30 giây</td></tr>
+          <tr><td>Chu kỳ thử lại của thiết bị</td><td>Mỗi 5 giây</td></tr>
+          <tr><td>Độ sâu hàng đợi broker trước khi báo ops</td><td>10.000 message</td></tr>
+          <tr><td>Đỉnh tải mô phỏng (mục tiêu load test)</td><td>800 SOS đồng thời</td></tr>
+          <tr><td>Số SOS bị bỏ (mục tiêu)</td><td>0</td></tr>
+        </table>
+
+        <p><strong class="lead">Câu kết — chốt câu trả lời:</strong></p>
+        <p>“Nguyên tắc cốt lõi: chúng tôi không bao giờ bắt server và nạn nhân phải đồng bộ cùng một thời điểm. Thiết bị xếp hàng, broker đệm, failover hứng nốt phần còn lại. Mục tiêu: 800 SOS đồng thời, 0 bị bỏ.”</p>
+
+        <p><strong class="lead">Bẫy cần tránh:</strong></p>
+        <ul>
+          <li>Nói “nó sẽ không sập” — nghe như chưa kiểm thử. Luôn nêu <em>cơ chế</em>, không chỉ kết quả.</li>
+          <li>Đáp mơ hồ “cloud auto-scaling” — quá chung. Nêu ngưỡng, thời gian phản hồi, công nghệ.</li>
+          <li>Tuyên bố đã load test mà không có số — giám khảo sẽ hỏi đỉnh tải &amp; kết quả.</li>
+          <li>Quên phương án con người — nếu MỌI lớp tự động hỏng, phải có quy trình thủ công.</li>
+          <li>Chỉ bảo vệ server — nửa câu trả lời nằm ở thiết bị (queue cục bộ, retry).</li>
+        </ul>
+
+        <p><strong class="lead">Những gì đã thật sự có trong AquaGuard hôm nay</strong> (nên nhấn mạnh để giữ uy tín): Redis hot store tách 100% tải vị trí khỏi Postgres; throttle ghi (5,5m/2s); rate limiting theo endpoint; SOS lưu bền Postgres ngay khi gửi (không mất khi client rớt); Redis suy biến mượt (mất Redis → fallback Postgres); phân công bền vững qua app crash; health check + UptimeRobot.</p>
+      </div>
+    </div>
+
+    <footer>
+      <span class="lang-vi">AquaGuard · Tài liệu hỏi-đáp phản biện · Soạn theo kiến trúc thực tế của repo. <br/>
+      Chú thích: <span style="color:#4ade80">Đã có</span> = có trong code &amp; chạy được · <span style="color:#fbbf24">Một phần</span> = có nền tảng/cần cấu hình · <span style="color:#a5b4fc">Roadmap</span> = định hướng, chưa triển khai.</span>
+      <span class="lang-en lang-hidden">AquaGuard · Defense Q&A document · Written from the project's actual architecture. <br/>
+      Legend: <span style="color:#4ade80">Done</span> = in the code &amp; running · <span style="color:#fbbf24">Partial</span> = foundation in place/needs config · <span style="color:#a5b4fc">Roadmap</span> = direction, not yet implemented.</span>
+    </footer>
+  </main>
+</div>
+
+<script>
+  // Toggle answer open/close
+  document.querySelectorAll('.qa > .q').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      btn.parentElement.classList.toggle('open');
+    });
+  });
+
+  function toggleAll(open) {
+    document.querySelectorAll('.qa').forEach(function (qa) {
+      qa.classList.toggle('open', open);
+    });
+  }
+
+  // Live search/filter — only matches text visible in the active language
+  var search = document.getElementById('search');
+  search.addEventListener('input', function () {
+    var term = search.value.trim().toLowerCase();
+    document.querySelectorAll('.qa').forEach(function (qa) {
+      var text = qa.querySelector('.q').textContent.toLowerCase() + ' ' + qa.querySelector('.a').textContent.toLowerCase();
+      var match = term === '' || text.indexOf(term) !== -1;
+      qa.style.display = match ? '' : 'none';
+      if (term !== '' && match) qa.classList.add('open');
+    });
+  });
+
+  // Language toggle (VI default, EN optional) — content is duplicated inline
+  // with .lang-vi / .lang-en wrappers; switching just flips a hidden class.
+  var badgeText = {
+    ok: { vi: 'Đã có', en: 'Done' },
+    partial: { vi: 'Một phần', en: 'Partial' },
+    road: { vi: 'Roadmap', en: 'Roadmap' },
+    scenario: { vi: 'Kịch bản', en: 'Scenario' }
+  };
+  var placeholderText = {
+    vi: '🔎 Tìm nhanh trong câu hỏi & câu trả lời...',
+    en: '🔎 Quick search in questions & answers...'
+  };
+  var titleText = {
+    vi: 'AquaGuard — Bộ câu hỏi & trả lời phản biện',
+    en: 'AquaGuard — Defense Q&A Set'
+  };
+
+  function setLanguage(lang) {
+    document.querySelectorAll('.lang-vi').forEach(function (el) {
+      el.classList.toggle('lang-hidden', lang !== 'vi');
+    });
+    document.querySelectorAll('.lang-en').forEach(function (el) {
+      el.classList.toggle('lang-hidden', lang !== 'en');
+    });
+    document.querySelectorAll('[data-badge]').forEach(function (el) {
+      el.textContent = badgeText[el.dataset.badge][lang];
+    });
+    search.placeholder = placeholderText[lang];
+    document.title = titleText[lang];
+    document.documentElement.lang = lang;
+    document.getElementById('lang-vi-btn').classList.toggle('active', lang === 'vi');
+    document.getElementById('lang-en-btn').classList.toggle('active', lang === 'en');
+    try { localStorage.setItem('aquaguard-qa-lang', lang); } catch (e) {}
+  }
+
+  (function initLanguage() {
+    var saved = null;
+    try { saved = localStorage.getItem('aquaguard-qa-lang'); } catch (e) {}
+    setLanguage(saved === 'en' ? 'en' : 'vi');
+  })();
+</script>
+</body>
+</html>
