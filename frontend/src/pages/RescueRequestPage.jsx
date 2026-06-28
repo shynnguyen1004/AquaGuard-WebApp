@@ -467,21 +467,35 @@ export default function RescueRequestPage() {
   const performAccept = async (requestId) => {
     const token = getStoredToken();
 
-    // Get rescuer's current GPS
+    // Optimistic update: move the card to in_progress immediately so the UI
+    // reacts the moment Accept is pressed (no waiting on GPS + the round-trip).
+    // Reconciled by fetchRequests() below; reverted via fetchRequests() on failure.
+    setRequests((prev) =>
+      prev.map((r) =>
+        r.id === requestId
+          ? { ...r, status: "in_progress", assigned_to: rescuerUid }
+          : r
+      )
+    );
+
+    // Best-effort GPS seed — fast, non-blocking. The tracking hook refines
+    // accuracy via watchPosition right after accept, so a quick cached/low-accuracy
+    // fix is enough; avoid the prior 10s block on getCurrentPosition.
     let latitude = null;
     let longitude = null;
     if (navigator.geolocation) {
       try {
         const pos = await new Promise((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 10000,
+            enableHighAccuracy: false,
+            maximumAge: 30000,
+            timeout: 3000,
           });
         });
         latitude = pos.coords.latitude;
         longitude = pos.coords.longitude;
       } catch {
-        console.warn("Could not get rescuer GPS");
+        console.warn("Could not get rescuer GPS, continuing without it");
       }
     }
 
@@ -505,6 +519,8 @@ export default function RescueRequestPage() {
         }
         window.dispatchEvent(new CustomEvent("sos_changed", { detail: { type: "accepted", requestId } }));
       } else {
+        // Revert the optimistic change to the server's real state.
+        fetchRequests();
         const codeKey = {
           NO_TEAM: "rescueQueue.cannotAcceptNoTeam",
           NOT_AUTHORIZED_ROLE: "rescueQueue.cannotAcceptNotLeader",
@@ -517,6 +533,7 @@ export default function RescueRequestPage() {
       }
     } catch (err) {
       console.error("Failed to accept:", err);
+      fetchRequests(); // revert optimistic update
       setAcceptError(t("rescueQueue.acceptFailed"));
     }
   };
