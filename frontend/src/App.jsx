@@ -6,7 +6,6 @@ import { ToastProvider } from "./components/common/Toast";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import ErrorBoundary from "./components/common/ErrorBoundary";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
-import LocationGate from "./components/auth/LocationGate";
 import LoginPage from "./pages/LoginPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import Dashboard from "./pages/Dashboard";
@@ -29,9 +28,7 @@ export default function App() {
                     path="/"
                     element={
                       <ProtectedRoute>
-                        <LocationGate>
-                          <Dashboard />
-                        </LocationGate>
+                        <Dashboard />
                       </ProtectedRoute>
                     }
                   />

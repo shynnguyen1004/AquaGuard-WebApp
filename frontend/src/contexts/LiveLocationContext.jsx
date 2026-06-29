@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useAuth } from "./AuthContext";
-import { cacheGpsPosition } from "../utils/locationSync";
+import { cacheGpsPosition, syncLocationAfterAuth } from "../utils/locationSync";
 
+// WebSocket endpoint cho live-location: lấy từ env, fallback về localhost khi dev.
 const WS_BASE = import.meta.env.VITE_WS_URL || "ws://localhost:5001";
 
 const LiveLocationContext = createContext({ isConnected: false });
@@ -32,6 +33,11 @@ export function LiveLocationProvider({ children }) {
     if (typeof navigator === "undefined" || !navigator.geolocation) return;
 
     let closed = false;
+
+    // Durable last-known-location sync (user_locations). Non-blocking, best-effort.
+    // Login/register already trigger this in AuthContext; this covers returning
+    // sessions (page refresh without re-login) now that the blocking gate is gone.
+    syncLocationAfterAuth(token);
 
     const sendPresence = (lat, lng) => {
       cacheGpsPosition(lat, lng);
