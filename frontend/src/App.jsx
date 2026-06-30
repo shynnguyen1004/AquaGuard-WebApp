@@ -12,6 +12,8 @@ import Dashboard from "./pages/Dashboard";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 
 export default function App() {
+  // Cây provider: thứ tự lồng nhau quan trọng — Auth phải bọc ngoài LiveLocation
+  // (cần token) và NotificationProvider nằm trong cùng để dùng được Toast.
   return (
     <ErrorBoundary>
       <BrowserRouter>
