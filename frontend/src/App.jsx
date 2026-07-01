@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { LiveLocationProvider } from "./contexts/LiveLocationContext";
+import { CallProvider } from "./contexts/CallContext";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { ToastProvider } from "./components/common/Toast";
 import { NotificationProvider } from "./contexts/NotificationContext";
@@ -21,6 +22,7 @@ export default function App() {
           <AuthProvider>
             <LiveLocationProvider>
               <ToastProvider>
+                <CallProvider>
                 <NotificationProvider>
                 <Routes>
                   <Route path="/login" element={<LoginPage />} />
@@ -37,6 +39,7 @@ export default function App() {
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
                 </NotificationProvider>
+                </CallProvider>
               </ToastProvider>
             </LiveLocationProvider>
           </AuthProvider>

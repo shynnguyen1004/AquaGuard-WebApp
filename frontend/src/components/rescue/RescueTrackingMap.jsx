@@ -4,6 +4,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import useRescueTracking from "../../hooks/useRescueTracking";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useCall } from "../../contexts/CallContext";
 
 // ── Icon creators ──
 
@@ -100,6 +101,7 @@ export default function RescueTrackingMap({
   onCancel,
 }) {
   const { t } = useLanguage();
+  const { startCall, callState } = useCall();
   const { citizenLocation, rescuerLocation, isConnected, trackingEnded, trackingEndReason } =
     useRescueTracking(requestId, {
       active: true,
@@ -116,6 +118,12 @@ export default function RescueTrackingMap({
   // Current positions: prefer live location, fallback to initial
   const currentCitizenPos = citizenLocation || citizenPos;
   const currentRescuerPos = rescuerLocation || rescuerPos;
+
+  // The other party to call: a citizen calls the assigned rescuer, and vice versa.
+  const callPeerName = isCitizen
+    ? rescuerName || teamName || t("trackingMap.rescuerFallback")
+    : citizenName || t("trackingMap.citizenFallback");
+  const callPeerRole = isCitizen ? "rescuer" : "citizen";
 
   // Fetch route from OSRM
   const fetchRoute = useCallback(async (from, to) => {
@@ -201,12 +209,23 @@ export default function RescueTrackingMap({
             </p>
           </div>
         </div>
-        <button
-          onClick={onClose}
-          className="size-9 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-        >
-          <span className="material-symbols-outlined text-slate-500 text-lg">close</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => startCall(requestId, "audio", { name: callPeerName, role: callPeerRole })}
+            disabled={callState !== "idle"}
+            title={t("call.voiceCall")}
+            className="h-9 px-3 rounded-xl bg-safe text-white flex items-center gap-1.5 hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs font-bold shadow-sm shadow-safe/30"
+          >
+            <span className="material-symbols-outlined text-lg">call</span>
+            <span className="hidden sm:inline">{t("call.voiceCall")}</span>
+          </button>
+          <button
+            onClick={onClose}
+            className="size-9 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+          >
+            <span className="material-symbols-outlined text-slate-500 text-lg">close</span>
+          </button>
+        </div>
       </div>
 
       {/* Map */}

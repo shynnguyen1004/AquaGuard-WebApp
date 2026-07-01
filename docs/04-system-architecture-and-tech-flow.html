@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AquaGuard — System Architecture and Tech Flow</title>
+<style>
+  :root {
+    --bg: #f4f8fb;
+    --surface: #ffffff;
+    --ink: #1a2733;
+    --muted: #5b7185;
+    --primary: #0e6ba8;
+    --primary-dark: #0a4b74;
+    --accent: #14a0c4;
+    --border: #d9e5ee;
+    --code-bg: #0d2233;
+    --code-ink: #cfe6f3;
+    --table-head: #e8f2f8;
+    --note-bg: #eef8fb;
+    --note-border: #14a0c4;
+    --radius: 12px;
+    --maxw: 900px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    font-size: 16px;
+    line-height: 1.7;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 270px minmax(0, 1fr);
+    gap: 40px;
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 0 28px;
+  }
+
+  /* ── Sidebar / TOC ── */
+  aside {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 0;
+  }
+  aside .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    font-size: 1.15rem;
+    color: var(--primary-dark);
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+  aside .brand .drop {
+    width: 22px; height: 22px;
+    background: linear-gradient(160deg, var(--accent), var(--primary));
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    box-shadow: 0 2px 6px rgba(14,107,168,.35);
+  }
+  aside .sub { font-size: .78rem; color: var(--muted); margin: 0 0 22px 32px; text-transform: uppercase; letter-spacing: .08em; }
+  nav ol { list-style: none; margin: 0; padding: 0; counter-reset: sec; }
+  nav > ol > li { margin: 2px 0; }
+  nav a {
+    display: block;
+    text-decoration: none;
+    color: var(--muted);
+    padding: 5px 12px;
+    border-left: 2px solid transparent;
+    border-radius: 0 6px 6px 0;
+    font-size: .9rem;
+    transition: all .15s ease;
+  }
+  nav a:hover { color: var(--primary); background: #eaf3f9; }
+  nav a.top { color: var(--ink); font-weight: 600; }
+  nav a.sub2 { padding-left: 28px; font-size: .84rem; }
+
+  /* ── Main content ── */
+  main {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 56px 60px 80px;
+    margin: 32px 0;
+    box-shadow: 0 6px 24px rgba(16,58,92,.06);
+    min-width: 0;
+  }
+
+  .doc-header {
+    border-bottom: 3px solid var(--primary);
+    padding-bottom: 20px;
+    margin-bottom: 34px;
+  }
+  .doc-eyebrow {
+    color: var(--accent);
+    font-weight: 700;
+    font-size: .8rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .doc-header h1 {
+    margin: 6px 0 0;
+    font-size: 2.1rem;
+    letter-spacing: -0.02em;
+    color: var(--primary-dark);
+  }
+  .doc-header p { color: var(--muted); margin: 14px 0 0; font-size: 1.02rem; }
+
+  h2 {
+    margin: 52px 0 14px;
+    padding-top: 14px;
+    font-size: 1.5rem;
+    color: var(--primary-dark);
+    letter-spacing: -0.01em;
+    scroll-margin-top: 24px;
+  }
+  h2 .num { color: var(--accent); font-weight: 800; margin-right: 10px; }
+  h3 {
+    margin: 34px 0 10px;
+    font-size: 1.15rem;
+    color: var(--primary);
+    scroll-margin-top: 24px;
+  }
+  h3 .num { color: var(--muted); font-weight: 700; margin-right: 8px; font-size: .95rem; }
+
+  p { margin: 14px 0; }
+  strong { color: var(--ink); font-weight: 650; }
+  a { color: var(--primary); }
+
+  ul { margin: 14px 0; padding-left: 22px; }
+  li { margin: 8px 0; }
+  li::marker { color: var(--accent); }
+
+  code {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+    font-size: .86em;
+    background: #eaf1f6;
+    color: var(--primary-dark);
+    padding: 2px 6px;
+    border-radius: 5px;
+    border: 1px solid #dbe7ef;
+  }
+
+  pre {
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 20px 22px;
+    border-radius: 10px;
+    overflow-x: auto;
+    font-size: .82rem;
+    line-height: 1.55;
+    margin: 20px 0;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.05);
+  }
+  pre code {
+    background: none; border: none; color: inherit; padding: 0;
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+    font-size: inherit;
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 22px 0;
+    font-size: .92rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  thead th {
+    background: var(--table-head);
+    color: var(--primary-dark);
+    text-align: left;
+    font-weight: 700;
+    padding: 11px 14px;
+    border-bottom: 2px solid var(--border);
+  }
+  tbody td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tbody tr:nth-child(even) { background: #f7fbfd; }
+  tbody tr:last-child td { border-bottom: none; }
+  table code { font-size: .82em; }
+
+  blockquote.note {
+    background: var(--note-bg);
+    border-left: 4px solid var(--note-border);
+    border-radius: 0 8px 8px 0;
+    padding: 14px 20px;
+    margin: 22px 0;
+    color: #244b5c;
+  }
+  blockquote.note strong { color: var(--primary-dark); }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 48px 0;
+  }
+
+  .footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: .85rem;
+    text-align: center;
+  }
+
+  @media (max-width: 960px) {
+    .layout { grid-template-columns: 1fr; }
+    aside { position: static; height: auto; overflow: visible; padding: 24px 0 0; }
+    main { padding: 32px 22px 60px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <aside>
+    <div class="brand"><span class="drop"></span> AquaGuard</div>
+    <p class="sub">Technical Documentation</p>
+    <nav>
+      <ol>
+        <li><a class="top" href="#s4">4 · System Architecture &amp; Tech Flow</a></li>
+        <li><a href="#s41">4.1 Overall architecture</a></li>
+        <li><a href="#s42">4.2 Backend and API layer</a></li>
+        <li><a class="sub2" href="#s421">4.2.1 Data model</a></li>
+        <li><a class="sub2" href="#s422">4.2.2 Authentication &amp; authorization</a></li>
+        <li><a href="#s43">4.3 Real-time coordination engine</a></li>
+        <li><a class="sub2" href="#s431">4.3.1 WebSocket transport</a></li>
+        <li><a class="sub2" href="#s432">4.3.2 GPS streaming (2s cadence)</a></li>
+        <li><a class="sub2" href="#s433">4.3.3 SOS state machine</a></li>
+        <li><a class="sub2" href="#s434">4.3.4 Concurrent connections</a></li>
+        <li><a href="#s44">4.4 Frontend: web platform</a></li>
+        <li><a href="#s45">4.5 Mobile: iOS application</a></li>
+        <li><a href="#s46">4.6 Security &amp; data protection</a></li>
+      </ol>
+    </nav>
+  </aside>
+
+  <main>
+    <header class="doc-header" id="s4">
+      <div class="doc-eyebrow">Chapter 4</div>
+      <h1>System Architecture and Tech Flow</h1>
+      <p>
+        AquaGuard is a flood-response coordination platform that connects three actors —
+        <strong>citizens</strong> who raise SOS requests, <strong>rescuers</strong> who accept and carry
+        out missions in teams, and <strong>admins</strong> who oversee and dispatch. This chapter
+        describes how the system is put together: the overall topology, the backend and its data
+        model, the real-time coordination engine that streams live GPS between citizens and rescuers,
+        the web and mobile clients, and the security posture that protects it all.
+      </p>
+    </header>
+
+    <!-- ── 4.1 ── -->
+    <h2 id="s41"><span class="num">4.1</span>Overall architecture</h2>
+    <p>
+      AquaGuard follows a classic <strong>three-tier architecture</strong> (clients → stateless API →
+      data stores), extended with a <strong>dedicated real-time channel</strong> for live rescue
+      tracking. The system is deliberately split across managed, independently scalable services so
+      that no single component is a bottleneck or a single point of failure.
+    </p>
+    <pre><code>                         ┌──────────────────────────────┐
+        Web (Vercel) ────┤                              │
+   aquaguard.vn / SPA    │   Backend API + WebSocket    │
+                         │   Express 4 + ws (Render)     │
+   Mobile (native) ──────┤   aquaguard-api.onrender.com  │
+   iOS / Flutter client  │                              │
+                         └───────┬──────────────┬───────┘
+                                 │              │
+                    ┌────────────▼───┐   ┌──────▼──────────┐
+                    │  PostgreSQL     │   │  Redis (Upstash) │
+                    │  (Neon)         │   │  live GPS hot    │
+                    │  system of      │   │  store (60s TTL) │
+                    │  record         │   └─────────────────┘
+                    └─────────────────┘
+                             │
+            ┌────────────────┼────────────────┐
+     Resend (email)   Cloudinary (images)   Twilio (SMS OTP)</code></pre>
+
+    <p><strong>Deployment topology.</strong> Each tier is hosted on a purpose-built managed service:</p>
+    <table>
+      <thead>
+        <tr><th>Tier</th><th>Component</th><th>Hosting</th><th>Notes</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Presentation</td><td>React SPA</td><td><strong>Vercel</strong> (<code>aquaguard.vn</code>)</td><td>Auto-deploys on push to <code>main</code>.</td></tr>
+        <tr><td>Presentation</td><td>Native mobile app</td><td>App distribution</td><td>Consumes the same REST + WebSocket API.</td></tr>
+        <tr><td>Application</td><td>Express REST API + <code>ws</code> WebSocket server</td><td><strong>Render</strong></td><td>Single Node process; HTTP and WS share one port.</td></tr>
+        <tr><td>Data (record)</td><td>PostgreSQL</td><td><strong>Neon</strong> (serverless)</td><td>System of record; SSL auto-enabled for cloud hosts.</td></tr>
+        <tr><td>Data (hot)</td><td>Redis</td><td><strong>Upstash</strong> (serverless)</td><td>Live-location hot store; optional, degrades to Postgres.</td></tr>
+        <tr><td>Integrations</td><td>Email / Images / SMS</td><td>Resend / Cloudinary / Twilio</td><td>All called from the backend only.</td></tr>
+      </tbody>
+    </table>
+
+    <p><strong>Design principles that shape the architecture:</strong></p>
+    <ul>
+      <li><strong>Stateless application tier.</strong> The API keeps no session state in memory — every
+        request carries a self-contained JWT. This lets Render restart or scale the process freely. The
+        <em>only</em> in-process state is the set of live WebSocket connections and tracking rooms, which are
+        intentionally ephemeral (see §4.3.4).</li>
+      <li><strong>Separation of hot and durable data.</strong> Continuously changing GPS fixes are written
+        to a Redis hot store with a short TTL, while PostgreSQL keeps only the durable milestones. This keeps
+        the write-heavy tracking path off the relational database (see §4.3.2).</li>
+      <li><strong>Graceful degradation.</strong> Redis is optional: if <code>REDIS_URL</code> is unset or the
+        connection drops, <code>isRedisReady()</code> returns <code>false</code> and live tracking transparently
+        falls back to the PostgreSQL <code>user_locations</code> table. Similarly, email is always fire-and-forget
+        so a mail-provider outage can never break registration or a rescue action.</li>
+      <li><strong>Secrets live in the environment, not the repo.</strong> Every credential
+        (<code>DATABASE_URL</code>, <code>JWT_SECRET</code>, <code>RESEND_API_KEY</code>, <code>CLOUDINARY_URL</code>,
+        <code>TWILIO_*</code>, <code>REDIS_URL</code>) is injected as a platform environment variable on
+        Render/Vercel and read via <code>process.env</code> / <code>import.meta.env</code>.</li>
+    </ul>
+
+    <hr />
+
+    <!-- ── 4.2 ── -->
+    <h2 id="s42"><span class="num">4.2</span>Backend and API layer</h2>
+    <p>
+      The backend is a <strong>Node.js 20 + Express 4</strong> application (CommonJS) with a single entry
+      point, <code>backend/index.js</code>. It wires up CORS, JSON parsing, per-route rate limiters, the REST
+      routers, a health-check endpoint, and — on the <em>same</em> HTTP server — the native WebSocket server.
+    </p>
+    <p>
+      <strong>Architectural style.</strong> The API is deliberately lightweight and has <strong>no ORM and no
+      service/model layer</strong>. Business logic lives inline in the route handlers under
+      <code>backend/routes/</code>, and all persistence is <strong>raw parameterised SQL</strong> against a
+      single shared <code>pg</code> connection pool exported by <code>backend/db.js</code>. Two shared singletons
+      are imported everywhere and never re-instantiated: the Postgres pool (<code>db.js</code>) and the Redis
+      client (<code>redisClient.js</code>).
+    </p>
+    <p><strong>REST surface.</strong> Routers are mounted by domain:</p>
+    <table>
+      <thead><tr><th>Mount point</th><th>Router</th><th>Responsibility</th></tr></thead>
+      <tbody>
+        <tr><td><code>/api/auth</code></td><td><code>auth.js</code></td><td>Registration, login, profile, team/group management, roles.</td></tr>
+        <tr><td><code>/api/sos</code></td><td><code>sos.js</code></td><td>SOS request lifecycle (create → assign → accept → resolve).</td></tr>
+        <tr><td><code>/api/family</code></td><td><code>family.js</code></td><td>Family connections and safety-status checks.</td></tr>
+        <tr><td><code>/api/locations</code></td><td><code>locations.js</code></td><td>Live-location reads (<code>/live</code>, <code>/live/:userId</code>, <code>/nearby</code>).</td></tr>
+        <tr><td><code>/api/analytics</code></td><td><code>analytics.js</code></td><td>Aggregate dashboards for admins.</td></tr>
+        <tr><td><code>/api/notifications</code></td><td><code>notifications.js</code></td><td>In-app notifications and admin broadcasts.</td></tr>
+        <tr><td><code>/api/health</code></td><td>—</td><td>Liveness probe (kept awake by an UptimeRobot ping).</td></tr>
+      </tbody>
+    </table>
+    <p><strong>Cross-cutting concerns</strong> are handled by small middleware:</p>
+    <ul>
+      <li><strong>CORS</strong> — a hardcoded allowlist of frontend origins in <code>index.js</code>, plus a regex
+        that permits LAN IPs in development (for mobile devices on the same network) and requests with no
+        <code>Origin</code> header (native mobile apps, curl, Postman).</li>
+      <li><strong>Rate limiting</strong> — an in-memory, per-IP limiter (<code>middleware/rateLimit.js</code>)
+        applied selectively to sensitive endpoints: login (10 / 15 min), registration (5 / 15 min),
+        forgot-password (5 / 15 min) and admin broadcasts (20 / min).</li>
+      <li><strong>A consistent response envelope</strong> — handlers return
+        <code>{ success, data | message }</code>, so every client can branch on a single field.</li>
+    </ul>
+
+    <h3 id="s421"><span class="num">4.2.1</span>Data model</h3>
+    <p>
+      The canonical schema lives in <code>infrastructure/database/init_db.sql</code>, which the Postgres
+      container auto-runs on first boot; incremental changes are raw SQL files under
+      <code>backend/migrations/</code>. PostgreSQL is the <strong>system of record</strong> for everything except
+      live GPS.
+    </p>
+    <p>The core entities and their relationships:</p>
+    <pre><code>users ──1:N── rescue_requests ──1:N── rescue_request_logs   (status audit trail)
+  │                  │
+  │                  └── assigned_to ──► users (rescuer)
+  │                  └── assigned_group_id ──► rescue_groups
+  │
+  ├──1:N── rescue_group_members ──N:1── rescue_groups ──1:N── rescue_group_invites
+  ├──1:N── family_connections (requester ↔ receiver)
+  ├──1:1── user_locations         (durable last-known GPS)
+  └──1:N── notifications</code></pre>
+    <ul>
+      <li><strong><code>users</code></strong> — one row per account, keyed by a unique <code>phone_number</code>
+        (phone is the primary identity; <code>email</code> is nullable and defaults to <code>''</code>). Holds the
+        <code>password_hash</code>, the <code>role</code> (<code>citizen</code> | <code>rescuer</code> |
+        <code>admin</code>, enforced by a <code>CHECK</code> constraint), profile fields, an <code>address</code>,
+        and a <code>safety_status</code> (<code>unknown</code> | <code>safe</code> | <code>danger</code> |
+        <code>injured</code>) used by the family-check feature. Live GPS is deliberately <strong>not</strong>
+        stored here.</li>
+      <li><strong><code>rescue_requests</code></strong> — the heart of the system. Each SOS row records who raised
+        it (<code>user_id</code>), the free-text <code>location</code> and <code>description</code>,
+        <code>latitude</code>/<code>longitude</code>, an array of Cloudinary image URLs, an <code>urgency</code>
+        (<code>low</code> | <code>medium</code> | <code>high</code> | <code>critical</code>), and the
+        <code>status</code> that drives the state machine (§4.3.3). Assignment fields (<code>assigned_to</code>,
+        <code>assigned_group_id</code>, <code>accepted_mode</code>), the rescuer's last GPS fix, cancellation
+        metadata, and timeline milestones (<code>assigned_at</code>, <code>resolved_at</code>) complete the row.</li>
+      <li><strong><code>rescue_request_logs</code></strong> — an append-only audit trail: every status transition
+        writes <code>(request_id, changed_by, old_status, new_status, note)</code>, giving a complete history of
+        who moved a request and when.</li>
+      <li><strong><code>rescue_groups</code> / <code>rescue_group_members</code> /
+        <code>rescue_group_invites</code></strong> — rescuers operate as <strong>teams</strong>. A group has members
+        with a <code>member_role</code> (<code>leader</code> | <code>co_leader</code> | <code>member</code>) and a
+        <code>join_status</code>. Only leaders and co-leaders may accept missions, and an admin dispatches to a
+        <em>group</em> (resolving to its leader for tracking compatibility).</li>
+      <li><strong><code>family_connections</code></strong> — a symmetric requester ↔ receiver relationship with a
+        <code>status</code> (<code>pending</code> | <code>accepted</code> | <code>rejected</code>); accepted
+        connections receive "your relative is safe" notifications when a request resolves.</li>
+      <li><strong><code>user_locations</code></strong> — exactly one row per user (<code>UNIQUE user_id</code>)
+        holding the <strong>durable</strong> last-known position. It is written only at the <strong>start and
+        end</strong> of a tracking session; the fast-moving updates in between live in Redis (see §4.3.2).</li>
+    </ul>
+
+    <h3 id="s422"><span class="num">4.2.2</span>Authentication and authorization</h3>
+    <p><strong>Authentication</strong> is phone + password with <strong>stateless JWTs</strong>
+      (<code>backend/routes/auth.js</code>):</p>
+    <ul>
+      <li>On <strong>registration</strong>, the password is hashed with <code>bcrypt</code> (salted) and stored as
+        <code>password_hash</code>; the plaintext is never persisted. Registering as <code>rescuer</code> or
+        <code>admin</code> additionally requires a shared <strong>role password</strong>, preventing arbitrary
+        users from self-elevating.</li>
+      <li>On <strong>login</strong>, the submitted password is verified with <code>bcrypt.compare</code> against
+        the stored hash.</li>
+      <li>On success, the server signs a JWT with <code>jsonwebtoken</code> containing exactly
+        <code>{ id, phone_number, role }</code> and a <strong>7-day expiry</strong>. The client stores it and
+        sends it as <code>Authorization: Bearer &lt;token&gt;</code> on every request.</li>
+    </ul>
+    <p>
+      An optional <strong>Google sign-in</strong> path exists on the frontend (via Firebase) but phone + password
+      against this backend is the primary mechanism. <strong>Twilio</strong> provides SMS OTP for phone
+      verification / password reset, itself protected by an in-process per-number rate limit.
+    </p>
+    <p><strong>Authorization</strong> is role-based, enforced by middleware in
+      <code>backend/middleware/auth.js</code>:</p>
+    <ul>
+      <li><code>authMiddleware</code> verifies the Bearer token and sets <code>req.user</code> to <strong>only</strong>
+        <code>{ id, phone_number, role }</code> — deliberately minimal; a handler that needs the name or email
+        queries the <code>users</code> table. An invalid/missing token yields <code>401</code>.</li>
+      <li><code>requireAdmin</code> gates admin-only endpoints (<code>403</code> otherwise).</li>
+      <li><code>requireRoles([...])</code> restricts an endpoint to a set of roles — e.g. creating an SOS is
+        <code>citizen</code>-only, while accepting one is <code>rescuer</code>-only.</li>
+    </ul>
+    <p>
+      A <strong>second layer of authorization</strong> lives inside the SQL itself: mission-mutating queries
+      include ownership predicates in their <code>WHERE</code> clause (e.g. <code>... AND assigned_to = $1</code>),
+      so even a valid rescuer token cannot complete or cancel a request that is not their own. This makes the
+      check atomic with the write and immune to time-of-check/time-of-use races.
+    </p>
+
+    <hr />
+
+    <!-- ── 4.3 ── -->
+    <h2 id="s43"><span class="num">4.3</span>Real-time coordination engine</h2>
+    <p>
+      Rescue is a live activity: a citizen in the water and a rescuer en route both need to see each other move
+      in real time. AquaGuard delivers this with a native WebSocket server co-located with the REST API, backed
+      by a Redis hot store.
+    </p>
+
+    <h3 id="s431"><span class="num">4.3.1</span>WebSocket transport</h3>
+    <p>
+      The real-time layer is a native <code>ws</code> <code>WebSocketServer</code> attached to the <strong>same
+      HTTP server</strong> as Express (<code>http.createServer(app)</code>), so REST and WebSocket share a single
+      port and a single TLS termination — no separate gateway to operate.
+    </p>
+    <p>
+      <strong>Connection handshake.</strong> A client connects with the JWT as a query parameter
+      (<code>wss://host?token=…</code>). On <code>connection</code> the server verifies the token with the same
+      <code>JWT_SECRET</code> used for REST; a missing token closes the socket with code <code>4001</code>, an
+      invalid one with <code>4002</code>. On success it stamps the socket with <code>ws.userId</code> and
+      <code>ws.userRole</code> and initialises per-connection tracking state.
+    </p>
+    <p><strong>Two location flows</strong> run over this one transport:</p>
+    <ul>
+      <li><strong>Continuous presence (always-on).</strong> Whenever a user is logged in, the frontend
+        <code>LiveLocationProvider</code> keeps a dedicated socket open and streams <code>presence_location</code>
+        messages. These are written to the <strong>Redis hot store only</strong> — pure presence <em>never</em>
+        touches PostgreSQL. This powers the live flood map and lets the SOS endpoints overlay a requester's current
+        position onto their request.</li>
+      <li><strong>Per-request tracking rooms.</strong> When a citizen and their assigned rescuer open the tracking
+        view, each joins a <strong>room</strong> keyed by request ID (<code>join_tracking</code>). Fixes are
+        broadcast between the two members of the room in real time, and <em>only</em> these tracking sessions write
+        to PostgreSQL — the first fix (start) and the last fix on disconnect (end).</li>
+    </ul>
+    <p>
+      <strong>Server-initiated events.</strong> REST handlers can push into a room via a shared
+      <code>trackingRooms</code> map (exposed with <code>app.set("trackingRooms", …)</code>): accepting a mission
+      broadcasts <code>tracking_started</code>, cancelling broadcasts <code>tracking_cancelled</code>, and
+      completing broadcasts <code>tracking_ended</code> — so the citizen's map reacts instantly to actions taken
+      through the REST API.
+    </p>
+
+    <h3 id="s432"><span class="num">4.3.2</span>GPS streaming at 2-second cadence</h3>
+    <p>
+      Both location flows sample the device GPS at a <strong>2-second cadence</strong>. On the client,
+      <code>navigator.geolocation.watchPosition</code> is paired with a <code>setInterval(…, 2000)</code> fallback
+      poll — because <code>watchPosition</code> fires irregularly on some devices, the 2&nbsp;s timer guarantees a
+      steady stream of fixes. Positions are requested with <code>enableHighAccuracy: true</code> and a low
+      <code>maximumAge</code> so each fix is fresh.
+    </p>
+    <p>On the server, <code>handleLocation()</code> processes every incoming fix through a
+      <strong>three-step pipeline</strong>:</p>
+    <ul>
+      <li><strong>Broadcast</strong> the fix to the other member(s) of the active tracking room immediately — every
+        update, so the on-screen marker moves smoothly.</li>
+      <li><strong>Durable START</strong> — on the <em>first</em> fix of a tracking session, persist the position to
+        PostgreSQL <code>user_locations</code> (upsert on <code>user_id</code>).</li>
+      <li><strong>Hot store</strong> — write the fix to Redis, but <strong>throttled</strong>: only when the device
+        has moved a meaningful distance (≈&nbsp;5.5&nbsp;m, i.e. ≥ 0.00005° in lat or lng) <strong>or</strong> at
+        least 2&nbsp;s have elapsed since the last Redis write. This respects the serverless Redis request quota
+        while keeping presence fresh.</li>
+    </ul>
+    <p>
+      Redis stores each position as a hash <code>live:loc:{userId}</code> with a <strong>60-second TTL</strong> —
+      so a key's mere existence means "online and fresh" — plus a per-role GEO set (<code>live:geo:{role}</code>)
+      that enables <code>GEOSEARCH</code>-based "nearest rescuer" queries. On disconnect, the server flushes the
+      <strong>last</strong> fix to PostgreSQL (durable END) and removes the Redis presence.
+    </p>
+    <p>
+      This <strong>hot/durable split</strong> is the key design decision: high-frequency, disposable updates never
+      hit the relational database, while PostgreSQL always retains a "last known location" that survives a Redis
+      eviction or a server restart.
+    </p>
+
+    <h3 id="s433"><span class="num">4.3.3</span>SOS state machine implementation</h3>
+    <p>
+      Every rescue request moves through a well-defined <strong>state machine</strong>, enforced by the
+      <code>status</code> column's <code>CHECK</code> constraint and by guarded SQL updates in
+      <code>backend/routes/sos.js</code>:
+    </p>
+    <pre><code>   (citizen creates)
+         │
+         ▼
+     ┌────────┐   admin assigns to group   ┌──────────┐
+     │pending ├───────────────────────────►│ assigned │
+     └───┬────┘                            └────┬─────┘
+         │  rescuer accepts (leader/co_leader)  │ rescuer accepts
+         │◄─────────────────────────────────────┘
+         │
+         ▼
+   ┌─────────────┐   rescuer cancels    ┌────────┐
+   │ in_progress ├─────────────────────►│pending │  (released back)
+   └──────┬──────┘                      └────────┘
+          │ rescuer / admin completes
+          ▼
+     ┌──────────┐
+     │ resolved │
+     └──────────┘</code></pre>
+    <p><strong>Transitions and their guards:</strong></p>
+    <ul>
+      <li><strong>create</strong> → <code>pending</code>. A citizen <code>POST</code>s the SOS with GPS and up to
+        five images (uploaded to Cloudinary); the row is inserted and the creation logged.</li>
+      <li><code>pending</code> → <strong><code>assigned</code></strong>. An admin dispatches the request to a rescue
+        <em>group</em>; the group's leader becomes <code>assigned_to</code> for tracking compatibility. The update
+        is guarded by <code>WHERE id = $ AND status = 'pending'</code>.</li>
+      <li><code>pending</code> / <code>assigned</code> → <strong><code>in_progress</code></strong>. A rescuer
+        accepts. The handler first verifies the caller is a <code>leader</code> or <code>co_leader</code> of an
+        active group, then performs a single guarded <code>UPDATE</code> whose <code>WHERE</code> clause allows the
+        transition only if the request is still <code>pending</code> (and unassigned or assigned to this rescuer) or
+        <code>assigned</code> to this rescuer's group — closing the "two rescuers accept at once" race. Acceptance
+        broadcasts <code>tracking_started</code> and notifies the citizen (in-app + email).</li>
+      <li><code>in_progress</code> → <strong><code>pending</code></strong>. A rescuer can release a case; the update
+        is guarded by <code>assigned_to = $ AND status = 'in_progress'</code>, so only the owning rescuer can
+        cancel, and it broadcasts <code>tracking_cancelled</code>.</li>
+      <li><code>in_progress</code> → <strong><code>resolved</code></strong>. The assigned rescuer (or an admin)
+        completes the mission; broadcasts <code>tracking_ended</code> and notifies both the citizen and their
+        accepted family members that they are safe.</li>
+    </ul>
+    <p>
+      Every transition is written to <code>rescue_request_logs</code> for a full audit trail, and every
+      state-changing SQL statement embeds its precondition in the <code>WHERE</code> clause so that
+      <strong>validity is enforced atomically at the database</strong>, not just in application code.
+    </p>
+
+    <h3 id="s434"><span class="num">4.3.4</span>Concurrent connection management</h3>
+    <p>Because many citizens and rescuers may be connected at once, the server manages concurrency carefully:</p>
+    <ul>
+      <li><strong>Room registry.</strong> Tracking rooms are held in a <code>Map&lt;requestId, Map&lt;userId, ws&gt;&gt;</code>.
+        Joining adds <code>(userId → socket)</code>; on socket <code>close</code> the user is removed, and when a room
+        empties it is deleted — so the structure never leaks memory as missions complete.</li>
+      <li><strong>Liveness / dead-connection reaping.</strong> A 30-second <strong>heartbeat</strong> pings every
+        client and marks it <code>isAlive = false</code>; a socket that fails to answer with a <code>pong</code>
+        before the next tick is <code>terminate()</code>d. This detects half-open connections (phones that lose
+        signal in a flood) and frees their resources.</li>
+      <li><strong>Presence freshness via TTL.</strong> Rather than trusting sockets to close cleanly, online status
+        is derived from the 60-second Redis TTL on each <code>live:loc:{userId}</code> key — a user whose fixes stop
+        is automatically considered offline once the key expires, independent of socket state.</li>
+      <li><strong>Backpressure-aware sends.</strong> Before writing to a peer, the server checks
+        <code>readyState === 1</code> (OPEN), so it never enqueues into a closing or closed socket.</li>
+      <li><strong>Write throttling.</strong> The per-connection Redis throttle (§4.3.2) bounds how much each client
+        can write to the shared hot store regardless of how fast it emits fixes, protecting the serverless Redis
+        quota under many concurrent trackers.</li>
+    </ul>
+    <p>
+      The one caveat of holding rooms in process memory is that they are <strong>ephemeral</strong>: if the single
+      Render instance restarts, live rooms are lost and clients reconnect. This is an accepted trade-off — durable
+      state (the request status and start/end positions) is always safe in PostgreSQL, so a reconnect fully restores
+      the session.
+    </p>
+
+    <hr />
+
+    <!-- ── 4.4 ── -->
+    <h2 id="s44"><span class="num">4.4</span>Frontend: web platform</h2>
+    <p>
+      The web client is a <strong>React 19 + Vite 6 single-page application</strong> (<code>frontend/</code>, ESM),
+      styled with <strong>Tailwind CSS v4</strong> and routed with <strong>React Router DOM 7</strong>.
+    </p>
+    <p>
+      <strong>Application shell.</strong> <code>App.jsx</code> composes a tree of context providers whose nesting
+      order matters: <code>AuthProvider</code> wraps <code>LiveLocationProvider</code> (which needs the token to open
+      its socket), inside <code>ToastProvider</code> and <code>NotificationProvider</code>, all under an
+      <code>ErrorBoundary</code>. A single protected <code>/</code> route renders a role-aware <code>Dashboard</code>;
+      <code>/login</code>, <code>/forgot-password</code>, and <code>/unauthorized</code> are public.
+    </p>
+    <p><strong>State and data flow:</strong></p>
+    <ul>
+      <li><strong><code>AuthContext</code></strong> is the central auth store — <code>registerWithPhone</code>,
+        <code>loginWithPhonePassword</code>, <code>loginWithGoogle</code> — and persists/restores the session,
+        falling back to Firebase-cached data if the backend is briefly unreachable.</li>
+      <li><strong><code>LiveLocationProvider</code></strong> keeps the always-on presence socket open and streams
+        <code>presence_location</code> fixes at the 2&nbsp;s cadence described in §4.3.2.</li>
+      <li><strong><code>services/</code></strong> is a thin REST layer with the base URL from
+        <code>VITE_API_BASE_URL</code>; <strong><code>hooks/useRescueTracking</code></strong> encapsulates the
+        per-request tracking socket used by the tracking-map modal.</li>
+    </ul>
+    <p>
+      <strong>Role-scoped UI.</strong> Pages live under <code>pages/{admin,rescuer,citizen}/</code> and are gated by
+      <code>components/auth/ProtectedRoute.jsx</code> (RBAC on the client, mirroring the server's role checks).
+      Citizens raise and track SOS requests; rescuers see team missions and accept/complete them; admins get
+      dispatch, analytics, and broadcast tools.
+    </p>
+    <p>
+      <strong>Maps, charts, and onboarding.</strong> <strong>Leaflet 1.9 + React-Leaflet 5</strong> render the live
+      flood map and rescue-tracking view (polling <code>/api/locations/live</code> and consuming socket updates),
+      <strong>Recharts 3</strong> draws the analytics dashboards, and <strong>react-joyride 3</strong> provides guided
+      onboarding tours.
+    </p>
+    <p>
+      <strong>Internationalisation.</strong> All copy is bilingual (Vietnamese / English) via
+      <code>useLanguage().t("section.key")</code>, with every user-facing string defined under the same key in both
+      <code>translations/vi.js</code> and <code>translations/en.js</code> — no text is ever hardcoded.
+    </p>
+
+    <hr />
+
+    <!-- ── 4.5 ── -->
+    <h2 id="s45"><span class="num">4.5</span>Mobile: iOS application</h2>
+    <p>
+      Alongside the web platform, AquaGuard ships a <strong>native mobile client</strong> aimed at the people most
+      likely to need it in the field — citizens raising an SOS from a phone in a flood, and rescuers navigating to
+      them. The mobile app is a <strong>separate client codebase</strong> that consumes the <strong>same backend
+      API</strong> as the web app, so the two share one source of truth and one security model.
+    </p>
+    <p><strong>Integration with the backend.</strong> The mobile app is a first-class citizen of the API contract:</p>
+    <ul>
+      <li><strong>Same authentication.</strong> It authenticates with the identical phone + password / JWT flow
+        (§4.2.2) and sends the same <code>Authorization: Bearer &lt;token&gt;</code> header, so no separate identity
+        system is required.</li>
+      <li><strong>Same REST + WebSocket endpoints.</strong> It calls the <code>/api/*</code> REST surface and opens
+        the same <code>wss://host?token=…</code> socket for presence and per-request tracking — the backend treats
+        web and mobile connections identically.</li>
+      <li><strong>CORS accommodates native clients.</strong> The server explicitly allows requests with no
+        <code>Origin</code> header (native mobile apps, unlike browsers, send none) and, in development, permits LAN
+        IP origins so the app can talk to a locally-running backend from a physical device on the same Wi-Fi.</li>
+    </ul>
+    <p>
+      <strong>Why mobile matters here.</strong> A phone provides exactly what rescue coordination needs and a laptop
+      cannot: it is <strong>carried on the person</strong>, it has a <strong>high-accuracy GPS</strong>, and it can
+      stay connected while moving. The mobile app therefore streams the continuous <code>presence_location</code>
+      fixes and participates in tracking rooms just like the web client, giving rescuers a live, moving marker to
+      follow. Because the real-time engine (§4.3) is transport- and client-agnostic, adding the mobile client
+      required no change to the coordination logic — only a new consumer of the existing socket protocol.
+    </p>
+    <blockquote class="note">
+      <strong>Note.</strong> The native mobile application is maintained in its own repository; this document (and
+      this monorepo) covers the backend and web platform. The sections above describe how the mobile client
+      integrates rather than its internal implementation.
+    </blockquote>
+
+    <hr />
+
+    <!-- ── 4.6 ── -->
+    <h2 id="s46"><span class="num">4.6</span>Security and data protection</h2>
+    <p>Security is layered across authentication, authorization, transport, input handling, and secret management.</p>
+
+    <p><strong>Credentials and identity.</strong></p>
+    <ul>
+      <li>Passwords are hashed with <strong>bcrypt</strong> (salted, per-user) and never stored or logged in
+        plaintext; login verifies via constant-time <code>bcrypt.compare</code>.</li>
+      <li>Sessions are <strong>stateless JWTs</strong> signed with a server-side <code>JWT_SECRET</code>, carrying
+        only <code>{ id, phone_number, role }</code> and expiring after <strong>7 days</strong>. The same secret
+        guards both REST and WebSocket handshakes, so an unauthenticated socket is closed immediately (codes
+        <code>4001</code>/<code>4002</code>).</li>
+      <li>Privileged registration (<code>rescuer</code> / <code>admin</code>) requires an additional shared
+        <strong>role password</strong>, preventing self-elevation.</li>
+    </ul>
+    <p>
+      <strong>Authorization in depth.</strong> Every protected endpoint runs <code>authMiddleware</code>, and
+      sensitive ones add <code>requireAdmin</code> / <code>requireRoles([...])</code>. Critically, authorization is
+      <strong>also enforced in SQL</strong>: mutating queries embed ownership predicates in their <code>WHERE</code>
+      clause (e.g. <code>assigned_to = $1</code>, <code>status = 'in_progress'</code>), so a valid token still cannot
+      act on a resource the user doesn't own, and the check is atomic with the write.
+    </p>
+    <p><strong>Transport and origin control.</strong></p>
+    <ul>
+      <li>All production traffic is <strong>HTTPS/WSS</strong> (TLS terminated by Vercel and Render);
+        <code>db.js</code> auto-enables SSL to the Neon database and Upstash uses <code>rediss://</code>.</li>
+      <li>A <strong>hardcoded CORS allowlist</strong> restricts browser origins to the known frontends; the
+        development-only LAN regex is gated behind <code>NODE_ENV !== "production"</code>.</li>
+    </ul>
+    <p>
+      <strong>Abuse resistance.</strong> An in-memory <strong>rate limiter</strong> throttles the endpoints most
+      attractive to attackers — login, registration, forgot-password, and admin broadcasts — and SMS OTP requests
+      are rate-limited per phone number to blunt brute-force and toll-fraud attempts.
+    </p>
+    <p>
+      <strong>Input handling and injection safety.</strong> All database access uses <strong>parameterised
+      queries</strong> (<code>pg</code> placeholders <code>$1, $2, …</code>) — never string concatenation — so the
+      data layer is structurally resistant to SQL injection. Image uploads go through <code>multer</code> into memory
+      and are handed to <strong>Cloudinary</strong> rather than written to the app server's disk, and the API
+      validates required fields before persisting.
+    </p>
+    <p><strong>Data minimisation and privacy.</strong></p>
+    <ul>
+      <li><strong>Live GPS is transient by design.</strong> Continuous fixes live only in Redis with a
+        <strong>60-second TTL</strong> and are deleted on disconnect; PostgreSQL retains just the first/last position
+        of a tracking session. The platform therefore does not accumulate a fine-grained movement history of its
+        users.</li>
+      <li>The JWT and <code>req.user</code> carry the <strong>minimum</strong> identity needed; richer profile data
+        is fetched from <code>users</code> only when a handler actually requires it.</li>
+      <li><code>email</code> is optional, and all transactional mail (Resend) is <strong>fire-and-forget</strong> and
+        no-ops silently when a recipient has no address — a mail failure can never block or leak a rescue action.</li>
+    </ul>
+    <p>
+      <strong>Secret management.</strong> No credential is committed to the repository. Every secret is an
+      environment variable on the hosting platform (Render/Vercel), read at runtime via <code>process.env</code>;
+      frontend variables are <code>VITE_</code>-prefixed and contain <strong>no</strong> secrets, since anything
+      shipped to the browser is public.
+    </p>
+    <p>
+      <strong>Auditability.</strong> Security- and safety-relevant actions are recorded: every SOS status transition
+      is appended to <code>rescue_request_logs</code> with the actor and timestamp, giving a tamper-evident trail of
+      who did what during an incident.
+    </p>
+
+    <div class="footer">
+      AquaGuard — Chapter 4: System Architecture and Tech Flow · Generated from the project source.
+    </div>
+  </main>
+</div>
+</body>
+</html>

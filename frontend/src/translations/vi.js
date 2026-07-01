@@ -854,6 +854,35 @@ const vi = {
     timeDayAgo: "{n} ngày trước",
   },
 
+  // ── Gọi thoại / video (WebRTC) ──
+  call: {
+    voiceCall: "Gọi thoại",
+    videoCall: "Gọi video",
+    unknownPeer: "Không rõ",
+    calling: "Đang gọi…",
+    ringing: "Đang đổ chuông…",
+    incomingVoice: "Cuộc gọi thoại đến",
+    incomingVideo: "Cuộc gọi video đến",
+    connecting: "Đang kết nối…",
+    ended: "Đã kết thúc",
+    answer: "Nghe máy",
+    reject: "Từ chối",
+    cancel: "Hủy",
+    hangup: "Kết thúc",
+    mute: "Tắt mic",
+    unmute: "Bật mic",
+    reason: {
+      rejected: "Cuộc gọi bị từ chối",
+      unavailable: "Không thể kết nối",
+      offline: "Người được gọi không trực tuyến",
+      inactive: "Chỉ gọi được khi nhiệm vụ đang thực hiện",
+      no_peer: "Chưa có đội cứu hộ nhận nhiệm vụ",
+      mic_denied: "Cần cấp quyền micro để gọi",
+      peer_hangup: "Đối phương đã kết thúc",
+      error: "Cuộc gọi gặp sự cố",
+    },
+  },
+
   // ── Bản đồ theo dõi cứu hộ ──
   trackingMap: {
     title: "Theo dõi cứu hộ",

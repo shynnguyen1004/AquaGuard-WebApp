@@ -854,6 +854,35 @@ const en = {
     timeDayAgo: "{n} d ago",
   },
 
+  // ── Voice / video calling (WebRTC) ──
+  call: {
+    voiceCall: "Voice call",
+    videoCall: "Video call",
+    unknownPeer: "Unknown",
+    calling: "Calling…",
+    ringing: "Ringing…",
+    incomingVoice: "Incoming voice call",
+    incomingVideo: "Incoming video call",
+    connecting: "Connecting…",
+    ended: "Call ended",
+    answer: "Answer",
+    reject: "Decline",
+    cancel: "Cancel",
+    hangup: "End call",
+    mute: "Mute",
+    unmute: "Unmute",
+    reason: {
+      rejected: "Call declined",
+      unavailable: "Couldn't connect",
+      offline: "The other person is offline",
+      inactive: "Calls are only available during an active mission",
+      no_peer: "No rescuer has taken the mission yet",
+      mic_denied: "Microphone access is required to call",
+      peer_hangup: "The other person hung up",
+      error: "The call ran into a problem",
+    },
+  },
+
   // ── Rescue Tracking Map ──
   trackingMap: {
     title: "Rescue Tracking",
