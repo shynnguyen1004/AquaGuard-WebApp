@@ -62,6 +62,7 @@ app.use("/api/auth/register", authRegisterLimiter);
 app.use("/api/auth/forgot-password", rateLimit({ windowMs: 15 * 60 * 1000, max: 5 }));
 // Limit admin broadcasts (in-memory, per-IP)
 app.use("/api/notifications/admin/send", rateLimit({ windowMs: 60 * 1000, max: 20, message: "Too many notifications sent. Please slow down." }));
+app.use("/api/notifications/admin/flood-alert", rateLimit({ windowMs: 60 * 1000, max: 10, message: "Too many flood alerts sent. Please slow down." }));
 app.use("/api/auth", authRoutes);
 app.use("/api/sos", sosRoutes);
 app.use("/api/family", familyRoutes);

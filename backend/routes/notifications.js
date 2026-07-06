@@ -2,8 +2,35 @@ const express = require("express");
 const pool = require("../db");
 const { authMiddleware, requireAdmin } = require("../middleware/auth");
 const { createNotification, createNotificationsForUsers } = require("../utils/notifications");
+const { sendNotificationEmail } = require("../utils/email");
 
 const router = express.Router();
+
+// Vietnamese labels for flood severity (matches the admin flood-map editor).
+const SEVERITY_VI = {
+  critical: "nghiêm trọng",
+  severe: "nặng",
+  moderate: "trung bình",
+  low: "thấp",
+  safe: "an toàn",
+};
+
+/**
+ * Fire-and-forget email broadcast for a flood alert. Sent sequentially with a
+ * small gap to respect Resend's rate limits; never awaited by the request path.
+ * sendNotificationEmail already swallows its own errors (returns { ok }).
+ */
+async function broadcastFloodEmails(recipients, heading, message) {
+  for (const u of recipients) {
+    await sendNotificationEmail({
+      to: u.email,
+      displayName: u.display_name,
+      heading,
+      message,
+    });
+    await new Promise((r) => setTimeout(r, 300)); // ~3 emails/sec
+  }
+}
 
 // ──────────────────────────────────────────────
 // GET /api/notifications
@@ -150,6 +177,67 @@ router.post("/admin/send", authMiddleware, requireAdmin, async (req, res) => {
     return res.json({ success: true, sentCount });
   } catch (err) {
     console.error("Admin send notification error:", err);
+    return res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+});
+
+// ──────────────────────────────────────────────
+// POST /api/notifications/admin/flood-alert — cảnh báo vùng lũ mới tới TẤT CẢ user
+// Body: { name, severity?, waterLevel?, location?: { lat, lng } }
+// Tạo in-app cho toàn bộ user + gửi email cho ai có email (throttled, nền).
+// ──────────────────────────────────────────────
+router.post("/admin/flood-alert", authMiddleware, requireAdmin, async (req, res) => {
+  try {
+    const { name, severity = "low", waterLevel, location } = req.body || {};
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, message: "Thiếu tên vùng lũ" });
+    }
+
+    const zoneName = name.trim();
+    const severityLabel = SEVERITY_VI[severity] || severity;
+    const level = Number(waterLevel);
+    const title = `⚠️ Cảnh báo lũ mới: ${zoneName}`;
+    const body = [
+      `Khu vực "${zoneName}" vừa được ghi nhận nguy cơ lũ ở mức ${severityLabel}.`,
+      Number.isFinite(level) && level > 0 ? `Mực nước ghi nhận khoảng ${level} m.` : "",
+      "Vui lòng theo dõi bản đồ lũ và giữ an toàn.",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    const metadata = {
+      senderRole: "admin",
+      kind: "flood_zone",
+      severity,
+      waterLevel: Number.isFinite(level) ? level : 0,
+      location:
+        location && Number.isFinite(Number(location.lat)) && Number.isFinite(Number(location.lng))
+          ? { lat: Number(location.lat), lng: Number(location.lng) }
+          : null,
+    };
+
+    // In-app cho toàn bộ user đang hoạt động (bulk, nhanh)
+    const usersRes = await pool.query(
+      `SELECT id, email, display_name FROM users WHERE is_active = TRUE`
+    );
+    const allUsers = usersRes.rows;
+    const ids = allUsers.map((u) => u.id);
+    const sentCount = await createNotificationsForUsers(ids, {
+      type: "flood_alert",
+      title,
+      body,
+      metadata,
+    });
+
+    // Email cho những user có email — nền, không await (không chặn response)
+    const recipients = allUsers.filter((u) => u.email && u.email.trim());
+    broadcastFloodEmails(recipients, title, body).catch((e) =>
+      console.error("[FloodAlert] email broadcast error:", e.message)
+    );
+
+    return res.json({ success: true, sentCount, emailQueued: recipients.length });
+  } catch (err) {
+    console.error("Flood alert broadcast error:", err);
     return res.status(500).json({ success: false, message: "Lỗi server" });
   }
 });

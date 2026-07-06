@@ -378,6 +378,10 @@ const vi = {
     // Trang admin gửi thông báo
     sendTitle: "Gửi thông báo",
     sendSubtitle: "Gửi thông báo tới toàn bộ người dùng hoặc một người cụ thể.",
+    tabSend: "Gửi thông báo",
+    tabFloodMap: "Bản đồ lũ",
+    floodMapTitle: "Bản đồ lũ",
+    floodMapSubtitle: "Quản lý vùng lũ; tạo vùng mới sẽ gửi cảnh báo tới toàn bộ người dùng.",
     recipients: "Đối tượng nhận",
     targetAll: "Tất cả người dùng",
     targetAllDesc: "Gửi cho toàn bộ người dùng trong hệ thống.",

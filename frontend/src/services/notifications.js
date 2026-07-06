@@ -10,4 +10,7 @@ export const notificationService = {
   remove: (id) => api.delete(`/notifications/${id}`),
   // Admin gửi thông báo. payload: { target, userId?, role?, title, body, type? }
   adminSend: (payload) => api.post("/notifications/admin/send", payload),
+  // Admin cảnh báo vùng lũ mới tới toàn bộ user (in-app + email).
+  // payload: { name, severity, waterLevel, location: { lat, lng } }
+  floodAlert: (payload) => api.post("/notifications/admin/flood-alert", payload),
 };

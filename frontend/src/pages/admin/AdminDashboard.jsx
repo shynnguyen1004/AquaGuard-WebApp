@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { ROLES, getRoleLabel, getRoleBadgeClasses } from "../../config/rbac";
 import { useAuth } from "../../contexts/AuthContext";
-import AdminFloodMapEditor from "../../components/map/AdminFloodMapEditor";
 import SystemAnalytics from "./SystemAnalytics";
 import NotificationBell from "../../components/notifications/NotificationBell";
 import { getStoredToken } from "../../utils/authStorage";
@@ -12,7 +11,6 @@ const TABS = [
   { key: "overview", label: "Overview", icon: "dashboard" },
   { key: "users", label: "User Management", icon: "group" },
   { key: "rescuers", label: "Rescue Teams", icon: "local_fire_department" },
-  { key: "map", label: "Flood Map", icon: "map" },
 ];
 
 // Map sidebar page names to internal tab keys
@@ -867,18 +865,6 @@ export default function AdminDashboard({ activePage = "admin" }) {
                 ))}
               </div>
             )}
-          </div>
-        )}
-
-        {activeTab === "map" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-bold">Live Flood Map Editor</h2>
-                <p className="text-xs text-slate-500">Manage flood zones and severity levels across the region</p>
-              </div>
-            </div>
-            <AdminFloodMapEditor />
           </div>
         )}
 

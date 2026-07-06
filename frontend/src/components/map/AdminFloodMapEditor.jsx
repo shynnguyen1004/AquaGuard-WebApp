@@ -4,6 +4,8 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from "firebase/firestore";
 import { getFirebaseDb } from "../../config/firebase";
+import { useToast } from "../common/Toast";
+import { notificationService } from "../../services/notifications";
 
 const WINDY_API_KEY = import.meta.env.VITE_WINDY_API_KEY || "";
 
@@ -47,10 +49,13 @@ const severityMap = {
 };
 
 export default function AdminFloodMapEditor() {
+  const { showToast } = useToast();
   const [markers, setMarkers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newMarkerPos, setNewMarkerPos] = useState(null);
   const [editingMarker, setEditingMarker] = useState(null);
+  const [notifyOnCreate, setNotifyOnCreate] = useState(true);
+  const [creating, setCreating] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     severity: "low",
@@ -99,8 +104,9 @@ export default function AdminFloodMapEditor() {
 
   const handleCreateZone = async (e) => {
     e.preventDefault();
-    if (!newMarkerPos) return;
+    if (!newMarkerPos || creating) return;
 
+    setCreating(true);
     try {
       const db = getFirebaseDb();
       await addDoc(collection(db, "flood_zones"), {
@@ -114,8 +120,37 @@ export default function AdminFloodMapEditor() {
         updatedAt: new Date().toISOString(),
       });
       setNewMarkerPos(null);
+
+      // Broadcast a flood alert to every user (in-app + email) on creation.
+      if (notifyOnCreate) {
+        try {
+          const res = await notificationService.floodAlert({
+            name: formData.name,
+            severity: formData.severity,
+            waterLevel: parseFloat(formData.water_level),
+            location: { lat: newMarkerPos.lat, lng: newMarkerPos.lng },
+          });
+          if (res?.success) {
+            showToast(
+              `Đã tạo vùng lũ và gửi cảnh báo tới ${res.sentCount ?? 0} người dùng` +
+                (res.emailQueued ? ` (email tới ${res.emailQueued} người)` : ""),
+              "success"
+            );
+          } else {
+            showToast("Đã tạo vùng lũ, nhưng gửi cảnh báo thất bại.", "error");
+          }
+        } catch (notifyErr) {
+          console.error("Flood alert failed:", notifyErr);
+          showToast("Đã tạo vùng lũ, nhưng gửi cảnh báo thất bại.", "error");
+        }
+      } else {
+        showToast("Đã tạo vùng lũ mới.", "success");
+      }
     } catch (err) {
       console.error("Error creating flood zone:", err);
+      showToast("Không thể tạo vùng lũ. Vui lòng thử lại.", "error");
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -209,13 +244,35 @@ export default function AdminFloodMapEditor() {
               />
             </div>
 
+            {!editingMarker && (
+              <label className="flex items-start gap-2.5 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={notifyOnCreate}
+                  onChange={(e) => setNotifyOnCreate(e.target.checked)}
+                  className="mt-0.5 size-4 rounded accent-primary cursor-pointer"
+                />
+                <span className="min-w-0">
+                  <span className="block text-xs font-bold text-slate-700 dark:text-slate-200">
+                    Thông báo cho toàn bộ người dùng
+                  </span>
+                  <span className="block text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Gửi thông báo trong ứng dụng và email đến tất cả người dùng.
+                  </span>
+                </span>
+              </label>
+            )}
+
             <div className="pt-2 space-y-2">
               <button
                 type="submit"
-                className="w-full bg-primary text-white font-bold py-3 rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
+                disabled={creating}
+                className="w-full bg-primary text-white font-bold py-3 rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <span className="material-symbols-outlined text-sm">{editingMarker ? "save" : "add_location"}</span>
-                {editingMarker ? "Update Zone" : "Create Zone"}
+                <span className={`material-symbols-outlined text-sm ${creating ? "animate-spin" : ""}`}>
+                  {creating ? "progress_activity" : editingMarker ? "save" : "add_location"}
+                </span>
+                {editingMarker ? "Update Zone" : creating ? "Đang tạo..." : "Create Zone"}
               </button>
               
               {editingMarker && (

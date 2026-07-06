@@ -378,6 +378,10 @@ const en = {
     // Admin send page
     sendTitle: "Send Notification",
     sendSubtitle: "Send a notification to all users or a specific user.",
+    tabSend: "Send Notification",
+    tabFloodMap: "Flood Map",
+    floodMapTitle: "Flood Map",
+    floodMapSubtitle: "Manage flood zones; creating a new zone alerts every user.",
     recipients: "Recipients",
     targetAll: "All users",
     targetAllDesc: "Send to every user in the system.",
