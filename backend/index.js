@@ -14,6 +14,7 @@ const analyticsRoutes = require("./routes/analytics");
 const locationRoutes = require("./routes/locations");
 const notificationRoutes = require("./routes/notifications");
 const rtcRoutes = require("./routes/rtc");
+const exportRoutes = require("./routes/export");
 const { rateLimit } = require("./middleware/rateLimit");
 
 const app = express();
@@ -63,6 +64,8 @@ app.use("/api/auth/forgot-password", rateLimit({ windowMs: 15 * 60 * 1000, max: 
 // Limit admin broadcasts (in-memory, per-IP)
 app.use("/api/notifications/admin/send", rateLimit({ windowMs: 60 * 1000, max: 20, message: "Too many notifications sent. Please slow down." }));
 app.use("/api/notifications/admin/flood-alert", rateLimit({ windowMs: 60 * 1000, max: 10, message: "Too many flood alerts sent. Please slow down." }));
+// Limit admin data exports (can be heavy queries)
+app.use("/api/export", rateLimit({ windowMs: 60 * 1000, max: 60, message: "Too many export requests. Please slow down." }));
 app.use("/api/auth", authRoutes);
 app.use("/api/sos", sosRoutes);
 app.use("/api/family", familyRoutes);
@@ -70,6 +73,7 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/locations", locationRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/rtc", rtcRoutes);
+app.use("/api/export", exportRoutes);
 
 // ── Health check ──
 app.get("/api/health", (req, res) => {

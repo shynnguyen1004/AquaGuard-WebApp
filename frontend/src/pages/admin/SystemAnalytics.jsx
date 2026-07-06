@@ -4,6 +4,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
 import { getStoredToken } from "../../utils/authStorage";
+import DataExportPanel from "./DataExportPanel";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
@@ -168,6 +169,7 @@ export default function SystemAnalytics() {
   const [rescueData, setRescueData] = useState(DEFAULT_RESCUE_DATA);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [view, setView] = useState("analytics"); // analytics | export
 
   const fetchAll = useCallback(async () => {
     const token = getStoredToken();
@@ -271,16 +273,43 @@ export default function SystemAnalytics() {
               Comprehensive overview of system performance and user activity
             </p>
           </div>
-          <button
-            onClick={fetchAll}
-            disabled={loading}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
-          >
-            <span className={`material-symbols-outlined text-base ${loading ? "animate-spin" : ""}`}>refresh</span>
-            Refresh
-          </button>
+          {view === "analytics" && (
+            <button
+              onClick={fetchAll}
+              disabled={loading}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+            >
+              <span className={`material-symbols-outlined text-base ${loading ? "animate-spin" : ""}`}>refresh</span>
+              Refresh
+            </button>
+          )}
         </div>
 
+        {/* Sub-tabs */}
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {[
+            { key: "analytics", icon: "monitoring", label: "Analytics" },
+            { key: "export", icon: "download", label: "Data Export" },
+          ].map((tb) => (
+            <button
+              key={tb.key}
+              onClick={() => setView(tb.key)}
+              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
+                view === tb.key
+                  ? "bg-primary text-white shadow-md shadow-primary/20"
+                  : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:border-primary/30 hover:text-primary"
+              }`}
+            >
+              <span className="material-symbols-outlined text-base">{tb.icon}</span>
+              {tb.label}
+            </button>
+          ))}
+        </div>
+
+        {view === "export" && <DataExportPanel />}
+
+        {view === "analytics" && (
+        <>
         {error && (
           <div className="bg-danger/10 border border-danger/20 rounded-xl p-4 text-sm text-danger font-medium flex items-center gap-2">
             <span className="material-symbols-outlined text-base">error</span>
@@ -528,6 +557,8 @@ export default function SystemAnalytics() {
               </ChartCard>
             </div>
           </>
+        )}
+        </>
         )}
       </div>
     </div>
