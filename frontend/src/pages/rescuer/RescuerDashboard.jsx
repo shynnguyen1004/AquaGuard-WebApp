@@ -4,6 +4,7 @@ import { useLanguage } from "../../contexts/LanguageContext";
 import RescueTrackingMap from "../../components/rescue/RescueTrackingMap";
 import StatusPills from "../../components/rescue/StatusPills";
 import NotificationBell from "../../components/notifications/NotificationBell";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { getStoredToken } from "../../utils/authStorage";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
@@ -244,6 +245,8 @@ export default function RescuerDashboard() {
   const [trackingRequest, setTrackingRequest] = useState(null);
   const [selectedRequestId, setSelectedRequestId] = useState(null);
   const [seenRequestIds, setSeenRequestIds] = useState([]);
+  const [confirmCompleteId, setConfirmCompleteId] = useState(null); // pending complete → confirm dialog
+  const [completing, setCompleting] = useState(false);
 
 
   const fetchGroupContext = async () => {
@@ -393,8 +396,13 @@ export default function RescuerDashboard() {
     performAccept(requestId);
   };
 
-  const handleComplete = async (requestId) => {
+  // Open the confirmation dialog — a rescuer must confirm before a mission is
+  // marked complete (a single accidental click shouldn't finalize it).
+  const handleComplete = (requestId) => setConfirmCompleteId(requestId);
+
+  const performComplete = async (requestId) => {
     const token = getStoredToken();
+    setCompleting(true);
     try {
       const res = await fetch(`${API_BASE}/sos/${requestId}/complete`, {
         method: "PUT",
@@ -413,6 +421,9 @@ export default function RescuerDashboard() {
       }
     } catch (err) {
       console.error("Failed to complete request:", err);
+    } finally {
+      setCompleting(false);
+      setConfirmCompleteId(null);
     }
   };
 
@@ -669,7 +680,18 @@ export default function RescuerDashboard() {
         />
       )}
 
-
+      <ConfirmDialog
+        open={confirmCompleteId != null}
+        tone="safe"
+        icon="check_circle"
+        title={t("rescueQueue.confirmCompleteTitle")}
+        message={t("rescueQueue.confirmCompleteMessage")}
+        confirmLabel={t("rescueQueue.complete")}
+        cancelLabel={t("rescueQueue.back")}
+        loading={completing}
+        onConfirm={() => performComplete(confirmCompleteId)}
+        onCancel={() => setConfirmCompleteId(null)}
+      />
     </div>
   );
 }

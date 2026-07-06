@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import RescueTrackingMap from "../components/rescue/RescueTrackingMap";
 import StatusPills from "../components/rescue/StatusPills";
+import ConfirmDialog from "../components/common/ConfirmDialog";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import { getStoredToken } from "../utils/authStorage";
@@ -357,6 +358,8 @@ export default function RescueRequestPage() {
   const [trackingRequest, setTrackingRequest] = useState(null);
   const [selectedRequestId, setSelectedRequestId] = useState(null);
   const [seenRequestIds, setSeenRequestIds] = useState([]);
+  const [confirmCompleteId, setConfirmCompleteId] = useState(null); // pending complete → confirm dialog
+  const [completing, setCompleting] = useState(false);
   const [acceptError, setAcceptError] = useState("");
   const [cityByRequestId, setCityByRequestId] = useState({});
   const sortMenuRef = useRef(null);
@@ -554,8 +557,13 @@ export default function RescueRequestPage() {
     performAccept(requestId);
   };
 
-  const handleComplete = async (requestId) => {
+  // Open the confirmation dialog — completing a mission is final, so require an
+  // explicit second confirmation to guard against an accidental click.
+  const handleComplete = (requestId) => setConfirmCompleteId(requestId);
+
+  const performComplete = async (requestId) => {
     const token = getStoredToken();
+    setCompleting(true);
     try {
       const res = await fetch(`${API_BASE}/sos/${requestId}/complete`, {
         method: "PUT",
@@ -572,6 +580,9 @@ export default function RescueRequestPage() {
       }
     } catch (err) {
       console.error("Failed to complete:", err);
+    } finally {
+      setCompleting(false);
+      setConfirmCompleteId(null);
     }
   };
 
@@ -1044,7 +1055,18 @@ export default function RescueRequestPage() {
         />
       )}
 
-
+      <ConfirmDialog
+        open={confirmCompleteId != null}
+        tone="safe"
+        icon="check_circle"
+        title={t("rescueQueue.confirmCompleteTitle")}
+        message={t("rescueQueue.confirmCompleteMessage")}
+        confirmLabel={t("rescueQueue.complete")}
+        cancelLabel={t("rescueQueue.back")}
+        loading={completing}
+        onConfirm={() => performComplete(confirmCompleteId)}
+        onCancel={() => setConfirmCompleteId(null)}
+      />
     </div>
   );
 }
