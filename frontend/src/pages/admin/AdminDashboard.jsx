@@ -234,6 +234,77 @@ function RoleUserTable({
   );
 }
 
+const MEMBER_ROLE_STYLE = {
+  leader:    { label: "Leader",    cls: "bg-warning/10 text-warning border-warning/20", icon: "military_tech" },
+  co_leader: { label: "Co-leader", cls: "bg-primary/10 text-primary border-primary/20", icon: "shield_person" },
+  member:    { label: "Member",    cls: "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-600", icon: "person" },
+};
+
+// A rescue team card that expands on click to reveal its members.
+function RescueTeamCard({ team, expanded, onToggle }) {
+  const members = Array.isArray(team.members) ? team.members : [];
+  const count = Number(team.member_count) || members.length;
+
+  return (
+    <div className="bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700/30 overflow-hidden">
+      <button
+        onClick={onToggle}
+        aria-expanded={expanded}
+        className="w-full flex items-center gap-3 p-4 text-left hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
+      >
+        <div className="size-11 rounded-xl bg-warning/10 flex items-center justify-center shrink-0">
+          <span className="material-symbols-outlined text-warning filled-icon">groups</span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-bold truncate">{team.name}</p>
+          <p className="text-xs text-slate-500 truncate">
+            {count} {count === 1 ? "member" : "members"}
+            {team.leader_name ? ` · Leader: ${team.leader_name}` : ""}
+          </p>
+        </div>
+        {team.created_at && (
+          <span className="hidden sm:block text-[10px] text-slate-400 shrink-0">
+            Since {new Date(team.created_at).toLocaleDateString()}
+          </span>
+        )}
+        <span className={`material-symbols-outlined text-slate-400 transition-transform ${expanded ? "rotate-180" : ""}`}>
+          expand_more
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="border-t border-slate-100 dark:border-slate-700/30 bg-slate-50/50 dark:bg-slate-900/20">
+          {members.length === 0 ? (
+            <p className="px-4 py-6 text-center text-sm text-slate-400">No members in this team</p>
+          ) : (
+            members.map((m) => {
+              const rs = MEMBER_ROLE_STYLE[m.memberRole] || MEMBER_ROLE_STYLE.member;
+              return (
+                <div key={m.id} className="flex items-center gap-3 px-4 py-3 border-b border-slate-100 dark:border-slate-700/20 last:border-0">
+                  <img
+                    alt={m.displayName}
+                    className="size-9 rounded-full border border-slate-200 dark:border-slate-600 object-cover shrink-0"
+                    src={m.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.displayName || "R")}&background=f59e0b&color=fff`}
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold truncate">{m.displayName || "Unknown"}</p>
+                    <p className="text-xs text-slate-500 truncate">{m.phoneNumber || ""}</p>
+                  </div>
+                  <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full border ${rs.cls}`}>
+                    <span className="material-symbols-outlined text-[12px]">{rs.icon}</span>
+                    {rs.label}
+                  </span>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminDashboard({ activePage = "admin" }) {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState(() => SIDEBAR_TO_TAB[activePage] || "overview");
@@ -244,6 +315,15 @@ export default function AdminDashboard({ activePage = "admin" }) {
   const [selectedGroupByRequest, setSelectedGroupByRequest] = useState({});
   const [completingRequestId, setCompletingRequestId] = useState(null);
   const [rescueGroups, setRescueGroups] = useState([]);
+  const [expandedTeams, setExpandedTeams] = useState(() => new Set()); // team ids expanded to show members
+
+  const toggleTeam = (id) => {
+    setExpandedTeams((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   // ── User Management: selection + sorting + delete ──
   const [selectedIds, setSelectedIds] = useState(() => new Set());
@@ -480,7 +560,6 @@ export default function AdminDashboard({ activePage = "admin" }) {
   const adminUsers = users.filter((u) => u.role === ROLES.ADMIN);
   const rescuerUsers = users.filter((u) => u.role === ROLES.RESCUER);
   const citizenUsers = users.filter((u) => (u.role || ROLES.CITIZEN) === ROLES.CITIZEN);
-  const rescuers = users.filter((u) => u.role === ROLES.RESCUER);
 
   const userRoleSections = [
     { key: "admins", title: "Admins", icon: "admin_panel_settings", colorClass: "text-danger", users: adminUsers },
@@ -691,41 +770,34 @@ export default function AdminDashboard({ activePage = "admin" }) {
 
         {activeTab === "rescuers" && (
           <div className="space-y-4">
-            <h2 className="text-lg font-bold">Rescue Teams ({rescuers.length})</h2>
-            {rescuers.length === 0 ? (
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold">Rescue Teams ({rescueGroups.length})</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Click a team to view its members</p>
+              </div>
+              <button
+                onClick={fetchRescueGroups}
+                className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80"
+              >
+                <span className="material-symbols-outlined text-base">refresh</span>
+                Refresh
+              </button>
+            </div>
+            {rescueGroups.length === 0 ? (
               <div className="text-center py-12">
-                <span className="material-symbols-outlined text-5xl text-slate-300 dark:text-slate-600">local_fire_department</span>
-                <p className="text-sm text-slate-400 mt-2">No rescuers registered yet</p>
-                <p className="text-xs text-slate-400 mt-1">Assign the Rescuer role to users from the Users tab</p>
+                <span className="material-symbols-outlined text-5xl text-slate-300 dark:text-slate-600">groups</span>
+                <p className="text-sm text-slate-400 mt-2">No rescue teams created yet</p>
+                <p className="text-xs text-slate-400 mt-1">Rescuers create teams from their Rescuer Team page</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {rescuers.map((r) => (
-                  <div key={r.id} className="bg-white dark:bg-slate-800/50 rounded-2xl p-5 border border-slate-100 dark:border-slate-700/30">
-                    <div className="flex items-center gap-3 mb-3">
-                      <img
-                        alt={r.displayName}
-                        className="size-12 rounded-full border-2 border-warning/30 object-cover"
-                        src={r.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(r.displayName || "R")}&background=f59e0b&color=fff`}
-                        referrerPolicy="no-referrer"
-                      />
-                      <div>
-                        <p className="font-bold">{r.displayName || "Unknown"}</p>
-                        <p className="text-xs text-slate-500">{r.phoneNumber || r.email || ""}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full border bg-warning/10 text-warning border-warning/20">
-                        <span className="material-symbols-outlined text-[12px]">local_fire_department</span>
-                        Rescuer
-                      </span>
-                      {r.createdAt && (
-                        <span className="text-[10px] text-slate-400">
-                          Since {new Date(r.createdAt).toLocaleDateString()}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+              <div className="space-y-3">
+                {rescueGroups.map((team) => (
+                  <RescueTeamCard
+                    key={team.id}
+                    team={team}
+                    expanded={expandedTeams.has(team.id)}
+                    onToggle={() => toggleTeam(team.id)}
+                  />
                 ))}
               </div>
             )}

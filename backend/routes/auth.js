@@ -510,7 +510,25 @@ router.get("/rescue-groups/all", authMiddleware, requireAdmin, async (req, res) 
          g.created_at,
          COUNT(m.id) FILTER (WHERE m.join_status = 'active') AS member_count,
          leader_u.display_name AS leader_name,
-         leader_m.user_id AS leader_id
+         leader_m.user_id AS leader_id,
+         COALESCE((
+           SELECT json_agg(
+                    json_build_object(
+                      'id', mu.id,
+                      'displayName', mu.display_name,
+                      'phoneNumber', mu.phone_number,
+                      'avatarUrl', mu.avatar_url,
+                      'memberRole', mem.member_role,
+                      'joinedAt', mem.joined_at
+                    )
+                    ORDER BY (mem.member_role = 'leader') DESC,
+                             (mem.member_role = 'co_leader') DESC,
+                             mu.display_name
+                  )
+           FROM rescue_group_members mem
+           JOIN users mu ON mu.id = mem.user_id
+           WHERE mem.group_id = g.id AND mem.join_status = 'active'
+         ), '[]') AS members
        FROM rescue_groups g
        LEFT JOIN rescue_group_members m ON m.group_id = g.id
        LEFT JOIN rescue_group_members leader_m
