@@ -36,69 +36,69 @@ A full **Role-Based Access Control** system powers three distinct user experienc
 
 - **🛡️ Admin Dashboard:** Full-system overview with a live **Flood Map Editor**, user management panel, rescue team tracker, stats overview, and real-time SOS request monitoring. Admins can create, edit, and delete flood zones directly on the map.
 - **⛑️ Rescuer Dashboard:** Mission-focused interface with an active rescue requests feed, mission acceptance workflow (`Pending → Assigned → In Progress → Resolved`), and personal mission history. Real-time updates via auto-refresh every 10 seconds.
-- **🏘️ Citizen Dashboard:** Full-featured emergency management interface — detailed below in [Citizen Features](#-citizen-features--chi-tiết-tính-năng-citizen).
+- **🏘️ Citizen Dashboard:** Full-featured emergency management interface — detailed below in [Citizen Features](#-citizen-features).
 
-### 🏘️ Citizen Features — Chi tiết tính năng Citizen
+### 🏘️ Citizen Features
 
-#### 🏠 Dashboard Trang chủ
-- **Cá nhân hóa:** Hiển thị tên người dùng, trạng thái an toàn cá nhân (An toàn / Nguy hiểm / Bị thương).
-- **Active SOS Banner:** Banner nổi bật hiển thị yêu cầu SOS đang hoạt động (nếu có), với trạng thái real-time (Pending → Assigned → In Progress), tên nhân viên cứu hộ đã nhận, và thời gian gửi. Nhấn vào để chuyển ngay đến trang SOS.
-- **Family Safety Board:** Bảng an toàn gia đình — hiển thị danh sách người thân đã kết nối, trạng thái an toàn (An toàn ✅ / Nguy hiểm 🔴 / Bị thương 🟠), ghi chú sức khỏe, thời gian cập nhật cuối. Tự động refresh mỗi 30 giây.
-- **Pending Family Invites:** Thông báo lời mời kết nối gia đình — chấp nhận hoặc từ chối với 1 nút bấm.
-- **Quick Actions:** 3 nút hành động nhanh — Gửi SOS, Kiểm tra gia đình, Xem bản đồ lũ.
-- **SOS Request History:** Lịch sử 5 yêu cầu SOS gần nhất đã hoàn thành/hủy, với thông tin vị trí, mức độ khẩn cấp, và người cứu hộ.
+#### 🏠 Dashboard (Home)
+- **Personalization:** Displays the user's name and personal safety status (Safe / In Danger / Injured).
+- **Active SOS Banner:** A prominent banner showing your active SOS request (if any), with real-time status (Pending → Assigned → In Progress), the name of the rescuer who accepted it, and the submission time. Tap it to jump straight to the SOS page.
+- **Family Safety Board:** Shows your connected family members, their safety status (Safe ✅ / In Danger 🔴 / Injured 🟠), health notes, and last update time. Auto-refreshes every 30 seconds.
+- **Pending Family Invites:** Family connection invite notifications — accept or decline with a single tap.
+- **Quick Actions:** 3 quick-action buttons — Send SOS, Check Family, View Flood Map.
+- **SOS Request History:** The 5 most recent completed/cancelled SOS requests, with location, urgency level, and rescuer info.
 
-#### 🆘 Trang SOS (Citizen SOS Page)
-- **Gửi SOS mới:** Form đầy đủ với tự động bắt GPS, reverse geocoding (Google Maps + Nominatim fallback), mô tả tình huống, chọn mức độ khẩn cấp (Thấp / Trung bình / Cao / Nghiêm trọng), và tải ảnh hiện trường (tối đa 5 ảnh với drag-and-drop).
-- **Danh sách yêu cầu của tôi:** Hiển thị tất cả yêu cầu SOS của bạn với trạng thái real-time, tự động refresh mỗi 10 giây.
-- **Theo dõi trạng thái:** Mỗi yêu cầu hiển thị: trạng thái (Đang chờ → Đã phân công → Đang cứu hộ → Hoàn thành), tên nhân viên cứu hộ, tên đội cứu hộ (nếu nhận theo nhóm), hình ảnh đính kèm, và thông báo nếu đã bị rescuer trả lại.
-- **🗺️ Rescue Tracking Map (Bản đồ theo dõi cứu hộ):** Khi yêu cầu đang được xử lý (`in_progress`), citizen có thể mở bản đồ toàn màn hình để:
-  - Xem vị trí của mình (marker đỏ) và vị trí rescuer (marker xanh) trên bản đồ real-time.
-  - Xem đường đi (route) từ rescuer đến citizen qua OSRM API.
-  - Xem khoảng cách (km) và thời gian ước tính.
-  - Kết nối WebSocket real-time (Firebase Realtime DB) — vị trí cập nhật liên tục.
-  - Tự động thông báo khi nhiệm vụ hoàn thành hoặc bị hủy.
+#### 🆘 SOS Page (Citizen SOS Page)
+- **Submit a new SOS:** A full form with automatic GPS capture, reverse geocoding (Google Maps + Nominatim fallback), situation description, urgency level selection (Low / Medium / High / Critical), and scene photo upload (up to 5 images with drag-and-drop).
+- **My requests list:** Shows all your SOS requests with real-time status, auto-refreshing every 10 seconds.
+- **Status tracking:** Each request shows: status (Pending → Assigned → In Progress → Resolved), rescuer name, rescue team name (if accepted as a group), attached images, and a notice if it was returned by the rescuer.
+- **🗺️ Rescue Tracking Map:** When a request is being handled (`in_progress`), the citizen can open a full-screen map to:
+  - See their own location (red marker) and the rescuer's location (green marker) on a real-time map.
+  - See the route from the rescuer to the citizen via the OSRM API.
+  - See the distance (km) and estimated time.
+  - Connect over a real-time WebSocket (Firebase Realtime DB) — location updates continuously.
+  - Get an automatic notification when the mission is completed or cancelled.
 
-#### 🗺️ Live Flood Map (Bản đồ lũ trực tiếp)
-- Xem tất cả vùng ngập lụt trên bản đồ với 4 mức độ màu sắc (Tím / Đỏ / Vàng / Xanh).
-- **Precipitation Radar Overlay:** Radar mưa live từ RainViewer API, refresh mỗi 5 phút.
-- **Weather Layers:** Lớp gió, nhiệt độ, mây, áp suất từ OpenWeatherMap.
-- **VNDMS Tiles:** Bản đồ chính phủ Việt Nam — bao gồm Hoàng Sa và Trường Sa.
-- **Family Map:** Xem vị trí người thân trên bản đồ (nếu đã kết nối gia đình).
-- **Map Legend:** Chú giải nghiêm trọng và điều khiển bản đồ.
-- **Quick Actions Panel:** SOS nhanh, Tìm nơi trú ẩn, Kiểm tra gia đình — ngay trên bản đồ.
+#### 🗺️ Live Flood Map
+- View all flood zones on the map with 4 color-coded severity levels (Purple / Red / Amber / Green).
+- **Precipitation Radar Overlay:** Live rain radar from the RainViewer API, refreshing every 5 minutes.
+- **Weather Layers:** Wind, temperature, cloud, and pressure layers from OpenWeatherMap.
+- **VNDMS Tiles:** Vietnam government map tiles — including Hoàng Sa and Trường Sa.
+- **Family Map:** View your family members' locations on the map (if connected).
+- **Map Legend:** Severity legend and map controls.
+- **Quick Actions Panel:** Quick SOS, Find Shelter, Check Family — right on the map.
 
-#### 🛡️ Safety Protocols (Hướng dẫn an toàn)
-- **Emergency Contacts:** Gọi trực tiếp Cảnh sát (113), Cứu hỏa (114), Cấp cứu (115) — 1 chạm.
-- **Safety Guides:** 5 hướng dẫn chi tiết với nội dung mở rộng:
-  - 📦 Trước khi lũ đến (Chuẩn bị)
-  - 🏠 Trong khi lũ (Ứng phó khẩn cấp)
-  - 📝 Sau cơn lũ (Khắc phục)
-  - 🏃 Hướng dẫn sơ tán
-  - 🏥 Xử lý y tế khẩn cấp
-- **4G SOS SMS:** Đăng ký gói data khẩn cấp từ Viettel, Vinaphone, Mobifone — hoạt động khi không có internet.
+#### 🛡️ Safety Protocols
+- **Emergency Contacts:** Direct-dial Police (113), Fire (114), and Ambulance (115) — one tap.
+- **Safety Guides:** 5 detailed guides with expandable content:
+  - 📦 Before the flood (Preparation)
+  - 🏠 During the flood (Emergency response)
+  - 📝 After the flood (Recovery)
+  - 🏃 Evacuation guide
+  - 🏥 Emergency medical care
+- **4G SOS SMS:** Register emergency data packages from Viettel, Vinaphone, and Mobifone — works when there's no internet.
 
-#### 📰 News & Alerts (Tin tức & Cảnh báo)
-- **Flood News Feed:** Tin tức lũ lụt tổng hợp với hình ảnh, nguồn tin, nhãn loại bài (Nguy hiểm / Cảnh báo / Thông tin), và tóm tắt nội dung.
-- **Report Issue Form:** Form báo cáo vấn đề (Bug / Tính năng / Dữ liệu / Khác) với đính kèm file, drag-and-drop.
+#### 📰 News & Alerts
+- **Flood News Feed:** Aggregated flood news with images, sources, category labels (Danger / Warning / Info), and content summaries.
+- **Report Issue Form:** An issue report form (Bug / Feature / Data / Other) with file attachments and drag-and-drop.
 
-#### 👨‍👩‍👧‍👦 Family Safety (An toàn gia đình)
-- **Tìm người thân:** Tìm kiếm bằng số điện thoại, gửi lời mời kết nối với quan hệ (Bố, Mẹ, ...).
-- **Quản lý kết nối:** Chấp nhận/từ chối lời mời, xóa kết nối.
-- **Trạng thái an toàn:** Cập nhật trạng thái cá nhân (An toàn / Nguy hiểm / Bị thương / Chưa rõ) + ghi chú sức khỏe.
-- **Theo dõi gia đình:** Xem trạng thái an toàn, ghi chú sức khỏe, địa chỉ, thời gian cập nhật cuối của từng thành viên.
+#### 👨‍👩‍👧‍👦 Family Safety
+- **Find family members:** Search by phone number and send a connection invite with a relationship (Father, Mother, ...).
+- **Manage connections:** Accept/decline invites, remove connections.
+- **Safety status:** Update your personal status (Safe / In Danger / Injured / Unknown) + health notes.
+- **Family monitoring:** View each member's safety status, health notes, address, and last update time.
 
 #### 🤖 AI ChatBot
-- Trợ lý AI tích hợp sẵn (powered by Groq / Llama 3.3 70B) — hỗ trợ ngay lập tức về an toàn lũ lụt, hướng dẫn sử dụng app, và câu hỏi chung.
-- Quick replies có sẵn ("AquaGuard là gì?", "Phải làm gì khi lũ?", "Cách báo khẩn cấp?", ...).
-- Fallback thông minh khi mất kết nối API.
-- Hỗ trợ song ngữ Việt–Anh.
+- A built-in AI assistant (powered by Groq / Llama 3.3 70B) — provides instant help on flood safety, app usage, and general questions.
+- Built-in quick replies ("What is AquaGuard?", "What to do during a flood?", "How to report an emergency?", ...).
+- Smart fallback when the API connection is lost.
+- Bilingual support (Vietnamese–English).
 
-#### ⚙️ Settings (Cài đặt)
-- **Profile:** Cập nhật tên, email, liên hệ khẩn cấp, giới tính, ngày sinh (tự tính tuổi), địa chỉ (tự phát hiện GPS + reverse geocoding).
-- **Family:** Quản lý người thân (xem ở trên).
-- **Appearance:** Chọn giao diện Sáng / Tối / Theo hệ thống.
-- **Language:** Chuyển đổi Tiếng Việt ↔ English.
+#### ⚙️ Settings
+- **Profile:** Update name, email, emergency contact, gender, date of birth (auto-calculates age), and address (auto GPS detection + reverse geocoding).
+- **Family:** Manage family members (see above).
+- **Appearance:** Choose Light / Dark / System theme.
+- **Language:** Switch between Vietnamese ↔ English.
 
 ### 🗺️ Interactive Live Flood Map
 - **Real-time Flood Zones:** Flood severity visualized with 4 distinct color-coded map pins for immediate situational awareness:
@@ -218,7 +218,7 @@ AquaGuard Web
 
 ### 🐳 Quick Start with Docker (Recommended)
 
-Cách nhanh nhất để chạy dự án — chỉ cần **Docker Desktop** được cài sẵn.
+The fastest way to run the project — you only need **Docker Desktop** installed.
 
 ```bash
 # 1. Clone repo
@@ -229,33 +229,33 @@ cd AquaGuard-WebApp
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 
-# 3. Điền API keys vào backend/.env và frontend/.env (nhờ team lead cấp)
+# 3. Fill in API keys in backend/.env and frontend/.env (ask your team lead)
 
-# 4. Khởi chạy toàn bộ hệ thống (compose file nằm trong infrastructure/)
+# 4. Start the whole stack (the compose file lives in infrastructure/)
 docker compose -f infrastructure/docker-compose.yml up --build
 ```
 
-Sau khi chạy xong:
+Once it's up and running:
 - 🌐 **Frontend:** http://localhost:5173
 - 🔌 **Backend API:** http://localhost:5001/api/health
 - 🐘 **PostgreSQL:** localhost:5433 (user: `aquaguard`, pass: `aquaguard_pass`, db: `aquaguard_db`)
 
-> 📌 Database sẽ tự động được khởi tạo với schema và dữ liệu mẫu từ `infrastructure/database/init_db.sql`.
+> 📌 The database is automatically initialized with the schema and seed data from `infrastructure/database/init_db.sql`.
 
-Các lệnh Docker hữu ích (hoặc dùng `make -f infrastructure/Makefile <target>`):
+Useful Docker commands (or use `make -f infrastructure/Makefile <target>`):
 ```bash
 DC="docker compose -f infrastructure/docker-compose.yml"
 
-$DC down                       # Dừng toàn bộ services (giữ data)
-$DC logs -f backend            # Xem logs backend
-$DC down -v && $DC up --build  # Reset database (xoá data, chạy lại init_db.sql)
-$DC up postgres backend        # Chỉ chạy backend + database
+$DC down                       # Stop all services (keeps data)
+$DC logs -f backend            # View backend logs
+$DC down -v && $DC up --build  # Reset database (wipes data, re-runs init_db.sql)
+$DC up postgres backend        # Run only backend + database
 
-# Thêm 1 package npm cho backend → phải build lại & làm mới anonymous node_modules volume:
+# Add an npm package to the backend → must rebuild & renew the anonymous node_modules volume:
 $DC up -d --build --renew-anon-volumes backend
 ```
 
-> ⚠️ Backend chạy `node --watch` nên sửa file `.js` tự reload. Nhưng đổi `backend/.env` thì phải `up -d` để recreate container (lệnh `restart` không nạp lại env).
+> ⚠️ The backend runs `node --watch`, so editing `.js` files auto-reloads. But changing `backend/.env` requires `up -d` to recreate the container (a plain `restart` does not reload env).
 
 ---
 
@@ -270,20 +270,20 @@ $DC up -d --build --renew-anon-volumes backend
 ```bash
 cd backend
 npm install
-cp .env.example .env          # rồi điền giá trị thật
+cp .env.example .env          # then fill in real values
 npm run dev                   # node --watch index.js → http://localhost:5001
 ```
 
-Tạo schema bằng cách nạp `infrastructure/database/init_db.sql` vào database của bạn
-(ví dụ: `psql "$DATABASE_URL" -f infrastructure/database/init_db.sql`).
-Không có migration runner — các file trong `backend/migrations/` là SQL chạy thủ công.
+Create the schema by loading `infrastructure/database/init_db.sql` into your database
+(e.g. `psql "$DATABASE_URL" -f infrastructure/database/init_db.sql`).
+There is no migration runner — the files in `backend/migrations/` are SQL applied manually.
 
 #### 2. Frontend (`/frontend`)
 
 ```bash
 cd frontend
 npm install
-cp .env.example .env          # rồi điền giá trị thật
+cp .env.example .env          # then fill in real values
 npm run dev                   # vite → http://localhost:5173
 npm run build                 # production build
 ```
@@ -292,13 +292,13 @@ npm run build                 # production build
 
 ## 🔑 Environment Variables Summary
 
-Env files theo từng package (đều được git-ignore): `backend/.env` và `frontend/.env`.
+Env files are per-package (both git-ignored): `backend/.env` and `frontend/.env`.
 
 | Variable | Location | Required | Description |
 |---|---|:---:|---|
-| `DATABASE_URL` | `backend/.env` | ✅ | PostgreSQL connection string (auto-SSL cho cloud DB) |
+| `DATABASE_URL` | `backend/.env` | ✅ | PostgreSQL connection string (auto-SSL for cloud DBs) |
 | `JWT_SECRET` | `backend/.env` | ✅ | JWT signing secret |
-| `PORT` | `backend/.env` | — | Backend port (mặc định 5001) |
+| `PORT` | `backend/.env` | — | Backend port (defaults to 5001) |
 | `CLOUDINARY_URL` | `backend/.env` | — | Image upload (Cloudinary) |
 | `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_VERIFY_SERVICE_SID` | `backend/.env` | — | SMS OTP (Twilio Verify) |
 | `RESEND_API_KEY` / `EMAIL_FROM` | `backend/.env` | — | Transactional email (Resend) |
@@ -307,7 +307,7 @@ Env files theo từng package (đều được git-ignore): `backend/.env` và `
 | `VITE_GROQ_API_KEY` | `frontend/.env` | — | AI ChatBot (Groq/Llama) |
 | `VITE_OWM_API_KEY` / `VITE_WINDY_API_KEY` / `VITE_GOOGLE_MAPS_API_KEY` | `frontend/.env` | — | Weather overlays, forecast, geocoding |
 
-> ⚠️ Mọi biến `VITE_` được nhúng vào bundle và lộ ra trình duyệt — không đặt secret ở đó.
+> ⚠️ Every `VITE_` variable is embedded in the bundle and exposed to the browser — never put secrets there.
 
 ---
 
@@ -414,104 +414,104 @@ Please follow the [Conventional Commits](https://www.conventionalcommits.org/) s
 
 ---
 
-## 📖 Hướng dẫn sử dụng cho Citizen (User Guide)
+## 📖 Citizen User Guide
 
-> Phần này hướng dẫn chi tiết cách sử dụng AquaGuard Web cho người dùng với vai trò **Citizen** (Người dân).
+> This section explains in detail how to use AquaGuard Web for users with the **Citizen** role.
 
-### 1. Đăng nhập & Chọn vai trò
+### 1. Sign In & Choose a Role
 
-1. Truy cập [AquaGuard Web](https://aquaguard.vn).
-2. **Đăng ký** bằng **số điện thoại + mật khẩu** (hoặc đăng nhập bằng **Google**). Khi đăng ký có thể nhập thêm email để nhận thông báo.
-3. Khi đăng ký: chọn vai trò **Citizen** (vai trò Rescuer/Admin cần mật khẩu vai trò).
-4. Vai trò được lưu cùng tài khoản — không cần chọn lại ở các lần đăng nhập sau.
+1. Go to [AquaGuard Web](https://aquaguard.vn).
+2. **Register** with your **phone number + password** (or sign in with **Google**). During registration you can also enter an email to receive notifications.
+3. During registration: choose the **Citizen** role (Rescuer/Admin roles require a role password).
+4. Your role is saved with your account — no need to choose again on future logins.
 
-### 2. Dashboard — Trang chủ
+### 2. Dashboard — Home
 
-| Khu vực | Mô tả |
+| Area | Description |
 |---|---|
-| **Header** | Hiển thị tên bạn + 3 nút trạng thái (An toàn / Nguy hiểm / Bị thương) — nhấn để cập nhật cho gia đình thấy |
-| **Active SOS Banner** | Nếu bạn đang có yêu cầu SOS chưa xử lý xong, banner sẽ hiện ở đây — nhấn để xem chi tiết |
-| **Family Safety Board** | Danh sách người thân và trạng thái an toàn — cập nhật tự động mỗi 30 giây |
-| **Pending Invites** | Lời mời kết nối gia đình chưa xử lý — nhấn ✅ chấp nhận hoặc ✕ từ chối |
-| **Quick Actions** | 3 nút: Gửi SOS (đỏ), Kiểm tra gia đình, Xem bản đồ lũ |
-| **SOS History** | 5 yêu cầu SOS gần nhất đã hoàn thành/hủy |
+| **Header** | Shows your name + 3 status buttons (Safe / In Danger / Injured) — tap to update what your family sees |
+| **Active SOS Banner** | If you have an unresolved SOS request, the banner appears here — tap to view details |
+| **Family Safety Board** | List of family members and their safety status — auto-updates every 30 seconds |
+| **Pending Invites** | Unhandled family connection invites — tap ✅ to accept or ✕ to decline |
+| **Quick Actions** | 3 buttons: Send SOS (red), Check Family, View Flood Map |
+| **SOS History** | The 5 most recent completed/cancelled SOS requests |
 
-### 3. Gửi yêu cầu SOS khẩn cấp
+### 3. Send an Emergency SOS Request
 
-1. Vào trang **SOS** từ sidebar hoặc nhấn **Quick Action** ► Gửi SOS.
-2. Nhấn nút **"Gửi SOS"** (đỏ) ở góc phải.
-3. Điền form:
-   - **Vị trí:** GPS tự động bắt + reverse geocode thành địa chỉ. Có thể chỉnh sửa.
-   - **Mô tả:** Mô tả tình huống nguy hiểm.
-   - **Mức độ khẩn cấp:** Thấp / Trung bình / Cao / Nghiêm trọng.
-   - **Ảnh hiện trường:** Tối đa 5 ảnh, kéo thả hoặc chọn file.
-4. Nhấn **"Gửi yêu cầu SOS"**.
-5. Yêu cầu sẽ xuất hiện trong danh sách với trạng thái **"Đang chờ"**.
+1. Go to the **SOS** page from the sidebar or tap **Quick Action** ► Send SOS.
+2. Tap the **"Send SOS"** button (red) in the top-right corner.
+3. Fill in the form:
+   - **Location:** GPS is captured automatically + reverse-geocoded into an address. Editable.
+   - **Description:** Describe the dangerous situation.
+   - **Urgency level:** Low / Medium / High / Critical.
+   - **Scene photos:** Up to 5 images, drag-and-drop or select files.
+4. Tap **"Submit SOS Request"**.
+5. The request will appear in the list with status **"Pending"**.
 
-### 4. Theo dõi trạng thái SOS
+### 4. Track SOS Status
 
-Sau khi gửi SOS, theo dõi quy trình:
+After submitting an SOS, follow the workflow:
 
 ```
-🟡 Đang chờ (Pending) → 🔵 Đã phân công (Assigned) → 🔵 Đang cứu hộ (In Progress) → 🟢 Hoàn thành (Resolved)
+🟡 Pending → 🔵 Assigned → 🔵 In Progress → 🟢 Resolved
 ```
 
-- Trạng thái **tự động cập nhật mỗi 10 giây** — không cần refresh.
-- Khi trạng thái chuyển sang **"Đang cứu hộ"**, nút **"Xem bản đồ"** sẽ xuất hiện.
-- Nhấn **"Xem bản đồ"** để mở **Rescue Tracking Map** — bản đồ toàn màn hình hiển thị:
-  - 📍 **Marker đỏ:** Vị trí của bạn
-  - 📍 **Marker xanh:** Vị trí nhân viên cứu hộ
-  - 🛣️ **Đường đi:** Route từ rescuer đến bạn
-  - 📏 **Khoảng cách + thời gian ước tính**
-  - ⚡ **Cập nhật real-time** qua WebSocket
+- The status **auto-updates every 10 seconds** — no need to refresh.
+- When the status changes to **"In Progress"**, a **"View Map"** button appears.
+- Tap **"View Map"** to open the **Rescue Tracking Map** — a full-screen map showing:
+  - 📍 **Red marker:** Your location
+  - 📍 **Green marker:** The rescuer's location
+  - 🛣️ **Route:** The route from the rescuer to you
+  - 📏 **Distance + estimated time**
+  - ⚡ **Real-time updates** via WebSocket
 
-### 5. Xem bản đồ lũ
+### 5. View the Flood Map
 
-1. Vào trang **Live Flood Map** từ sidebar.
-2. Xem các vùng ngập lụt với mã màu:
-   - 🟣 Tím = Nghiêm trọng
-   - 🔴 Đỏ = Nguy hiểm cao
-   - 🟡 Vàng = Cảnh báo
-   - 🟢 Xanh = An toàn
-3. Bật/tắt các lớp:
-   - **Radar mưa** (RainViewer)
-   - **Lớp gió / nhiệt độ / mây**
-4. Sử dụng **Quick Actions** ở bên phải:
-   - **SOS:** Gửi yêu cầu khẩn cấp
-   - **Find Shelter:** Tìm nơi trú ẩn gần nhất
-   - **Family Check:** Kiểm tra gia đình
+1. Go to the **Live Flood Map** page from the sidebar.
+2. View flood zones with color codes:
+   - 🟣 Purple = Critical
+   - 🔴 Red = High risk
+   - 🟡 Amber = Caution
+   - 🟢 Green = Safe
+3. Toggle layers:
+   - **Rain radar** (RainViewer)
+   - **Wind / temperature / cloud layers**
+4. Use the **Quick Actions** on the right:
+   - **SOS:** Send an emergency request
+   - **Find Shelter:** Find the nearest shelter
+   - **Family Check:** Check on your family
 
-### 6. Kết nối gia đình
+### 6. Connect with Family
 
-1. Vào **Settings** ► tab **Family** (hoặc nhấn Quick Action ► Kiểm tra gia đình).
-2. Nhấn **"Thêm người thân"**.
-3. Nhập số điện thoại → nhấn 🔍 để tìm kiếm.
-4. Nếu tìm thấy: nhập quan hệ (Bố, Mẹ, ...) → nhấn **"Gửi lời mời"**.
-5. Đối phương sẽ thấy lời mời trên Dashboard — chấp nhận để kết nối.
-6. Sau khi kết nối: cập nhật trạng thái an toàn của bạn để gia đình theo dõi.
+1. Go to **Settings** ► the **Family** tab (or tap Quick Action ► Check Family).
+2. Tap **"Add Family Member"**.
+3. Enter a phone number → tap 🔍 to search.
+4. If found: enter the relationship (Father, Mother, ...) → tap **"Send Invite"**.
+5. The other person will see the invite on their Dashboard — they accept to connect.
+6. Once connected: update your safety status so your family can follow along.
 
-### 7. Hướng dẫn an toàn
+### 7. Safety Guides
 
-1. Vào trang **Safety Protocols** từ sidebar.
-2. Xem 3 số khẩn cấp — nhấn để gọi trực tiếp.
-3. Đọc 5 hướng dẫn an toàn — nhấn để mở rộng nội dung chi tiết.
-4. Cuộn xuống để xem hướng dẫn đăng ký **gói data SOS 4G** khi mất internet.
+1. Go to the **Safety Protocols** page from the sidebar.
+2. See the 3 emergency numbers — tap to call directly.
+3. Read the 5 safety guides — tap to expand the detailed content.
+4. Scroll down to see how to register a **4G SOS data package** when there's no internet.
 
 ### 8. AI ChatBot
 
-1. Nhấn nút 💬 ở góc phải dưới (desktop) hoặc từ Mobile Header.
-2. Hỏi bất kỳ câu hỏi nào — chatbot hỗ trợ cả Tiếng Việt và English.
-3. Quick replies có sẵn để hỏi nhanh.
-4. Khi mất kết nối API → fallback tự động cung cấp thông tin khẩn cấp.
+1. Tap the 💬 button in the bottom-right corner (desktop) or from the Mobile Header.
+2. Ask any question — the chatbot supports both Vietnamese and English.
+3. Built-in quick replies for fast questions.
+4. If the API connection is lost → the fallback automatically provides emergency information.
 
-### 9. Cài đặt cá nhân
+### 9. Personal Settings
 
-| Tab | Nội dung |
+| Tab | Content |
 |---|---|
-| **Profile** | Cập nhật tên, email, liên hệ khẩn cấp, giới tính, ngày sinh, địa chỉ (tự phát hiện GPS) |
-| **Family** | Quản lý người thân, cập nhật trạng thái an toàn + ghi chú sức khỏe |
-| **Appearance** | Giao diện: Sáng / Tối / Theo hệ thống |
-| **Language** | Ngôn ngữ: Tiếng Việt / English |
+| **Profile** | Update name, email, emergency contact, gender, date of birth, and address (auto GPS detection) |
+| **Family** | Manage family members, update safety status + health notes |
+| **Appearance** | Theme: Light / Dark / System |
+| **Language** | Language: Vietnamese / English |
 
 ---
 

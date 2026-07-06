@@ -19,7 +19,6 @@ const TABS = [
 const SIDEBAR_TO_TAB = {
   "admin-users": "users",
   "admin-teams": "rescuers",
-  "admin-sensors": "overview",
   "admin-analytics": "analytics",
   "admin": "overview",
 };

@@ -55,19 +55,25 @@ export default function useRescueTracking(
 
     const connect = () => {
       if (closed) return;
-      ws = new WebSocket(`${WS_BASE}?token=${token}`);
-      wsRef.current = ws;
+      // Capture this specific socket. In dev, React StrictMode mounts the effect
+      // twice (mount → cleanup → mount), so an earlier socket's async `onclose`
+      // can fire AFTER a newer socket has already been stored in wsRef. Comparing
+      // against `socket` below prevents that stale close from nulling the live ref
+      // (which would silently break sendLocation while the UI still shows "Live").
+      const socket = new WebSocket(`${WS_BASE}?token=${token}`);
+      ws = socket;
+      wsRef.current = socket;
 
-      ws.onopen = () => {
+      socket.onopen = () => {
         setIsConnected(true);
         // Join tracking room
-        ws.send(JSON.stringify({
+        socket.send(JSON.stringify({
           type: "join_tracking",
           requestId: requestId,
         }));
       };
 
-      ws.onmessage = (event) => {
+      socket.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
           switch (msg.type) {
@@ -118,7 +124,11 @@ export default function useRescueTracking(
         }
       };
 
-      ws.onclose = () => {
+      socket.onclose = () => {
+        // Ignore closes from a socket we've already superseded (StrictMode
+        // double-mount, or a stale reconnect attempt) — otherwise it would null
+        // the live wsRef and silently kill outgoing location updates.
+        if (wsRef.current !== socket) return;
         setIsConnected(false);
         wsRef.current = null;
         // Reconnect after 3 seconds if still active
@@ -127,8 +137,8 @@ export default function useRescueTracking(
         }
       };
 
-      ws.onerror = () => {
-        ws.close();
+      socket.onerror = () => {
+        socket.close();
       };
     };
 

@@ -26,6 +26,7 @@ const ALL_NAV_ITEMS = [
   { icon: "emergency", label: "Rescue Requests", labelKey: "nav.rescue", page: "rescue", badge: null, roles: [ROLES.RESCUER], mobileNav: true },
   { icon: "assignment_ind", label: "Team Missions", labelKey: "nav.rescuer-missions", page: "rescuer-missions", roles: [ROLES.RESCUER], mobileNav: true },
   { icon: "groups", label: "Rescuer Team", labelKey: "nav.rescuer-team", page: "rescuer-team", roles: [ROLES.RESCUER], mobileNav: true },
+  { icon: "radar", label: "Monitoring Center", labelKey: "nav.rescuer-monitoring", page: "rescuer-monitoring", roles: [ROLES.RESCUER], mobileNav: false },
 
   // ── Shared (citizen + rescuer) ──
   { icon: "newspaper", label: "News & Alerts", labelKey: "nav.news", page: "news", roles: [], mobileNav: false },
@@ -49,7 +50,7 @@ const ALL_NAV_ITEMS = [
   { icon: "campaign", label: "Send Notifications", labelKey: "nav.admin-notifications", page: "admin-notifications", roles: [ROLES.ADMIN], mobileNav: false },
   { icon: "group", label: "User Management", labelKey: "nav.admin-users", page: "admin-users", roles: [ROLES.ADMIN], mobileNav: false, sidebar: false },
   { icon: "local_fire_department", label: "Rescue Teams", labelKey: "nav.admin-teams", page: "admin-teams", roles: [ROLES.ADMIN], mobileNav: false, sidebar: false },
-  { icon: "sensors", label: "Flood Sensors", labelKey: "nav.admin-sensors", page: "admin-sensors", roles: [ROLES.ADMIN], mobileNav: false },
+  { icon: "radar", label: "Monitoring Center", labelKey: "nav.admin-monitoring", page: "admin-monitoring", roles: [ROLES.ADMIN], mobileNav: false },
   { icon: "analytics", label: "System Analytics", labelKey: "nav.admin-analytics", page: "admin-analytics", roles: [ROLES.ADMIN], mobileNav: false },
 ];
 

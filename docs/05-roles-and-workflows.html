@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AquaGuard — Chức năng &amp; Luồng công việc theo vai trò</title>
+<style>
+  :root {
+    --bg: #f4f8fb;
+    --surface: #ffffff;
+    --ink: #1a2733;
+    --muted: #5b7185;
+    --primary: #0e6ba8;
+    --primary-dark: #0a4b74;
+    --accent: #14a0c4;
+    --border: #d9e5ee;
+    --code-bg: #0d2233;
+    --code-ink: #cfe6f3;
+    --table-head: #e8f2f8;
+    --note-bg: #eef8fb;
+    --note-border: #14a0c4;
+    /* role tokens */
+    --citizen: #0e6ba8;
+    --citizen-bg: #eaf3f9;
+    --rescuer: #d98a1a;
+    --rescuer-bg: #fdf4e6;
+    --admin: #d1435b;
+    --admin-bg: #fdeef1;
+    --radius: 12px;
+    --maxw: 900px;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    font-size: 16px;
+    line-height: 1.7;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 270px minmax(0, 1fr);
+    gap: 40px;
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 0 28px;
+  }
+
+  /* ── Sidebar / TOC ── */
+  aside {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 0;
+  }
+  aside .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    font-size: 1.15rem;
+    color: var(--primary-dark);
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+  aside .brand .drop {
+    width: 22px; height: 22px;
+    background: linear-gradient(160deg, var(--accent), var(--primary));
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    box-shadow: 0 2px 6px rgba(14,107,168,.35);
+  }
+  aside .sub { font-size: .78rem; color: var(--muted); margin: 0 0 22px 32px; text-transform: uppercase; letter-spacing: .08em; }
+  nav ol { list-style: none; margin: 0; padding: 0; }
+  nav > ol > li { margin: 2px 0; }
+  nav a {
+    display: block;
+    text-decoration: none;
+    color: var(--muted);
+    padding: 5px 12px;
+    border-left: 2px solid transparent;
+    border-radius: 0 6px 6px 0;
+    font-size: .9rem;
+    transition: all .15s ease;
+  }
+  nav a:hover { color: var(--primary); background: #eaf3f9; }
+  nav a.top { color: var(--ink); font-weight: 600; }
+  nav a.sub2 { padding-left: 28px; font-size: .84rem; }
+
+  /* ── Main content ── */
+  main {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 56px 60px 80px;
+    margin: 32px 0;
+    box-shadow: 0 6px 24px rgba(16,58,92,.06);
+    min-width: 0;
+  }
+
+  .doc-header {
+    border-bottom: 3px solid var(--primary);
+    padding-bottom: 20px;
+    margin-bottom: 34px;
+  }
+  .doc-eyebrow {
+    color: var(--accent);
+    font-weight: 700;
+    font-size: .8rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .doc-header h1 {
+    margin: 6px 0 0;
+    font-size: 2.1rem;
+    letter-spacing: -0.02em;
+    color: var(--primary-dark);
+  }
+  .doc-header p { color: var(--muted); margin: 14px 0 0; font-size: 1.02rem; }
+
+  h2 {
+    margin: 52px 0 14px;
+    padding-top: 14px;
+    font-size: 1.5rem;
+    color: var(--primary-dark);
+    letter-spacing: -0.01em;
+    scroll-margin-top: 24px;
+  }
+  h2 .num { color: var(--accent); font-weight: 800; margin-right: 10px; }
+  h3 {
+    margin: 34px 0 10px;
+    font-size: 1.15rem;
+    color: var(--primary);
+    scroll-margin-top: 24px;
+  }
+  h3 .num { color: var(--muted); font-weight: 700; margin-right: 8px; font-size: .95rem; }
+
+  p { margin: 14px 0; }
+  strong { color: var(--ink); font-weight: 650; }
+  a { color: var(--primary); }
+
+  ul, ol.body { margin: 14px 0; padding-left: 22px; }
+  li { margin: 8px 0; }
+  li::marker { color: var(--accent); }
+
+  code {
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+    font-size: .86em;
+    background: #eaf1f6;
+    color: var(--primary-dark);
+    padding: 2px 6px;
+    border-radius: 5px;
+    border: 1px solid #dbe7ef;
+  }
+
+  pre {
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 20px 22px;
+    border-radius: 10px;
+    overflow-x: auto;
+    font-size: .82rem;
+    line-height: 1.55;
+    margin: 20px 0;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.05);
+  }
+  pre code { background: none; border: none; color: inherit; padding: 0; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 22px 0;
+    font-size: .92rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  thead th {
+    background: var(--table-head);
+    color: var(--primary-dark);
+    text-align: left;
+    font-weight: 700;
+    padding: 11px 14px;
+    border-bottom: 2px solid var(--border);
+  }
+  tbody td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tbody tr:nth-child(even) { background: #f7fbfd; }
+  tbody tr:last-child td { border-bottom: none; }
+  table code { font-size: .82em; }
+
+  .table-scroll { overflow-x: auto; }
+
+  blockquote.note {
+    background: var(--note-bg);
+    border-left: 4px solid var(--note-border);
+    border-radius: 0 8px 8px 0;
+    padding: 14px 20px;
+    margin: 22px 0;
+    color: #244b5c;
+  }
+  blockquote.note strong { color: var(--primary-dark); }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 48px 0;
+  }
+
+  /* ── Role cards ── */
+  .role-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin: 26px 0;
+  }
+  .role-card {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 20px 22px;
+    background: var(--surface);
+    box-shadow: 0 3px 12px rgba(16,58,92,.05);
+  }
+  .role-card .rc-top { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .role-card .rc-ic {
+    width: 40px; height: 40px; border-radius: 10px;
+    display: grid; place-items: center; font-size: 1.35rem;
+    flex-shrink: 0;
+  }
+  .role-card h4 { margin: 0; font-size: 1.05rem; }
+  .role-card .rc-sub { font-size: .78rem; color: var(--muted); margin: 2px 0 12px; }
+  .role-card ul { margin: 0; padding-left: 18px; font-size: .86rem; }
+  .role-card li { margin: 5px 0; }
+  .role-card.citizen { border-top: 3px solid var(--citizen); }
+  .role-card.citizen .rc-ic { background: var(--citizen-bg); color: var(--citizen); }
+  .role-card.rescuer { border-top: 3px solid var(--rescuer); }
+  .role-card.rescuer .rc-ic { background: var(--rescuer-bg); color: var(--rescuer); }
+  .role-card.admin  { border-top: 3px solid var(--admin); }
+  .role-card.admin .rc-ic { background: var(--admin-bg); color: var(--admin); }
+
+  .pill {
+    display: inline-block;
+    font-size: .72rem;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 999px;
+    letter-spacing: .02em;
+    vertical-align: middle;
+  }
+  .pill.citizen { background: var(--citizen-bg); color: var(--citizen); }
+  .pill.rescuer { background: var(--rescuer-bg); color: var(--rescuer); }
+  .pill.admin   { background: var(--admin-bg); color: var(--admin); }
+  .pill.yes { background: #e4f6ec; color: #1a8a4a; }
+  .pill.no  { background: #f1f4f6; color: #9aa8b3; }
+
+  .role-band {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 8px 16px; border-radius: 10px; margin: 40px 0 6px;
+    font-weight: 800; font-size: 1.35rem;
+  }
+  .role-band.citizen { background: var(--citizen-bg); color: var(--citizen-dark, #0a4b74); }
+  .role-band.rescuer { background: var(--rescuer-bg); color: #9a5e08; }
+  .role-band.admin   { background: var(--admin-bg); color: #a32741; }
+  .role-band .ic { font-size: 1.4rem; }
+
+  .lane { border-left: 3px solid var(--accent); padding-left: 18px; margin: 20px 0; }
+  .lane.citizen { border-color: var(--citizen); }
+  .lane.rescuer { border-color: var(--rescuer); }
+  .lane.admin { border-color: var(--admin); }
+
+  .footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: .85rem;
+    text-align: center;
+  }
+
+  @media (max-width: 960px) {
+    .layout { grid-template-columns: 1fr; }
+    aside { position: static; height: auto; overflow: visible; padding: 24px 0 0; }
+    main { padding: 32px 22px 60px; }
+    .role-cards { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <aside>
+    <div class="brand"><span class="drop"></span> AquaGuard</div>
+    <p class="sub">Tài liệu chức năng</p>
+    <nav>
+      <ol>
+        <li><a class="top" href="#s5">5 · Vai trò &amp; Luồng công việc</a></li>
+        <li><a href="#s51">5.1 Tổng quan ba vai trò</a></li>
+        <li><a href="#s52">5.2 Người dân (Citizen)</a></li>
+        <li><a class="sub2" href="#s521">5.2.1 Chức năng</a></li>
+        <li><a class="sub2" href="#s522">5.2.2 Luồng công việc</a></li>
+        <li><a href="#s53">5.3 Đội cứu hộ (Rescuer)</a></li>
+        <li><a class="sub2" href="#s531">5.3.1 Chức năng</a></li>
+        <li><a class="sub2" href="#s532">5.3.2 Luồng công việc</a></li>
+        <li><a href="#s54">5.4 Quản trị viên (Admin)</a></li>
+        <li><a class="sub2" href="#s541">5.4.1 Chức năng</a></li>
+        <li><a class="sub2" href="#s542">5.4.2 Luồng công việc</a></li>
+        <li><a href="#s55">5.5 Phối hợp giữa các vai trò</a></li>
+        <li><a class="sub2" href="#s551">5.5.1 Kịch bản đầu-cuối</a></li>
+        <li><a class="sub2" href="#s552">5.5.2 Máy trạng thái SOS</a></li>
+        <li><a class="sub2" href="#s553">5.5.3 Kênh thời gian thực</a></li>
+        <li><a href="#s56">5.6 Ma trận quyền (RBAC)</a></li>
+      </ol>
+    </nav>
+  </aside>
+
+  <main>
+    <header class="doc-header" id="s5">
+      <div class="doc-eyebrow">Chương 5</div>
+      <h1>Chức năng &amp; Luồng công việc theo vai trò</h1>
+      <p>
+        AquaGuard là nền tảng điều phối ứng cứu lũ lụt, kết nối ba nhóm người dùng:
+        <strong>người dân</strong> gửi yêu cầu cứu hộ (SOS), <strong>đội cứu hộ</strong> tiếp nhận và
+        thực hiện nhiệm vụ theo nhóm, và <strong>quản trị viên</strong> giám sát &amp; điều phối. Chương
+        này mô tả từng chức năng mà mỗi vai trò đang có, luồng công việc (task flow) của họ, và cách ba
+        vai trò phối hợp với nhau từ lúc phát tín hiệu SOS đến khi hoàn tất cứu hộ.
+      </p>
+    </header>
+
+    <!-- ── 5.1 ── -->
+    <h2 id="s51"><span class="num">5.1</span>Tổng quan ba vai trò</h2>
+    <p>
+      Quyền truy cập được kiểm soát theo vai trò (RBAC) ở cả hai lớp: giao diện
+      (<code>frontend/src/config/rbac.js</code>) và máy chủ (<code>requireRoles</code> /
+      <code>requireAdmin</code>). Mỗi tài khoản được gán đúng một vai trò
+      (<code>citizen</code> · <code>rescuer</code> · <code>admin</code>), quyết định trang nào hiển thị và
+      API nào được phép gọi. Đăng ký làm <code>rescuer</code>/<code>admin</code> cần thêm
+      <strong>mật khẩu vai trò</strong> dùng chung để ngăn tự nâng quyền.
+    </p>
+
+    <div class="role-cards">
+      <div class="role-card citizen">
+        <div class="rc-top">
+          <div class="rc-ic">🆘</div>
+          <div><h4>Người dân</h4></div>
+        </div>
+        <p class="rc-sub">Người gặp nạn / cần trợ giúp</p>
+        <ul>
+          <li>Gửi yêu cầu SOS kèm ảnh &amp; GPS</li>
+          <li>Theo dõi đội cứu hộ trên bản đồ trực tiếp</li>
+          <li>Gọi thoại 1-1 với người cứu hộ</li>
+          <li>Kết nối &amp; kiểm tra an toàn người thân</li>
+          <li>Xem bản đồ ngập lụt &amp; cảnh báo</li>
+        </ul>
+      </div>
+      <div class="role-card rescuer">
+        <div class="rc-top">
+          <div class="rc-ic">🚑</div>
+          <div><h4>Đội cứu hộ</h4></div>
+        </div>
+        <p class="rc-sub">Lực lượng ứng cứu theo nhóm</p>
+        <ul>
+          <li>Xem hàng đợi &amp; nhiệm vụ của nhóm</li>
+          <li>Nhận / trả / hoàn tất ca cứu hộ</li>
+          <li>Dẫn đường tới người dân theo GPS trực tiếp</li>
+          <li>Gọi thoại 1-1 với người dân</li>
+          <li>Quản lý nhóm: mời, phân vai, rời/xóa nhóm</li>
+        </ul>
+      </div>
+      <div class="role-card admin">
+        <div class="rc-top">
+          <div class="rc-ic">🛡️</div>
+          <div><h4>Quản trị viên</h4></div>
+        </div>
+        <p class="rc-sub">Điều phối &amp; giám sát toàn hệ thống</p>
+        <ul>
+          <li>Điều phối SOS đến nhóm cứu hộ</li>
+          <li>Giám sát toàn bộ yêu cầu &amp; bản đồ</li>
+          <li>Quản lý người dùng &amp; đội nhóm</li>
+          <li>Gửi thông báo / cảnh báo diện rộng</li>
+          <li>Xem thống kê &amp; phân tích hệ thống</li>
+        </ul>
+      </div>
+    </div>
+
+    <blockquote class="note">
+      <strong>Ghi chú.</strong> Một số chức năng dùng chung cho nhiều vai trò (bản đồ ngập lụt, thông
+      báo, hồ sơ cá nhân, gọi thoại WebRTC). Bảng ma trận đầy đủ ở <a href="#s56">§5.6</a>.
+    </blockquote>
+
+    <!-- ══════════ CITIZEN ══════════ -->
+    <h2 id="s52"><span class="num">5.2</span>Người dân <span class="pill citizen">citizen</span></h2>
+    <p>
+      Người dân là điểm bắt đầu của mọi ca cứu hộ. Mục tiêu thiết kế là để một người đang hoảng loạn
+      trong vùng ngập có thể phát tín hiệu cầu cứu nhanh nhất có thể — chỉ vài chạm, tự động đính kèm vị
+      trí GPS, rồi theo dõi được đội cứu hộ đang tiến đến.
+    </p>
+
+    <h3 id="s521"><span class="num">5.2.1</span>Chức năng</h3>
+    <ul>
+      <li><strong>Gửi yêu cầu SOS.</strong> Mô tả tình huống, chọn mức khẩn cấp
+        (<code>low</code>/<code>medium</code>/<code>high</code>/<code>critical</code>), đính kèm tối đa
+        5 ảnh (tải lên Cloudinary) và <strong>vị trí GPS tự động</strong>. GPS được "hâm nóng" trước
+        (<code>prewarmGps</code>) để có tọa độ ngay khi mở biểu mẫu.</li>
+      <li><strong>Theo dõi các yêu cầu của mình.</strong> Danh sách yêu cầu với trạng thái trực tiếp
+        (<em>chờ xử lý → đã phân công → đang cứu hộ → đã giải quyết</em>), tự làm mới nhanh (4 giây khi
+        có ca đang hoạt động).</li>
+      <li><strong>Bản đồ theo dõi cứu hộ trực tiếp.</strong> Khi ca chuyển sang <code>in_progress</code>,
+        nút "Xem theo dõi" mở bản đồ Leaflet hiển thị đồng thời vị trí người dân và đội cứu hộ, cập nhật
+        GPS mỗi ~2 giây qua WebSocket.</li>
+      <li><strong>Gọi thoại 1-1 (WebRTC).</strong> Trong ca đang hoạt động, người dân có thể gọi thoại
+        trực tiếp với người cứu hộ được phân công; âm thanh đi ngang hàng (P2P), máy chủ chỉ làm kênh báo
+        hiệu.</li>
+      <li><strong>Kết nối &amp; an toàn người thân.</strong> Tìm kiếm và gửi lời mời kết nối người thân,
+        đặt <strong>trạng thái an toàn</strong> của mình (<em>an toàn / nguy hiểm / bị thương</em>); khi
+        ca được giải quyết, người thân đã kết nối nhận thông báo "người thân của bạn đã an toàn".</li>
+      <li><strong>Bản đồ ngập lụt &amp; cảnh báo.</strong> Xem bản đồ ngập trực tiếp, tin tức &amp; cảnh
+        báo, cẩm nang an toàn (Safety Protocols).</li>
+      <li><strong>Hồ sơ &amp; cài đặt.</strong> Cập nhật hồ sơ, địa chỉ, ngôn ngữ (Việt/Anh), nhận thông
+        báo trong ứng dụng.</li>
+    </ul>
+
+    <h3 id="s522"><span class="num">5.2.2</span>Luồng công việc</h3>
+    <div class="lane citizen">
+    <pre><code>1. Mở app  →  vào "SOS Request"  →  bấm "Gửi SOS"
+2. Điền mô tả + mức khẩn cấp + đính kèm ảnh (tùy chọn)
+       └─ GPS tự động lấy sẵn (prewarmGps)
+3. Gửi  →  POST /api/sos  →  yêu cầu tạo ở trạng thái "pending"
+4. Chờ điều phối:
+       ├─ Admin gán ca cho một nhóm cứu hộ   → "assigned"
+       └─ hoặc rescuer tự nhận từ hàng đợi     → "in_progress"
+5. Khi rescuer nhận  →  nhận thông báo + email
+       └─ nút "Xem theo dõi" xuất hiện
+6. Mở bản đồ theo dõi  →  thấy đội cứu hộ di chuyển (GPS ~2s)
+       └─ có thể gọi thoại 1-1 với người cứu hộ
+7. Cứu hộ hoàn tất  →  "resolved"
+       └─ mình + người thân đã kết nối được báo "đã an toàn"</code></pre>
+    </div>
+
+    <!-- ══════════ RESCUER ══════════ -->
+    <h2 id="s53"><span class="num">5.3</span>Đội cứu hộ <span class="pill rescuer">rescuer</span></h2>
+    <p>
+      Đội cứu hộ hoạt động <strong>theo nhóm</strong> (<code>rescue_groups</code>). Một nhóm có các thành
+      viên với vai trò <code>leader</code> / <code>co_leader</code> / <code>member</code>; chỉ
+      <strong>trưởng nhóm và phó nhóm</strong> mới được quyền nhận nhiệm vụ. Đây là lớp phân quyền thứ hai
+      bên cạnh vai trò tài khoản.
+    </p>
+
+    <h3 id="s531"><span class="num">5.3.1</span>Chức năng</h3>
+    <ul>
+      <li><strong>Hàng đợi cứu hộ (Rescue Requests).</strong> Xem các yêu cầu SOS đang chờ, kèm mức khẩn
+        cấp, vị trí, mô tả, ảnh và huy hiệu "MỚI" cho ca vừa đến.</li>
+      <li><strong>Nhiệm vụ của nhóm (Team Missions).</strong> Xem các ca đã được admin phân công cho nhóm
+        của mình (<code>GET /api/sos/team</code>).</li>
+      <li><strong>Nhận ca (accept).</strong> Trưởng/phó nhóm nhận một ca; hệ thống dùng câu lệnh
+        <code>UPDATE</code> có điều kiện nguyên tử để chống tranh chấp "hai người nhận cùng lúc". Ca chuyển
+        <code>in_progress</code>, phát <code>tracking_started</code> và báo cho người dân.</li>
+      <li><strong>Trả ca (cancel/release).</strong> Nếu không thể tiếp tục, trả ca về hàng đợi
+        (<code>in_progress → pending</code>); chỉ người đang giữ ca mới trả được, tên người trả được ghi
+        lại và hiển thị cho người dân.</li>
+      <li><strong>Hoàn tất ca (complete).</strong> Đánh dấu <code>resolved</code>; phát
+        <code>tracking_ended</code> và báo an toàn cho người dân + người thân của họ.</li>
+      <li><strong>Bản đồ dẫn đường trực tiếp.</strong> Chia sẻ GPS của mình và thấy vị trí người dân theo
+        thời gian thực để tiếp cận; mốc GPS đầu/cuối phiên được lưu vào PostgreSQL.</li>
+      <li><strong>Gọi thoại 1-1 (WebRTC).</strong> Gọi trực tiếp cho người dân của ca đang giữ.</li>
+      <li><strong>Quản lý nhóm (Rescuer Team).</strong> Tạo nhóm, mời thành viên, chấp nhận/từ chối lời
+        mời, phân vai (leader/co_leader/member), xóa thành viên, rời nhóm, giải tán nhóm, xem thống kê
+        nhóm.</li>
+      <li><strong>Bản đồ ngập lụt &amp; thông báo.</strong> Xem bản đồ trực tiếp và nhận thông báo/cảnh
+        báo từ admin.</li>
+    </ul>
+
+    <h3 id="s532"><span class="num">5.3.2</span>Luồng công việc</h3>
+    <div class="lane rescuer">
+    <pre><code>A. Chuẩn bị nhóm (một lần)
+   Tạo nhóm  →  mời thành viên  →  họ chấp nhận  →  phân vai leader/co_leader
+
+B. Vòng đời một ca
+   1. Xem hàng đợi "Rescue Requests" / "Team Missions"
+   2. Chọn một ca  →  đọc mô tả, ảnh, mức khẩn cấp, vị trí
+   3. "Nhận ca" (chỉ leader/co_leader)
+          └─ PUT /api/sos/:id/accept  →  "in_progress"
+          └─ người dân được báo + bản đồ theo dõi mở ra
+   4. Mở bản đồ  →  chia sẻ GPS  →  dẫn đường tới người dân (~2s)
+          └─ gọi thoại 1-1 nếu cần trao đổi
+   5a. Tới nơi & xong  →  "Hoàn tất"  →  PUT /:id/complete  →  "resolved"
+   5b. Không tiếp tục được  →  "Trả ca"  →  PUT /:id/cancel  →  về "pending"</code></pre>
+    </div>
+
+    <!-- ══════════ ADMIN ══════════ -->
+    <h2 id="s54"><span class="num">5.4</span>Quản trị viên <span class="pill admin">admin</span></h2>
+    <p>
+      Quản trị viên có góc nhìn toàn hệ thống: điều phối các ca SOS đến đúng nhóm cứu hộ, giám sát tình
+      hình, quản lý người dùng &amp; đội nhóm, và phát cảnh báo diện rộng. Mọi endpoint quản trị được bảo
+      vệ bằng <code>requireAdmin</code>.
+    </p>
+
+    <h3 id="s541"><span class="num">5.4.1</span>Chức năng</h3>
+    <ul>
+      <li><strong>Bảng điều khiển quản trị.</strong> Tổng quan số liệu &amp; tình trạng hệ thống theo thời
+        gian thực.</li>
+      <li><strong>Điều phối SOS (SOS Requests).</strong> Xem toàn bộ yêu cầu và <strong>gán ca cho một
+        nhóm cứu hộ</strong> (<code>PUT /api/sos/:id/assign</code>); trưởng nhóm trở thành
+        <code>assigned_to</code> để tương thích theo dõi. Admin cũng có thể trực tiếp
+        <strong>hoàn tất</strong> một ca.</li>
+      <li><strong>Quản lý người dùng.</strong> Xem danh sách người dùng và <strong>đổi vai trò</strong>
+        (<code>PUT /api/auth/users/:id/role</code>).</li>
+      <li><strong>Quản lý đội cứu hộ.</strong> Xem tất cả nhóm và thống kê từng nhóm.</li>
+      <li><strong>Gửi thông báo (Send Notifications).</strong> Phát thông báo/cảnh báo diện rộng
+        (<code>POST /api/notifications/admin/send</code>), có giới hạn tần suất chống lạm dụng.</li>
+      <li><strong>Phân tích hệ thống (System Analytics).</strong> Bảng thống kê tổng quan, người dùng và
+        hiệu quả cứu hộ (<code>/api/analytics/overview</code>, <code>/users</code>, <code>/rescue</code>)
+        vẽ bằng Recharts.</li>
+      <li><strong>Giám sát bản đồ &amp; cảm biến.</strong> Xem bản đồ ngập trực tiếp và trang cảm biến
+        ngập.</li>
+    </ul>
+
+    <h3 id="s542"><span class="num">5.4.2</span>Luồng công việc</h3>
+    <div class="lane admin">
+    <pre><code>1. Giám sát bảng điều khiển & danh sách SOS toàn hệ thống
+2. Có ca "pending"  →  mở chi tiết  →  đánh giá mức khẩn cấp & vị trí
+3. Điều phối:  "Gán nhóm"  →  PUT /api/sos/:id/assign  →  "assigned"
+       └─ nhóm được chọn thấy ca trong "Team Missions"
+4. Theo dõi tiến độ khi rescuer nhận  →  "in_progress"
+5. Nếu cần: trực tiếp "Hoàn tất" ca, hoặc gửi cảnh báo diện rộng
+6. Định kỳ: quản lý người dùng/nhóm, xem System Analytics</code></pre>
+    </div>
+
+    <!-- ══════════ COORDINATION ══════════ -->
+    <h2 id="s55"><span class="num">5.5</span>Phối hợp giữa các vai trò</h2>
+    <p>
+      Ba vai trò khớp với nhau quanh một thực thể trung tâm: <strong>yêu cầu cứu hộ</strong>
+      (<code>rescue_requests</code>). Người dân tạo ra nó, admin định tuyến, rescuer thực thi — và một
+      <strong>máy trạng thái</strong> đảm bảo mọi chuyển đổi đều hợp lệ, được ghi nhật ký, và phản ánh tức
+      thì tới tất cả các bên qua kênh thời gian thực.
+    </p>
+
+    <h3 id="s551"><span class="num">5.5.1</span>Kịch bản đầu-cuối</h3>
+    <div class="table-scroll">
+    <pre><code> NGƯỜI DÂN                 QUẢN TRỊ VIÊN               ĐỘI CỨU HỘ
+ ─────────                 ─────────────               ──────────
+ Gửi SOS ───────────────►  Ca "pending" hiện trên
+ (mô tả+ảnh+GPS)           bảng điều phối
+                                 │
+                                 ├─ Gán nhóm ──────────►  Ca vào "Team Missions"
+                                 │  ("assigned")                │
+                                 │                              ▼
+                          (hoặc rescuer tự nhận       Trưởng/phó nhóm "Nhận ca"
+                           trực tiếp từ hàng đợi)      → "in_progress"
+                                                              │
+ Nhận thông báo + email  ◄──────────────────────────────────┤
+ "đã có đội nhận"                                             │
+      │                                                       │
+      ▼                                                       ▼
+ Mở bản đồ theo dõi  ◄══════ GPS trực tiếp ~2s ══════►  Chia sẻ GPS, dẫn đường
+      │                                                       │
+      └────────────◄══════ Gọi thoại 1-1 (WebRTC) ═══════────┘
+                                                              │
+ Nhận báo "đã an toàn"  ◄──────────────────────────  "Hoàn tất" → "resolved"
+      │
+      └─► Người thân đã kết nối cũng được báo an toàn</code></pre>
+    </div>
+    <p>
+      Hai đường vào của một ca: <strong>(a)</strong> admin chủ động điều phối (<code>pending → assigned →
+      in_progress</code>), hoặc <strong>(b)</strong> rescuer tự nhận trực tiếp từ hàng đợi
+      (<code>pending → in_progress</code>). Cả hai đều hội tụ về cùng phiên theo dõi trực tiếp.
+    </p>
+
+    <h3 id="s552"><span class="num">5.5.2</span>Máy trạng thái SOS</h3>
+    <p>
+      Mỗi trạng thái được ràng buộc bởi <code>CHECK</code> ở cột <code>status</code> và bởi điều kiện
+      <code>WHERE</code> trong câu lệnh <code>UPDATE</code> — nên tính hợp lệ được đảm bảo
+      <strong>nguyên tử tại cơ sở dữ liệu</strong>, không chỉ ở tầng ứng dụng. Mọi chuyển đổi được ghi vào
+      <code>rescue_request_logs</code> (ai đổi, khi nào, từ trạng thái nào).
+    </p>
+    <pre><code>   (người dân tạo)
+         │
+         ▼
+     ┌────────┐   admin gán cho nhóm      ┌──────────┐
+     │pending ├─────────────────────────►│ assigned │
+     └───┬────┘                          └────┬─────┘
+         │  rescuer nhận (leader/co_leader)   │ rescuer nhận
+         │◄───────────────────────────────────┘
+         ▼
+   ┌─────────────┐   rescuer trả ca     ┌────────┐
+   │ in_progress ├────────────────────►│pending │  (trả về hàng đợi)
+   └──────┬──────┘                     └────────┘
+          │ rescuer / admin hoàn tất
+          ▼
+     ┌──────────┐
+     │ resolved │
+     └──────────┘</code></pre>
+
+    <table>
+      <thead>
+        <tr><th>Chuyển đổi</th><th>Ai thực hiện</th><th>Điều kiện / ràng buộc</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>→ pending</code> (tạo)</td><td><span class="pill citizen">citizen</span></td><td><code>POST /api/sos</code> kèm GPS + tối đa 5 ảnh</td></tr>
+        <tr><td><code>pending → assigned</code></td><td><span class="pill admin">admin</span></td><td>Gán cho một nhóm; <code>WHERE status='pending'</code></td></tr>
+        <tr><td><code>pending/assigned → in_progress</code></td><td><span class="pill rescuer">rescuer</span> (leader/co_leader)</td><td><code>UPDATE</code> nguyên tử chống tranh chấp; phát <code>tracking_started</code></td></tr>
+        <tr><td><code>in_progress → pending</code></td><td><span class="pill rescuer">rescuer</span> (đang giữ ca)</td><td><code>WHERE assigned_to=$ AND status='in_progress'</code>; phát <code>tracking_cancelled</code></td></tr>
+        <tr><td><code>in_progress → resolved</code></td><td><span class="pill rescuer">rescuer</span> / <span class="pill admin">admin</span></td><td>Phát <code>tracking_ended</code>; báo an toàn cho người dân + người thân</td></tr>
+      </tbody>
+    </table>
+
+    <h3 id="s553"><span class="num">5.5.3</span>Kênh thời gian thực gắn kết các vai trò</h3>
+    <p>Cùng một máy chủ WebSocket phục vụ ba luồng phối hợp trực tiếp:</p>
+    <ul>
+      <li><strong>Hiện diện liên tục (presence).</strong> Khi đăng nhập, mỗi người dùng phát GPS vào
+        <em>kho nóng Redis</em> (TTL 60s = "đang trực tuyến") — nuôi bản đồ ngập trực tiếp và cho phép
+        admin/rescuer thấy vị trí hiện tại của người dân.</li>
+      <li><strong>Phòng theo dõi theo ca.</strong> Người dân và rescuer được phân công cùng vào một
+        "phòng" theo <code>requestId</code>, trao đổi GPS ~2 giây/lần; chỉ phiên này mới ghi mốc đầu/cuối
+        vào PostgreSQL.</li>
+      <li><strong>Gọi thoại/video 1-1 (WebRTC).</strong> Cùng máy chủ làm <em>kênh báo hiệu</em>; media đi
+        ngang hàng. Phiên gọi được ủy quyền một lần khi <code>call_invite</code> giữa hai bên của ca đang
+        hoạt động (người dân <code>user_id</code> ↔ rescuer <code>assigned_to</code>).</li>
+    </ul>
+    <blockquote class="note">
+      <strong>Sự kiện đẩy từ REST vào phòng.</strong> Hành động qua REST phản ánh tức thì lên bản đồ:
+      nhận ca phát <code>tracking_started</code>, trả ca phát <code>tracking_cancelled</code>, hoàn tất
+      phát <code>tracking_ended</code> — nên bản đồ của người dân phản ứng ngay mà không cần tải lại.
+    </blockquote>
+
+    <!-- ══════════ RBAC MATRIX ══════════ -->
+    <h2 id="s56"><span class="num">5.6</span>Ma trận quyền (RBAC)</h2>
+    <p>Tóm tắt chức năng nào thuộc vai trò nào. <span class="pill yes">Có</span> = được phép,
+      <span class="pill no">—</span> = không áp dụng.</p>
+    <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Chức năng</th>
+          <th style="text-align:center">Người dân</th>
+          <th style="text-align:center">Đội cứu hộ</th>
+          <th style="text-align:center">Quản trị viên</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Gửi yêu cầu SOS</td><td align="center"><span class="pill yes">Có</span></td><td align="center"><span class="pill no">—</span></td><td align="center"><span class="pill no">—</span></td></tr>
+        <tr><td>Xem yêu cầu của mình</td><td align="center"><span class="pill yes">Có</span></td><td align="center"><span class="pill no">—</span></td><td align="center"><span class="pill no">—</span></td></tr>
+        <tr><td>Kết nối &amp; an toàn người thân</td><td align="center"><span class="pill yes">Có</span></td><td align="center"><span class="pill no">—</span></td><td align="center"><span class="pill no">—</span></td></tr>
+        <tr><td>Xem hàng đợi / nhiệm vụ nhóm</td><td align="center"><span class="pill no">—</span></td><td align="center"><span class="pill yes">Có</span></td><td align="center"><span class="pill yes">Có</span></td></tr>
+        <tr><td>Nhận / trả / hoàn tất ca</td><td align="center"><span class="pill no">—</span></td><td align="center"><span class="pill yes">Có</span></td><td align="center"><span class="pill yes">Có*</span></td></tr>
+        <tr><td>Quản lý nhóm cứu hộ</td><td align="center"><span class="pill no">—</span></td><td align="center"><span class="pill yes">Có</span></td><td align="center"><span class="pill no">—</span></td></tr>
+        <tr><td>Điều phối / gán ca cho nhóm</td><td align="center"><span class="pill no">—</span></td><td align="center"><span class="pill no">—</span></td><td align="center"><span class="pill yes">Có</span></td></tr>
+        <tr><td>Quản lý người dùng &amp; đổi vai trò</td><td align="center"><span class="pill no">—</span></td><td align="center"><span class="pill no">—</span></td><td align="center"><span class="pill yes">Có</span></td></tr>
+        <tr><td>Gửi thông báo diện rộng</td><td align="center"><span class="pill no">—</span></td><td align="center"><span class="pill no">—</span></td><td align="center"><span class="pill yes">Có</span></td></tr>
+        <tr><td>Phân tích / thống kê hệ thống</td><td align="center"><span class="pill no">—</span></td><td align="center"><span class="pill no">—</span></td><td align="center"><span class="pill yes">Có</span></td></tr>
+        <tr><td>Bản đồ theo dõi &amp; GPS trực tiếp</td><td align="center"><span class="pill yes">Có</span></td><td align="center"><span class="pill yes">Có</span></td><td align="center"><span class="pill no">—</span></td></tr>
+        <tr><td>Gọi thoại 1-1 (WebRTC)</td><td align="center"><span class="pill yes">Có</span></td><td align="center"><span class="pill yes">Có</span></td><td align="center"><span class="pill no">—</span></td></tr>
+        <tr><td>Bản đồ ngập lụt &amp; thông báo</td><td align="center"><span class="pill yes">Có</span></td><td align="center"><span class="pill yes">Có</span></td><td align="center"><span class="pill yes">Có</span></td></tr>
+        <tr><td>Hồ sơ &amp; cài đặt cá nhân</td><td align="center"><span class="pill yes">Có</span></td><td align="center"><span class="pill yes">Có</span></td><td align="center"><span class="pill yes">Có</span></td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p style="font-size:.86rem;color:var(--muted)">
+      * Admin có thể <strong>hoàn tất</strong> ca trực tiếp (<code>PUT /api/sos/:id/complete</code>) nhưng
+      không "nhận" ca như một rescuer — việc nhận ca yêu cầu vai trò <code>rescuer</code> và là
+      leader/co_leader của nhóm đang hoạt động.
+    </p>
+
+    <div class="footer">
+      AquaGuard · Tài liệu chức năng &amp; luồng công việc theo vai trò · Chương 5
+    </div>
+  </main>
+</div>
+</body>
+</html>

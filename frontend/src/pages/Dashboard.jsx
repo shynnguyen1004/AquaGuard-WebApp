@@ -17,6 +17,7 @@ import AdminNotificationsPage from "./admin/AdminNotificationsPage";
 import RescuerDashboard from "./rescuer/RescuerDashboard";
 import RescuerTeamPage from "./rescuer/RescuerTeamPage";
 import CitizenSOSPage from "./citizen/CitizenSOSPage";
+import MonitoringCenter from "./MonitoringCenter";
 import ChatBot from "../components/chat/ChatBot";
 import RoleSelectionModal from "../components/auth/RoleSelectionModal";
 import TourGuide from "../components/onboarding/TourGuide";
@@ -130,11 +131,17 @@ export default function Dashboard() {
             <AdminNotificationsPage />
           </main>
         );
+      case "admin-monitoring":
+      case "rescuer-monitoring":
+        return (
+          <main className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900/50 relative overflow-hidden">
+            <MonitoringCenter role={role} />
+          </main>
+        );
       case "admin":
       case "admin-users":
       case "admin-requests":
       case "admin-teams":
-      case "admin-sensors":
       case "admin-analytics":
         if (activePage === "admin-requests") {
           return (
