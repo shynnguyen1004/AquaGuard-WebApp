@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ROLES, getRoleLabel, getRoleBadgeClasses } from "../../config/rbac";
 import { useAuth } from "../../contexts/AuthContext";
 import AdminFloodMapEditor from "../../components/map/AdminFloodMapEditor";
@@ -37,7 +37,46 @@ function StatCard({ icon, label, value, color, bgColor }) {
   );
 }
 
-function UserTableRow({ userData, onRoleChange }) {
+// Sort a user list by a single active column. `user` sorts by display name
+// (first letter, case-insensitive); `phone` sorts numerically by the digits.
+function sortUsers(list, sortConfig) {
+  if (!sortConfig?.key) return list;
+  const dir = sortConfig.dir === "desc" ? -1 : 1;
+  return [...list].sort((a, b) => {
+    if (sortConfig.key === "user") {
+      const an = (a.displayName || "").trim().toLowerCase();
+      const bn = (b.displayName || "").trim().toLowerCase();
+      return an.localeCompare(bn, undefined, { sensitivity: "base", numeric: true }) * dir;
+    }
+    if (sortConfig.key === "phone") {
+      const ap = (a.phoneNumber || "").replace(/\D/g, "");
+      const bp = (b.phoneNumber || "").replace(/\D/g, "");
+      return ap.localeCompare(bp, undefined, { numeric: true }) * dir;
+    }
+    return 0;
+  });
+}
+
+// Clickable, sortable table header cell.
+function SortableTh({ label, sortKey, sortConfig, onSort }) {
+  const active = sortConfig.key === sortKey;
+  const icon = !active ? "unfold_more" : sortConfig.dir === "asc" ? "arrow_upward" : "arrow_downward";
+  return (
+    <th className="px-4 py-3">
+      <button
+        onClick={() => onSort(sortKey)}
+        className={`inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide transition-colors ${
+          active ? "text-primary" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+        }`}
+      >
+        {label}
+        <span className="material-symbols-outlined text-[15px]">{icon}</span>
+      </button>
+    </th>
+  );
+}
+
+function UserTableRow({ userData, onRoleChange, selected, onToggleSelect, onDelete, isSelf }) {
   const [changingRole, setChangingRole] = useState(false);
 
   const handleRoleChange = async (newRole) => {
@@ -50,7 +89,17 @@ function UserTableRow({ userData, onRoleChange }) {
   };
 
   return (
-    <tr className="border-b border-slate-100 dark:border-slate-700/30 last:border-0">
+    <tr className={`border-b border-slate-100 dark:border-slate-700/30 last:border-0 transition-colors ${selected ? "bg-primary/5" : ""}`}>
+      <td className="px-4 py-4 w-10">
+        <input
+          type="checkbox"
+          checked={selected}
+          disabled={isSelf}
+          onChange={() => onToggleSelect(userData.id)}
+          title={isSelf ? "You can't select your own account" : undefined}
+          className="size-4 rounded accent-primary cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed align-middle"
+        />
+      </td>
       <td className="px-4 py-4">
         <div className="flex items-center gap-3 min-w-0">
           <img
@@ -63,14 +112,17 @@ function UserTableRow({ userData, onRoleChange }) {
             referrerPolicy="no-referrer"
           />
           <div className="min-w-0">
-            <p className="text-sm font-semibold truncate">{userData.displayName || "Unknown"}</p>
+            <p className="text-sm font-semibold truncate">
+              {userData.displayName || "Unknown"}
+              {isSelf && <span className="ml-1.5 text-[10px] font-bold text-primary">(You)</span>}
+            </p>
             {userData.email ? (
               <p className="text-xs text-slate-500 truncate">{userData.email}</p>
             ) : null}
           </div>
         </div>
       </td>
-      <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-400">
+      <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
         {userData.phoneNumber || "No contact"}
       </td>
       <td className="px-4 py-4">
@@ -82,22 +134,48 @@ function UserTableRow({ userData, onRoleChange }) {
         {userData.createdAt ? new Date(userData.createdAt).toLocaleDateString("vi-VN") : "-"}
       </td>
       <td className="px-4 py-4">
-        <select
-          disabled={changingRole}
-          value={userData.role || ROLES.CITIZEN}
-          onChange={(e) => handleRoleChange(e.target.value)}
-          className="w-full text-xs bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-2 outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer disabled:opacity-50"
-        >
-          <option value={ROLES.CITIZEN}>Citizen</option>
-          <option value={ROLES.RESCUER}>Rescuer</option>
-          <option value={ROLES.ADMIN}>Admin</option>
-        </select>
+        <div className="flex items-center gap-2">
+          <select
+            disabled={changingRole}
+            value={userData.role || ROLES.CITIZEN}
+            onChange={(e) => handleRoleChange(e.target.value)}
+            className="text-xs bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-2 outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer disabled:opacity-50"
+          >
+            <option value={ROLES.CITIZEN}>Citizen</option>
+            <option value={ROLES.RESCUER}>Rescuer</option>
+            <option value={ROLES.ADMIN}>Admin</option>
+          </select>
+          <button
+            onClick={() => onDelete(userData.id)}
+            disabled={isSelf}
+            title={isSelf ? "You can't delete your own account" : "Delete user"}
+            className="size-9 shrink-0 rounded-lg flex items-center justify-center text-slate-400 hover:text-danger hover:bg-danger/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-slate-400"
+          >
+            <span className="material-symbols-outlined text-lg">delete</span>
+          </button>
+        </div>
       </td>
     </tr>
   );
 }
 
-function RoleUserTable({ title, icon, colorClass, users, onRoleChange }) {
+function RoleUserTable({
+  title, icon, colorClass, users, onRoleChange,
+  sortConfig, onSort, selectedIds, onToggleSelect, onToggleSectionAll, onDelete, currentUserId,
+}) {
+  const headerCbRef = useRef(null);
+  const sortedUsers = sortUsers(users, sortConfig);
+
+  // Only non-self users are selectable (an admin can't delete their own account).
+  const selectableIds = sortedUsers.filter((u) => u.id !== currentUserId).map((u) => u.id);
+  const selectedCount = selectableIds.filter((id) => selectedIds.has(id)).length;
+  const allSelected = selectableIds.length > 0 && selectedCount === selectableIds.length;
+  const someSelected = selectedCount > 0 && !allSelected;
+
+  useEffect(() => {
+    if (headerCbRef.current) headerCbRef.current.indeterminate = someSelected;
+  }, [someSelected]);
+
   return (
     <div className="bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700/30 overflow-hidden">
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-700/30 bg-slate-50/80 dark:bg-slate-900/30">
@@ -120,16 +198,35 @@ function RoleUserTable({ title, icon, colorClass, users, onRoleChange }) {
           <table className="min-w-full">
             <thead className="bg-slate-50 dark:bg-slate-900/40">
               <tr className="text-left">
-                <th className="px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">User</th>
-                <th className="px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">Phone</th>
+                <th className="px-4 py-3 w-10">
+                  <input
+                    ref={headerCbRef}
+                    type="checkbox"
+                    checked={allSelected}
+                    disabled={selectableIds.length === 0}
+                    onChange={(e) => onToggleSectionAll(selectableIds, e.target.checked)}
+                    title="Select all in this group"
+                    className="size-4 rounded accent-primary cursor-pointer disabled:opacity-40 align-middle"
+                  />
+                </th>
+                <SortableTh label="User" sortKey="user" sortConfig={sortConfig} onSort={onSort} />
+                <SortableTh label="Phone" sortKey="phone" sortConfig={sortConfig} onSort={onSort} />
                 <th className="px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">Role</th>
                 <th className="px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">Created</th>
-                <th className="px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">Change Role</th>
+                <th className="px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => (
-                <UserTableRow key={u.id} userData={u} onRoleChange={onRoleChange} />
+              {sortedUsers.map((u) => (
+                <UserTableRow
+                  key={u.id}
+                  userData={u}
+                  onRoleChange={onRoleChange}
+                  selected={selectedIds.has(u.id)}
+                  onToggleSelect={onToggleSelect}
+                  onDelete={onDelete}
+                  isSelf={u.id === currentUserId}
+                />
               ))}
             </tbody>
           </table>
@@ -149,6 +246,78 @@ export default function AdminDashboard({ activePage = "admin" }) {
   const [selectedGroupByRequest, setSelectedGroupByRequest] = useState({});
   const [completingRequestId, setCompletingRequestId] = useState(null);
   const [rescueGroups, setRescueGroups] = useState([]);
+
+  // ── User Management: selection + sorting + delete ──
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [sortConfig, setSortConfig] = useState({ key: null, dir: "asc" });
+  const [deletingUsers, setDeletingUsers] = useState(false);
+  // The signed-in admin's numeric id (uid is stored as `phone_<id>`). Used to
+  // stop them from deleting their own account; the backend enforces it too.
+  const currentUserId = Number(String(user?.uid || "").replace("phone_", "")) || null;
+
+  // Toggle sort: same column flips direction, a new column starts ascending.
+  const handleSort = (key) => {
+    setSortConfig((prev) =>
+      prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }
+    );
+  };
+
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSectionAll = (ids, checked) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => (checked ? next.add(id) : next.delete(id)));
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const handleDeleteUsers = async (ids) => {
+    const targets = [...new Set(ids)].filter((id) => id && id !== currentUserId);
+    if (targets.length === 0) return;
+
+    const confirmed = window.confirm(
+      `Delete ${targets.length} user${targets.length > 1 ? "s" : ""}? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    const token = getStoredToken();
+    if (!token) return;
+
+    setDeletingUsers(true);
+    try {
+      const res = await fetch(`${API_BASE}/auth/users/bulk-delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ids: targets }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        const deleted = new Set(json.data?.deleted || targets);
+        setUsers((prev) => prev.filter((u) => !deleted.has(u.id)));
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          deleted.forEach((id) => next.delete(id));
+          return next;
+        });
+      } else {
+        alert(json.message || "Failed to delete users.");
+      }
+    } catch (err) {
+      console.error("Failed to delete users:", err);
+      alert("Failed to delete users.");
+    } finally {
+      setDeletingUsers(false);
+    }
+  };
 
   // Sync internal tab when sidebar page changes
   useEffect(() => {
@@ -447,6 +616,35 @@ export default function AdminDashboard({ activePage = "admin" }) {
                 Refresh
               </button>
             </div>
+
+            {/* Bulk selection action bar */}
+            {selectedIds.size > 0 && (
+              <div className="sticky top-2 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-danger/20 bg-danger/5 backdrop-blur px-4 py-3">
+                <p className="text-sm font-bold text-danger flex items-center gap-2">
+                  <span className="material-symbols-outlined text-lg">check_circle</span>
+                  {selectedIds.size} user{selectedIds.size > 1 ? "s" : ""} selected
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={clearSelection}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    onClick={() => handleDeleteUsers([...selectedIds])}
+                    disabled={deletingUsers}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold bg-danger text-white hover:bg-red-600 transition-colors disabled:opacity-50"
+                  >
+                    <span className={`material-symbols-outlined text-base ${deletingUsers ? "animate-spin" : ""}`}>
+                      {deletingUsers ? "progress_activity" : "delete"}
+                    </span>
+                    Delete selected
+                  </button>
+                </div>
+              </div>
+            )}
+
             {loadingUsers ? (
               <div className="flex justify-center py-12">
                 <div className="size-8 rounded-full border-3 border-primary/30 border-t-primary animate-spin" />
@@ -479,6 +677,13 @@ export default function AdminDashboard({ activePage = "admin" }) {
                     colorClass={section.colorClass}
                     users={section.users}
                     onRoleChange={handleRoleChange}
+                    sortConfig={sortConfig}
+                    onSort={handleSort}
+                    selectedIds={selectedIds}
+                    onToggleSelect={toggleSelect}
+                    onToggleSectionAll={toggleSectionAll}
+                    onDelete={(id) => handleDeleteUsers([id])}
+                    currentUserId={currentUserId}
                   />
                 ))}
               </div>

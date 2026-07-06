@@ -857,6 +857,44 @@ router.put("/users/:id/role", authMiddleware, requireAdmin, async (req, res) => 
 });
 
 /**
+ * POST /api/auth/users/bulk-delete
+ * Body: { ids: number[] }
+ * Delete one or more users (also used for single-row delete with a 1-item array).
+ * An admin can never delete their own account. All FK references to users(id)
+ * are ON DELETE SET NULL / CASCADE, so related rows are handled by the DB.
+ */
+router.post("/users/bulk-delete", authMiddleware, requireAdmin, async (req, res) => {
+  try {
+    const rawIds = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    const ids = [...new Set(rawIds.map((n) => Number(n)).filter(Number.isInteger))];
+    if (ids.length === 0) {
+      return res.status(400).json({ success: false, message: "No valid user ids provided." });
+    }
+
+    const selfIncluded = ids.includes(req.user.id);
+    const targetIds = ids.filter((id) => id !== req.user.id);
+    if (targetIds.length === 0) {
+      return res.status(400).json({ success: false, message: "You cannot delete your own account." });
+    }
+
+    const result = await pool.query(
+      "DELETE FROM users WHERE id = ANY($1::int[]) RETURNING id",
+      [targetIds]
+    );
+    const deleted = result.rows.map((r) => r.id);
+
+    return res.json({
+      success: true,
+      data: { deleted, skippedSelf: selfIncluded },
+      message: `Deleted ${deleted.length} user(s).${selfIncluded ? " Your own account was skipped." : ""}`,
+    });
+  } catch (err) {
+    console.error("Bulk delete users error:", err);
+    return res.status(500).json({ success: false, message: "Server error." });
+  }
+});
+
+/**
  * POST /api/auth/forgot-password
  * Body: { phone_number }
  * Send OTP via Twilio Verify API
