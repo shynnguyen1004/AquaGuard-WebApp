@@ -1,11 +1,11 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useAuth } from "./AuthContext";
 import { cacheGpsPosition, syncLocationAfterAuth } from "../utils/locationSync";
 
 // WebSocket endpoint cho live-location: lấy từ env, fallback về localhost khi dev.
 const WS_BASE = import.meta.env.VITE_WS_URL || "ws://localhost:5001";
 
-const LiveLocationContext = createContext({ isConnected: false });
+const LiveLocationContext = createContext({ isConnected: false, subscribe: () => () => {} });
 
 /**
  * Continuous, always-on location publisher.
@@ -18,6 +18,11 @@ const LiveLocationContext = createContext({ isConnected: false });
  *
  * This socket never joins a tracking room; the RescueTrackingMap modal keeps
  * its own short-lived socket (useRescueTracking) for per-request room exchange.
+ *
+ * It is also the app's INBOUND server-push channel. The backend's `sendToUser`
+ * reaches every socket a user holds, so instead of opening yet another
+ * connection, other features subscribe to this one via `subscribe(handler)` —
+ * that is how DispatchContext receives auto-dispatch offers.
  */
 export function LiveLocationProvider({ children }) {
   const { token } = useAuth();
@@ -27,6 +32,17 @@ export function LiveLocationProvider({ children }) {
   const watchIdRef = useRef(null);
   const intervalRef = useRef(null);
   const reconnectRef = useRef(null);
+  const listenersRef = useRef(new Set());
+
+  /**
+   * Register a handler for inbound server messages. Returns an unsubscribe fn.
+   * Stable identity so subscribers can list it in a useEffect dep array without
+   * re-subscribing on every render.
+   */
+  const subscribe = useCallback((handler) => {
+    listenersRef.current.add(handler);
+    return () => listenersRef.current.delete(handler);
+  }, []);
 
   useEffect(() => {
     if (!token) return;
@@ -54,6 +70,23 @@ export function LiveLocationProvider({ children }) {
       wsRef.current = ws;
 
       ws.onopen = () => setIsConnected(true);
+
+      ws.onmessage = (event) => {
+        let msg;
+        try {
+          msg = JSON.parse(event.data);
+        } catch {
+          return;
+        }
+        // One bad subscriber must not stop the others from being notified.
+        listenersRef.current.forEach((handler) => {
+          try {
+            handler(msg);
+          } catch (err) {
+            console.warn("[LiveLocation] subscriber error:", err);
+          }
+        });
+      };
 
       ws.onclose = () => {
         setIsConnected(false);
@@ -100,7 +133,7 @@ export function LiveLocationProvider({ children }) {
   }, [token]);
 
   return (
-    <LiveLocationContext.Provider value={{ isConnected }}>
+    <LiveLocationContext.Provider value={{ isConnected, subscribe }}>
       {children}
     </LiveLocationContext.Provider>
   );

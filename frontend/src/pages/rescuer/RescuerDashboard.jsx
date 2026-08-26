@@ -5,6 +5,7 @@ import RescueTrackingMap from "../../components/rescue/RescueTrackingMap";
 import StatusPills from "../../components/rescue/StatusPills";
 import NotificationBell from "../../components/notifications/NotificationBell";
 import ConfirmDialog from "../../components/common/ConfirmDialog";
+import DutyToggle from "../../components/dispatch/DutyToggle";
 import { getStoredToken } from "../../utils/authStorage";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
@@ -307,6 +308,13 @@ export default function RescuerDashboard() {
     return () => window.removeEventListener("profile_updated", handleProfileUpdated);
   }, []);
 
+  // Auto-dispatch vừa giao một ca mới → nạp lại ngay thay vì đợi poll 10s.
+  useEffect(() => {
+    const handleAssigned = () => fetchTeamRequests();
+    window.addEventListener("dispatch_assigned", handleAssigned);
+    return () => window.removeEventListener("dispatch_assigned", handleAssigned);
+  }, []);
+
   const rescuerUid = user?.uid?.startsWith("phone_")
     ? parseInt(user.uid.replace("phone_", ""), 10)
     : user?.uid || "";
@@ -508,8 +516,12 @@ export default function RescuerDashboard() {
               </p>
             )}
           </div>
-          <div className="hidden lg:block shrink-0">
-            <NotificationBell />
+          <div className="flex shrink-0 items-center gap-3">
+            {/* Công tắc ca trực — chỉ rescuer đang trực mới được auto-dispatch mời */}
+            <DutyToggle />
+            <div className="hidden lg:block">
+              <NotificationBell />
+            </div>
           </div>
         </div>
 

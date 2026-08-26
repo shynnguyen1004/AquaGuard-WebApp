@@ -324,6 +324,12 @@ const vi = {
     subtitleRescuer: "Theo dõi mực nước thời gian thực và hình ảnh drone để phát hiện người mắc kẹt trong vùng lũ.",
     liveOn: "Trực tiếp",
     liveOff: "Tạm dừng",
+    sound: {
+      on: "Còi cảnh báo",
+      hint: "Hú khi mực nước chạm {n}% hoặc vào mức nguy hiểm",
+      off: "Đã tắt tiếng",
+      blocked: "Bấm để bật tiếng",
+    },
     tabs: {
       sensors: "Cảm biến IoT",
       drones: "Giám sát Drone",
@@ -347,6 +353,20 @@ const vi = {
       dangerLevel: "Nguy hiểm",
       secAgo: "{n} giây trước",
       minAgo: "{n} phút trước",
+    },
+    // ── Cảm biến mực nước thật (ESP32 của người dân) ──
+    water: {
+      realDevice: "Thiết bị thật",
+      simulated: "Mô phỏng",
+      sourceNote: "Board ESP32 do đội triển khai, số đo trực tiếp",
+      otherDevices: "Trạm mưa & lưu lượng",
+      emptyTitle: "Chưa có cảm biến mực nước nào",
+      emptyDesc: "Ghép board ESP32 vào hệ thống để theo dõi mực nước trực tiếp tại các điểm ngập trọng yếu.",
+      owner: "Người phụ trách",
+      contact: "Liên hệ",
+      threshold: "Ngưỡng",
+      coords: "Toạ độ",
+      noAddress: "Chưa ghi vị trí",
     },
     drones: {
       activeDrones: "Drone hoạt động",
@@ -412,6 +432,71 @@ const vi = {
   dashboard: {
     welcomeBack: "Chào mừng trở lại,",
     lastUpdated: "Cập nhật lần cuối: vừa xong",
+  },
+
+  // ── Cảm biến mực nước (ESP32) ──
+  waterSensor: {
+    online: "Trực tuyến",
+    offline: "Mất kết nối",
+    never: "Chưa có dữ liệu",
+    justNow: "vừa xong",
+    minutesAgo: "phút trước",
+    hoursAgo: "giờ trước",
+    daysAgo: "ngày trước",
+
+    levels: {
+      dry: "Khô",
+      damp: "Vừa chạm nước",
+      veryLow: "Ngập rất thấp",
+      low: "Ngập thấp",
+      lowMid: "Ngập thấp–vừa",
+      moderate: "Ngập vừa",
+      midHigh: "Ngập vừa–cao",
+      high: "Ngập cao",
+      veryHigh: "Ngập rất cao",
+      critical: "Đầy — cảnh báo",
+    },
+
+    add: "Thêm cảm biến",
+
+    threshold: "Ngưỡng cảnh báo",
+    thresholdHint: "Gửi cảnh báo khi mực nước vượt mức này",
+    alertsEnabled: "Bật cảnh báo",
+    notCalibrated: "Chưa hiệu chuẩn — số phần trăm chỉ là ước lượng",
+    rawValue: "Giá trị thô",
+
+    chart: "Diễn biến mực nước",
+    range6h: "6 giờ",
+    range24h: "24 giờ",
+    range7d: "7 ngày",
+    noData: "Chưa đủ dữ liệu để vẽ biểu đồ",
+
+    settings: "Cài đặt thiết bị",
+    name: "Tên thiết bị",
+    save: "Lưu",
+    cancel: "Huỷ",
+    remove: "Gỡ thiết bị",
+    removeConfirm: "Gỡ cảm biến này? Toàn bộ số đo đã lưu sẽ bị xoá.",
+    rotateKey: "Cấp key mới",
+    rotateConfirm: "Cấp key mới? Board đang dùng key cũ sẽ ngừng gửi được cho tới khi bạn nạp key mới.",
+
+    setupTitle: "Ghép cảm biến mới",
+    setupDesc: "Đặt tên cho thiết bị, sau đó nạp key vào board ESP32.",
+    namePlaceholder: "VD: Cảm biến sân sau",
+    useMyLocation: "Dùng vị trí hiện tại của tôi",
+    locationSet: "Đã lấy vị trí",
+    locationFailed: "Không lấy được vị trí",
+    create: "Tạo thiết bị",
+    creating: "Đang tạo…",
+
+    keyTitle: "Key của thiết bị",
+    keyWarning: "Key này chỉ hiện MỘT LẦN. Chép ngay vào config.py của board — mất thì phải cấp key mới.",
+    copy: "Chép",
+    copied: "Đã chép",
+    firmwareHint: "Dán vào hardware/esp32-water-level/config.py rồi nạp lại board:",
+    done: "Xong",
+
+    alertToast: "Cảnh báo ngập từ cảm biến",
   },
 
   // ── Thẻ trạng thái ──
@@ -970,6 +1055,36 @@ const vi = {
     rescuer: "Đội cứu hộ",
     citizen: "Công dân",
     user: "Người dùng",
+  },
+
+  // ── Điều phối cứu hộ tự động ──
+  dispatch: {
+    // Ca trực
+    onDuty: "Đang trực",
+    offDuty: "Ngoài ca",
+    needTeam: "Bạn cần tham gia một đội cứu hộ trước khi bật ca trực.",
+    dutyError: "Không đổi được trạng thái trực. Vui lòng thử lại.",
+    dutyHint: "Bật ca trực để nhận yêu cầu cứu hộ gần bạn",
+
+    // Được giao nhiệm vụ
+    offerLabel: "Điều phối tự động",
+    assignedTitle: "Bạn được giao một nhiệm vụ",
+    awayFromYou: "cách bạn",
+    citizen: "Người dân",
+    location: "Vị trí",
+    description: "Mô tả",
+    dismiss: "Đóng",
+    viewMission: "Xem nhiệm vụ",
+    confirmHint: "Hãy mở nhiệm vụ và bấm bắt đầu để đội biết bạn đã lên đường.",
+    assignedHint: "Nhiệm vụ này đã được giao cho bạn.",
+
+    // Mức độ khẩn cấp
+    urgency: {
+      critical: "Nguy kịch",
+      high: "Cao",
+      medium: "Trung bình",
+      low: "Thấp",
+    },
   },
 
   // ── Trang Quy trình An toàn ──

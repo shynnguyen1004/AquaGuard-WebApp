@@ -155,7 +155,9 @@ async function removeLivePresence(userId, role) {
 
 /**
  * Find online users of a role within `radiusKm` of a point, nearest first.
- * Returns [{ userId, lat, lng, distanceKm }].
+ * Returns [{ userId, lat, lng, distanceKm, ts }].
+ * `ts` is the epoch-ms of the fix — the dispatch scorer uses it to prefer
+ * rescuers whose GPS is freshest.
  */
 async function nearbyUsers(role, latitude, longitude, radiusKm = 10) {
   if (!isRedisReady()) return [];
@@ -190,6 +192,7 @@ async function nearbyUsers(role, latitude, longitude, radiusKm = 10) {
           distanceKm: Number(distance),
           lat: loc.lat,
           lng: loc.lng,
+          ts: loc.ts,
         };
       })
       .filter(Boolean);

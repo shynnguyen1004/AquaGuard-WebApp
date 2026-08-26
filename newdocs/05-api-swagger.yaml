@@ -1,0 +1,3018 @@
+openapi: 3.0.3
+
+info:
+  title: AquaGuard API
+  version: "1.0.0"
+  description: |
+    # AquaGuard REST API
+
+    API của nền tảng ứng phó và điều phối cứu hộ lũ lụt AquaGuard.
+    Tài liệu này mô tả **toàn bộ** endpoint HTTP hiện có của backend.
+
+    ## Quy ước chung
+
+    - Mọi phản hồi đều là JSON và luôn có trường `success` (boolean).
+      - Thành công: `{ "success": true, "data": ... }` (một số endpoint trả thêm
+        `message`, `group`, `unreadCount`, `sentCount`…).
+      - Thất bại: `{ "success": false, "message": "..." }`.
+    - Ngoại lệ duy nhất: nhóm `/export/*` trả về **file CSV** (`text/csv`).
+    - Múi giờ: mọi mốc thời gian là ISO-8601 có offset (`TIMESTAMPTZ`).
+    - Số điện thoại luôn ở dạng chuẩn hoá `+84XXXXXXXXX` (9–10 chữ số sau `+84`).
+
+    ## Xác thực
+
+    Hầu hết endpoint yêu cầu **JWT** ở header:
+
+    ```
+    Authorization: Bearer <accessToken>
+    ```
+
+    Token nhận được từ `POST /auth/register` hoặc `POST /auth/login`, có hạn
+    **7 ngày**, và chỉ chứa `id`, `phone_number`, `role`.
+
+    ## Phân quyền
+
+    Ba vai trò: `citizen`, `rescuer`, `admin`. Mỗi endpoint ghi rõ vai trò được
+    phép trong phần mô tả. Sai vai trò → **403**. Thiếu/sai token → **401**.
+
+    Một số thao tác còn ràng buộc thêm ở mức dữ liệu (ví dụ chỉ đội đang phụ
+    trách mới hoàn tất được nhiệm vụ, chỉ nhóm trưởng mới đổi được vai trò thành
+    viên) — các ràng buộc này nằm ngay trong câu lệnh SQL nên trả **403/404**
+    kể cả khi vai trò tổng quát đã đúng.
+
+    ## Giới hạn tần suất (rate limit)
+
+    Áp dụng theo địa chỉ IP, lưu trong bộ nhớ tiến trình (reset khi khởi động lại).
+    Vượt giới hạn → **429**.
+
+    | Endpoint | Giới hạn |
+    | --- | --- |
+    | `POST /auth/login` | 10 lần / 15 phút |
+    | `POST /auth/register` | 5 lần / 15 phút |
+    | `POST /auth/forgot-password` | 5 lần / 15 phút (+ 60 giây giữa 2 lần cho mỗi số điện thoại) |
+    | `POST /notifications/admin/send` | 20 lần / phút |
+    | `POST /notifications/admin/flood-alert` | 10 lần / phút |
+    | `GET /export/{dataset}` | 60 lần / phút |
+    | `GET /rtc/ice-servers` | 30 lần / phút |
+
+    ## CORS
+
+    Backend chỉ chấp nhận request từ danh sách origin khai báo sẵn
+    (`localhost:5173/5174/3000`, `aquaguard.vn`, `www.aquaguard.vn`, và giá trị
+    của biến môi trường `FRONTEND_URL`). Ở môi trường không phải production,
+    các IP mạng nội bộ cũng được chấp nhận. Request không có `Origin`
+    (curl, Postman, app di động) luôn được cho qua.
+
+    ## Kênh WebSocket (không thuộc OpenAPI)
+
+    Ngoài REST, backend chạy một **WebSocket server trên cùng cổng**:
+
+    ```
+    wss://aquaguard-api.onrender.com?token=<accessToken>
+    ws://localhost:5001?token=<accessToken>
+    ```
+
+    Token sai/thiếu → server đóng kết nối với mã `4001` (thiếu) hoặc `4002` (sai).
+
+    **Client → Server**
+
+    | `type` | Payload | Ý nghĩa |
+    | --- | --- | --- |
+    | `presence_location` | `latitude`, `longitude` | Vị trí hiện diện liên tục (ghi Redis, TTL 60 giây) |
+    | `join_tracking` | `requestId` | Tham gia phòng theo dõi của một yêu cầu |
+    | `location_update` | `latitude`, `longitude` | Vị trí trong phiên theo dõi (phát cho bên còn lại + ghi mốc đầu/cuối vào PostgreSQL) |
+    | `call_invite` | `requestId`, `media` (`audio`\|`video`) | Bắt đầu cuộc gọi |
+    | `call_accept` / `call_reject` / `call_cancel` / `call_hangup` | `requestId` | Điều khiển cuộc gọi |
+    | `webrtc_offer` / `webrtc_answer` | `requestId`, `sdp` | Đàm phán WebRTC |
+    | `webrtc_ice` | `requestId`, `candidate` | Trao đổi ICE candidate |
+
+    **Server → Client**
+
+    | `type` | Ý nghĩa |
+    | --- | --- |
+    | `location_update` | Vị trí mới của bên kia (`userId`, `role`, `latitude`, `longitude`, `timestamp`) |
+    | `tracking_started` | Đội cứu hộ đã bắt đầu nhiệm vụ (kèm toạ độ hai bên) |
+    | `tracking_ended` | Nhiệm vụ đã hoàn tất |
+    | `tracking_cancelled` | Đội cứu hộ đã trả lại nhiệm vụ |
+    | `call_incoming` | Có cuộc gọi đến (`fromUserId`, `fromName`, `fromRole`, `media`) |
+    | `call_ringing` | Bên kia đang đổ chuông (`toName`) |
+    | `call_accepted` / `call_rejected` / `call_cancelled` / `call_hangup` | Trạng thái cuộc gọi |
+    | `call_unavailable` | Không gọi được — `reason`: `inactive` \| `offline` \| `no_peer` |
+    | `webrtc_offer` / `webrtc_answer` / `webrtc_ice` | Tín hiệu WebRTC chuyển tiếp từ bên kia |
+
+    Chỉ **hai bên của một yêu cầu đang ở trạng thái `assigned`/`in_progress`**
+    (người gửi yêu cầu và người được phân công) mới gọi được cho nhau; máy chủ
+    kiểm tra một lần tại `call_invite`. Âm thanh/hình đi trực tiếp giữa hai máy
+    (peer-to-peer), không qua backend.
+
+  contact:
+    name: AquaGuard
+    url: https://aquaguard.vn
+
+servers:
+  - url: https://aquaguard-api.onrender.com/api
+    description: Production (Render)
+  - url: http://localhost:5001/api
+    description: Local development
+
+tags:
+  - name: Health
+    description: Kiểm tra tình trạng máy chủ
+  - name: Auth
+    description: Đăng ký, đăng nhập, hồ sơ, khôi phục mật khẩu
+  - name: Users (Admin)
+    description: Quản lý tài khoản người dùng — chỉ quản trị viên
+  - name: Rescue Groups
+    description: Đội cứu hộ, thành viên và lời mời
+  - name: SOS
+    description: Vòng đời yêu cầu cứu hộ
+  - name: Family
+    description: Kết nối người thân, trạng thái an toàn và vị trí
+  - name: Locations
+    description: Vị trí trực tiếp và truy vấn theo bán kính
+  - name: Water Sensors
+    description: Cảm biến mực nước ESP32 do người dân tự lắp
+  - name: Notifications
+    description: Thông báo trong ứng dụng và phát cảnh báo
+  - name: Analytics
+    description: Thống kê hệ thống — chỉ quản trị viên
+  - name: Export
+    description: Xuất dữ liệu CSV — chỉ quản trị viên
+  - name: WebRTC
+    description: Cấu hình máy chủ ICE cho cuộc gọi
+
+security:
+  - bearerAuth: []
+
+paths:
+
+  # ════════════════════════════════════════════════════════════
+  # HEALTH
+  # ════════════════════════════════════════════════════════════
+
+  /health:
+    get:
+      tags: [Health]
+      summary: Kiểm tra máy chủ còn sống
+      description: |
+        Endpoint công khai, không cần token. Dịch vụ giám sát (UptimeRobot) gọi
+        mỗi 5 phút để giữ tiến trình trên gói miễn phí của Render không ngủ đông.
+      security: []
+      responses:
+        "200":
+          description: Máy chủ hoạt động bình thường
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  timestamp: { type: string, format: date-time }
+
+  # ════════════════════════════════════════════════════════════
+  # AUTH
+  # ════════════════════════════════════════════════════════════
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Đăng ký tài khoản mới
+      description: |
+        Tạo tài khoản bằng số điện thoại + mật khẩu và trả về token đăng nhập ngay.
+
+        - Đăng ký vai trò `rescuer` hoặc `admin` **bắt buộc** kèm `role_password`
+          (mã vai trò do đơn vị vận hành cấp, cấu hình qua biến môi trường
+          `ROLE_PASSWORD`). Sai mã → 403.
+        - Mật khẩu được băm bằng bcrypt trước khi lưu.
+        - Nếu có `email`: gửi email chào mừng (chạy nền, lỗi không ảnh hưởng đăng ký).
+        - Luôn tạo một thông báo chào mừng trong ứng dụng.
+
+        Rate limit: 5 lần / 15 phút / IP.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone_number, password]
+              properties:
+                phone_number:
+                  type: string
+                  pattern: '^\+84\d{9,10}$'
+                  example: "+84901234567"
+                password:
+                  type: string
+                  minLength: 6
+                  example: "matkhau123"
+                display_name:
+                  type: string
+                  default: User
+                  example: "Nguyễn Văn A"
+                role:
+                  type: string
+                  enum: [citizen, rescuer, admin]
+                  default: citizen
+                role_password:
+                  type: string
+                  description: Bắt buộc khi `role` là `rescuer` hoặc `admin`.
+                gender:
+                  type: string
+                  enum: [male, female, other]
+                date_of_birth:
+                  type: string
+                  format: date
+                  example: "1998-05-11"
+                email:
+                  type: string
+                  format: email
+      responses:
+        "201":
+          description: Đăng ký thành công
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthSuccess" }
+        "400":
+          description: Thiếu dữ liệu, sai định dạng số điện thoại/email/ngày sinh, hoặc mật khẩu dưới 6 ký tự
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "403":
+          description: Sai mã vai trò
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "409":
+          description: Số điện thoại đã được đăng ký
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Đăng nhập bằng số điện thoại và mật khẩu
+      description: |
+        Trả về JWT hạn 7 ngày. Tài khoản bị khoá (`is_active = false`) → 403.
+
+        Rate limit: 10 lần / 15 phút / IP.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone_number, password]
+              properties:
+                phone_number: { type: string, example: "+84901234567" }
+                password: { type: string, example: "matkhau123" }
+      responses:
+        "200":
+          description: Đăng nhập thành công
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthSuccess" }
+        "400":
+          description: Thiếu thông tin hoặc sai định dạng số điện thoại
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401":
+          description: Sai số điện thoại hoặc mật khẩu
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "403":
+          description: Tài khoản đã bị khoá
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /auth/profile:
+    get:
+      tags: [Auth]
+      summary: Lấy hồ sơ của người dùng đang đăng nhập
+      description: |
+        Trả về đầy đủ hồ sơ, kèm vị trí gần nhất lấy từ bảng vị trí (nếu có).
+        Mọi vai trò đều gọi được cho chính mình.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data: { $ref: "#/components/schemas/Profile" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+    put:
+      tags: [Auth]
+      summary: Cập nhật hồ sơ
+      description: |
+        Chỉ những trường được gửi lên mới bị thay đổi (cập nhật từng phần).
+        Nếu gửi **cả** `latitude` và `longitude`, toạ độ được ghi vào bảng vị trí
+        (ghi đè bản ghi cũ của người đó).
+
+        Không gửi trường nào hợp lệ → 400.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName: { type: string }
+                email: { type: string, format: email }
+                gender: { type: string, enum: [male, female, other] }
+                dateOfBirth:
+                  type: string
+                  format: date
+                  description: Không được là ngày trong tương lai. Chuỗi rỗng = xoá giá trị.
+                emergencyContact: { type: string, example: "+84912345678" }
+                address: { type: string }
+                latitude: { type: number, format: double }
+                longitude: { type: number, format: double }
+      responses:
+        "200":
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/Profile" }
+        "400":
+          description: Giá trị không hợp lệ hoặc không có trường nào để cập nhật
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Gửi mã OTP khôi phục mật khẩu qua SMS
+      description: |
+        Gửi OTP qua Twilio Verify tới số điện thoại đã đăng ký.
+
+        - Mỗi số chỉ xin được mã mới sau **60 giây**.
+        - Rate limit thêm ở tầng IP: 5 lần / 15 phút.
+        - Số điện thoại chưa tồn tại trong hệ thống → 404.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone_number]
+              properties:
+                phone_number: { type: string, example: "+84901234567" }
+      responses:
+        "200":
+          description: Đã gửi OTP
+          content: { application/json: { schema: { $ref: "#/components/schemas/SimpleSuccess" } } }
+        "400":
+          description: Thiếu số điện thoại
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "404":
+          description: Số điện thoại không tồn tại
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "429":
+          description: Xin mã quá nhanh (chưa đủ 60 giây) hoặc vượt giới hạn của nhà cung cấp SMS
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /auth/verify-otp:
+    post:
+      tags: [Auth]
+      summary: Xác thực mã OTP
+      description: |
+        Mã đúng → tạo một **phiên đặt lại mật khẩu hạn 10 phút** và trả về
+        `sessionToken` để dùng ở bước tiếp theo.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone_number, otp]
+              properties:
+                phone_number: { type: string, example: "+84901234567" }
+                otp: { type: string, example: "123456" }
+      responses:
+        "200":
+          description: OTP hợp lệ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      sessionToken:
+                        type: string
+                        description: Chuỗi hex 64 ký tự, hạn 10 phút.
+        "400":
+          description: Thiếu dữ liệu, mã sai hoặc mã đã hết hạn
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Đặt lại mật khẩu bằng phiên đã xác thực OTP
+      description: |
+        `sessionToken` phải khớp và còn hạn. Đặt lại thành công thì phiên bị xoá
+        (không dùng lại được) và người dùng phải đăng nhập lại.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone_number, sessionToken, newPassword]
+              properties:
+                phone_number: { type: string, example: "+84901234567" }
+                sessionToken: { type: string }
+                newPassword: { type: string, minLength: 6 }
+      responses:
+        "200":
+          description: Đổi mật khẩu thành công
+          content: { application/json: { schema: { $ref: "#/components/schemas/SimpleSuccess" } } }
+        "400":
+          description: Thiếu dữ liệu, mật khẩu dưới 6 ký tự, hoặc phiên đặt lại sai/hết hạn
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "404":
+          description: Số điện thoại không tồn tại
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  # ════════════════════════════════════════════════════════════
+  # USERS (ADMIN)
+  # ════════════════════════════════════════════════════════════
+
+  /auth/users:
+    get:
+      tags: [Users (Admin)]
+      summary: Danh sách toàn bộ người dùng
+      description: "**Chỉ `admin`.** Sắp xếp theo thời điểm tạo, mới nhất trước."
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/UserSummary" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /auth/users/{id}/role:
+    put:
+      tags: [Users (Admin)]
+      summary: Đổi vai trò của một tài khoản
+      description: "**Chỉ `admin`.** Vai trò mới có hiệu lực ở lần gọi API tiếp theo của người đó."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role: { type: string, enum: [citizen, rescuer, admin] }
+      responses:
+        "200":
+          description: Đã đổi vai trò
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      id: { type: integer }
+                      role: { type: string }
+        "400":
+          description: Vai trò không hợp lệ
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /auth/users/bulk-delete:
+    post:
+      tags: [Users (Admin)]
+      summary: Xoá một hoặc nhiều tài khoản
+      description: |
+        **Chỉ `admin`.** Dùng chung cho cả xoá một dòng (mảng 1 phần tử) và xoá
+        hàng loạt.
+
+        - Quản trị viên **không thể xoá chính mình**: ID của người gọi bị loại
+          khỏi danh sách và được báo lại qua `skippedSelf`.
+        - Các khoá ngoại được cấu hình `ON DELETE SET NULL`/`CASCADE`, nên dữ
+          liệu lịch sử liên quan không bị vỡ.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items: { type: integer }
+                  example: [12, 15, 20]
+      responses:
+        "200":
+          description: Đã xoá
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      deleted:
+                        type: array
+                        items: { type: integer }
+                      skippedSelf:
+                        type: boolean
+                        description: "`true` nếu danh sách có chứa ID của chính người gọi."
+        "400":
+          description: Danh sách rỗng/không hợp lệ, hoặc chỉ chứa tài khoản của chính người gọi
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /auth/rescuers:
+    get:
+      tags: [Users (Admin), Rescue Groups]
+      summary: Danh sách tài khoản cứu hộ
+      description: |
+        **Vai trò: `admin`, `rescuer`.** Dùng cho tính năng mời nhanh vào đội —
+        mỗi dòng kèm hai cờ tiện dụng: đã thuộc đội nào chưa, và người gọi đã
+        gửi lời mời đang chờ cho người này chưa.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/RescuerSummary" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  # ════════════════════════════════════════════════════════════
+  # RESCUE GROUPS
+  # ════════════════════════════════════════════════════════════
+
+  /auth/rescue-groups/all:
+    get:
+      tags: [Rescue Groups]
+      summary: Danh sách tất cả đội cứu hộ đang hoạt động
+      description: |
+        **Chỉ `admin`.** Kèm số lượng thành viên, thông tin nhóm trưởng và mảng
+        thành viên (sắp xếp trưởng → phó → thành viên). Dùng ở màn hình điều phối
+        để chọn đội khi giao yêu cầu.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/RescueGroupAdminView" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /auth/rescue-groups/my:
+    get:
+      tags: [Rescue Groups]
+      summary: Đội hiện tại của tôi và các lời mời đang chờ
+      description: |
+        **Vai trò: `rescuer`, `admin`.** Đây là endpoint trung tâm của trang đội:
+        trả về đội đang hoạt động (kèm danh sách thành viên và lời mời đội đã
+        gửi đi), cờ `canAcceptMission` (chỉ `true` với nhóm trưởng/nhóm phó), và
+        danh sách lời mời mà người này **nhận được**.
+
+        Chưa thuộc đội nào → `group = null`, `canAcceptMission = false`.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data: { $ref: "#/components/schemas/MyRescueGroupPayload" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /auth/rescue-groups:
+    post:
+      tags: [Rescue Groups]
+      summary: Tạo đội cứu hộ mới
+      description: |
+        **Chỉ `rescuer`.** Người tạo trở thành **nhóm trưởng**. Mỗi người chỉ
+        được thuộc **một đội đang hoạt động** — đã có đội thì trả 409.
+
+        Trả về đúng cấu trúc như `GET /auth/rescue-groups/my`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, example: "Đội cứu hộ Hải Châu 1" }
+                description: { type: string }
+      responses:
+        "201":
+          description: Đã tạo đội
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data: { $ref: "#/components/schemas/MyRescueGroupPayload" }
+        "400":
+          description: Thiếu tên đội
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409":
+          description: Người gọi đã thuộc một đội đang hoạt động
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /auth/rescue-groups/{id}:
+    put:
+      tags: [Rescue Groups]
+      summary: Sửa tên và mô tả đội
+      description: "**Chỉ nhóm trưởng** của đội đó."
+      parameters:
+        - $ref: "#/components/parameters/GroupId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                description: { type: string }
+      responses:
+        "200":
+          description: Đã cập nhật
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data: { $ref: "#/components/schemas/MyRescueGroupPayload" }
+        "400":
+          description: Thiếu tên đội hoặc ID không hợp lệ
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Người gọi không phải nhóm trưởng
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+    delete:
+      tags: [Rescue Groups]
+      summary: Giải tán đội
+      description: |
+        **Chỉ nhóm trưởng.** Chạy trong một giao dịch: đội chuyển sang trạng thái
+        lưu trữ, toàn bộ thành viên bị đánh dấu đã rời, và mọi lời mời đang chờ
+        của đội bị huỷ.
+      parameters:
+        - $ref: "#/components/parameters/GroupId"
+      responses:
+        "200":
+          description: Đã giải tán
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/MyRescueGroupPayload" }
+        "400":
+          description: ID không hợp lệ
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Người gọi không phải nhóm trưởng
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /auth/rescue-groups/{id}/stats:
+    get:
+      tags: [Rescue Groups]
+      summary: Thống kê của một đội
+      description: |
+        **Vai trò: `rescuer` (phải là thành viên đội), `admin` (xem được mọi đội).**
+        Trả về số nhiệm vụ đang thực hiện, đã hoàn tất, đang chờ xử lý và quy mô đội.
+      parameters:
+        - $ref: "#/components/parameters/GroupId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      activeMissions: { type: integer, example: 2 }
+                      completedMissions: { type: integer, example: 37 }
+                      pendingMissions: { type: integer, example: 5 }
+                      teamSize: { type: integer, example: 6 }
+        "400":
+          description: ID không hợp lệ
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Không phải thành viên của đội (và không phải admin)
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /auth/rescue-groups/{id}/invite:
+    post:
+      tags: [Rescue Groups]
+      summary: Mời một người cứu hộ vào đội
+      description: |
+        **Chỉ nhóm trưởng hoặc nhóm phó.** Điều kiện với người được mời:
+
+        - phải là tài khoản đang tồn tại và có vai trò `rescuer` (404 / 400);
+        - không được là chính người gọi (400);
+        - chưa thuộc đội đang hoạt động nào (409);
+        - chưa có lời mời đang chờ từ đội này (409).
+      parameters:
+        - $ref: "#/components/parameters/GroupId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone_number]
+              properties:
+                phone_number: { type: string, example: "+84912345678" }
+      responses:
+        "201":
+          description: Đã gửi lời mời
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data: { $ref: "#/components/schemas/MyRescueGroupPayload" }
+        "400":
+          description: Sai định dạng số điện thoại, số không thuộc tài khoản cứu hộ, hoặc tự mời chính mình
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Người gọi không phải nhóm trưởng/nhóm phó
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "404":
+          description: Không tìm thấy đội hoặc không tìm thấy tài khoản với số điện thoại này
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "409":
+          description: Người được mời đã có đội, hoặc đã có lời mời đang chờ
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /auth/rescue-groups/{id}/members/{userId}/role:
+    put:
+      tags: [Rescue Groups]
+      summary: Thăng / giáng cấp một thành viên
+      description: |
+        **Chỉ nhóm trưởng.** Chuyển một thành viên giữa `co_leader` và `member`.
+
+        - Không đổi được vai trò của chính mình (400).
+        - Không đổi được vai trò của nhóm trưởng (404).
+      parameters:
+        - $ref: "#/components/parameters/GroupId"
+        - name: userId
+          in: path
+          required: true
+          schema: { type: integer }
+          description: ID người dùng của thành viên cần đổi cấp bậc.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role: { type: string, enum: [co_leader, member] }
+      responses:
+        "200":
+          description: Đã đổi cấp bậc
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data: { $ref: "#/components/schemas/MyRescueGroupPayload" }
+        "400":
+          description: Tham số không hợp lệ, vai trò không hợp lệ, hoặc tự đổi vai trò của mình
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Người gọi không phải nhóm trưởng
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "404":
+          description: Không tìm thấy thành viên, hoặc mục tiêu là nhóm trưởng
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /auth/rescue-groups/{id}/members/{userId}:
+    delete:
+      tags: [Rescue Groups]
+      summary: Loại một thành viên khỏi đội
+      description: |
+        **Nhóm trưởng hoặc nhóm phó.** Quy tắc:
+
+        - Không loại được nhóm trưởng (400).
+        - Nhóm phó **không** loại được nhóm phó khác (403).
+        - Tự rời đội thì dùng endpoint `leave` (400).
+      parameters:
+        - $ref: "#/components/parameters/GroupId"
+        - name: userId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Đã loại thành viên
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data: { $ref: "#/components/schemas/MyRescueGroupPayload" }
+        "400":
+          description: Tham số không hợp lệ, mục tiêu là nhóm trưởng, hoặc mục tiêu là chính mình
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Không đủ quyền (không phải trưởng/phó, hoặc phó loại phó)
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "404":
+          description: Không tìm thấy thành viên
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /auth/rescue-groups/{id}/leave:
+    post:
+      tags: [Rescue Groups]
+      summary: Tự rời khỏi đội
+      description: |
+        **Mọi thành viên trừ nhóm trưởng.** Nhóm trưởng muốn rời thì phải chuyển
+        quyền hoặc giải tán đội (400).
+      parameters:
+        - $ref: "#/components/parameters/GroupId"
+      responses:
+        "200":
+          description: Đã rời đội
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data: { $ref: "#/components/schemas/MyRescueGroupPayload" }
+        "400":
+          description: ID không hợp lệ, hoặc người gọi là nhóm trưởng
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404":
+          description: Người gọi không phải thành viên của đội
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /auth/rescue-group-invites/{id}/accept:
+    post:
+      tags: [Rescue Groups]
+      summary: Chấp nhận lời mời vào đội
+      description: |
+        **Chỉ `rescuer`,** và chỉ với lời mời gửi cho chính mình đang ở trạng thái
+        chờ. Chạy trong một giao dịch: ghi nhận chấp nhận, thêm người vào đội với
+        cấp bậc `member`, và **huỷ toàn bộ lời mời đang chờ khác** của người này.
+
+        Đã thuộc một đội đang hoạt động → 409.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+          description: ID của lời mời.
+      responses:
+        "200":
+          description: Đã vào đội
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data: { $ref: "#/components/schemas/MyRescueGroupPayload" }
+        "400":
+          description: ID lời mời không hợp lệ
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404":
+          description: Lời mời không tồn tại, đã xử lý, hoặc đội không còn hoạt động
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "409":
+          description: Người gọi đã thuộc một đội đang hoạt động
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /auth/rescue-group-invites/{id}/decline:
+    post:
+      tags: [Rescue Groups]
+      summary: Từ chối lời mời vào đội
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Đã từ chối
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data: { $ref: "#/components/schemas/MyRescueGroupPayload" }
+        "400":
+          description: ID lời mời không hợp lệ
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404":
+          description: Lời mời không tồn tại hoặc đã được xử lý
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  # ════════════════════════════════════════════════════════════
+  # SOS
+  # ════════════════════════════════════════════════════════════
+
+  /sos:
+    post:
+      tags: [SOS]
+      summary: Tạo yêu cầu cứu hộ mới
+      description: |
+        **Chỉ `citizen`.** Gửi dưới dạng `multipart/form-data` vì có kèm ảnh.
+
+        - Tối đa **5 ảnh**, mỗi ảnh tối đa **5 MB**, chỉ chấp nhận kiểu `image/*`.
+        - Ảnh được đẩy song song lên Cloudinary; phản hồi chứa các URL HTTPS.
+        - Yêu cầu được tạo ở trạng thái `pending` và ghi một dòng nhật ký trạng thái.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [location, description]
+              properties:
+                location:
+                  type: string
+                  description: Địa chỉ dạng chữ (thường do client tra ngược từ GPS).
+                  example: "123 Nguyễn Văn Linh, Hải Châu, Đà Nẵng"
+                description:
+                  type: string
+                  example: "Nhà ngập tới ngực, có 2 người già và 1 trẻ nhỏ."
+                urgency:
+                  type: string
+                  enum: [low, medium, high, critical]
+                  default: medium
+                latitude: { type: number, format: double, example: 16.0544 }
+                longitude: { type: number, format: double, example: 108.2022 }
+                images:
+                  type: array
+                  items: { type: string, format: binary }
+                  maxItems: 5
+            encoding:
+              images:
+                contentType: image/png, image/jpeg, image/webp
+      responses:
+        "201":
+          description: Đã tạo yêu cầu
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data: { $ref: "#/components/schemas/RescueRequest" }
+        "400":
+          description: Thiếu `location` hoặc `description`
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /sos/my:
+    get:
+      tags: [SOS]
+      summary: Danh sách yêu cầu của chính tôi
+      description: |
+        Mọi người dùng đã đăng nhập. Sắp xếp mới nhất trước, kèm tên người phụ
+        trách, tên đội và tên người đã trả lại nhiệm vụ (nếu có).
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/RescueRequestEnriched" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /sos/all:
+    get:
+      tags: [SOS]
+      summary: Danh sách toàn bộ yêu cầu trong hệ thống
+      description: |
+        **Vai trò: `citizen`, `rescuer`, `admin`.**
+
+        Điểm quan trọng: với các yêu cầu còn đang mở (`pending`, `in_progress`),
+        toạ độ trả về **không phải** toạ độ lúc gửi yêu cầu mà là **vị trí mới
+        nhất**: ưu tiên vị trí trực tiếp trong Redis, sau đó tới vị trí lưu bền
+        trong cơ sở dữ liệu, cuối cùng mới tới toạ độ gốc của yêu cầu. Toạ độ
+        đội cứu hộ (`rescuer_latitude`/`rescuer_longitude`) cũng được đắp tương tự.
+
+        Phản hồi còn kèm thông tin nhân khẩu của người gặp nạn (tuổi tính từ ngày
+        sinh, giới tính, địa chỉ) để phục vụ bộ lọc ở màn hình điều phối.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/RescueRequestEnriched" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /sos/team:
+    get:
+      tags: [SOS]
+      summary: Các yêu cầu được giao cho đội của tôi
+      description: |
+        **Chỉ `rescuer`.** Mọi thành viên của cùng một đội thấy **cùng một danh
+        sách**. Chưa thuộc đội nào → `data: []` và `group: null` (không phải lỗi).
+
+        Toạ độ được đắp vị trí trực tiếp giống `GET /sos/all`.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/RescueRequestEnriched" }
+                  group:
+                    nullable: true
+                    type: object
+                    properties:
+                      id: { type: integer }
+                      name: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /sos/stats:
+    get:
+      tags: [SOS]
+      summary: Đếm nhanh yêu cầu theo trạng thái
+      description: |
+        Mọi người dùng đã đăng nhập. Lưu ý: các khoá luôn có mặt với giá trị mặc
+        định 0 là `pending`, `in_progress`, `resolved`, `total`; nếu trong cơ sở
+        dữ liệu có trạng thái khác (`assigned`, `cancelled`) thì khoá tương ứng
+        được thêm động vào phản hồi.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      pending: { type: integer, example: 4 }
+                      assigned: { type: integer, example: 2 }
+                      in_progress: { type: integer, example: 3 }
+                      resolved: { type: integer, example: 128 }
+                      total: { type: integer, example: 137 }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /sos/{id}/assign:
+    put:
+      tags: [SOS]
+      summary: Giao yêu cầu cho một đội cứu hộ
+      description: |
+        **Chỉ `admin`.** Chuyển yêu cầu từ `pending` sang `assigned`.
+
+        - Đội phải đang hoạt động và **phải có nhóm trưởng**; nhóm trưởng được
+          gán làm người phụ trách để tương thích với luồng theo dõi.
+        - Chỉ giao được yêu cầu còn ở trạng thái `pending` (404 nếu đã đổi trạng thái).
+        - Ghi một dòng nhật ký trạng thái.
+      parameters:
+        - $ref: "#/components/parameters/RequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [groupId]
+              properties:
+                groupId: { type: integer, example: 3 }
+      responses:
+        "200":
+          description: Đã giao cho đội
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data: { $ref: "#/components/schemas/RescueRequest" }
+        "400":
+          description: Thiếu `groupId`
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404":
+          description: Không tìm thấy đội (hoặc đội không có nhóm trưởng), hoặc yêu cầu không còn ở trạng thái chờ
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /sos/{id}/accept:
+    put:
+      tags: [SOS]
+      summary: Đội nhận / bắt đầu nhiệm vụ
+      description: |
+        **Chỉ `rescuer`, và chỉ nhóm trưởng hoặc nhóm phó của một đội đang hoạt động.**
+
+        Nhận được trong hai trường hợp:
+        1. Yêu cầu đang `pending` và **chưa ai phụ trách** (đội tự nhận, bỏ qua
+           bước phân công của quản trị);
+        2. Yêu cầu đang `assigned` **cho chính đội mình**.
+
+        Sau khi nhận: trạng thái chuyển `in_progress`, ghi nhật ký, phát sự kiện
+        `tracking_started` vào phòng theo dõi, và gửi thông báo in-app + email
+        cho người gửi yêu cầu ("Đội cứu hộ đang đến!").
+
+        Mã lỗi nghiệp vụ trong phản hồi 403: `NO_TEAM` (chưa có đội),
+        `NOT_AUTHORIZED_ROLE` (không phải trưởng/phó).
+      parameters:
+        - $ref: "#/components/parameters/RequestId"
+      requestBody:
+        required: false
+        description: Toạ độ xuất phát của đội (tuỳ chọn — dùng làm điểm đầu trên bản đồ theo dõi).
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                latitude: { type: number, format: double }
+                longitude: { type: number, format: double }
+      responses:
+        "200":
+          description: Đã nhận nhiệm vụ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data: { $ref: "#/components/schemas/RescueRequest" }
+        "400":
+          description: Người gọi chưa thuộc đội nào (`code = NO_TEAM`)
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorCodeResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: |
+            Không đủ quyền hoặc yêu cầu không nhận được: chưa có đội (`NO_TEAM`),
+            không phải nhóm trưởng/phó (`NOT_AUTHORIZED_ROLE`), hoặc yêu cầu đã
+            được đội/người khác nhận.
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorCodeResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /sos/{id}/cancel:
+    put:
+      tags: [SOS]
+      summary: Trả lại nhiệm vụ về hàng đợi
+      description: |
+        **Chỉ `rescuer`,** và chỉ với nhiệm vụ **đang do chính mình phụ trách** ở
+        trạng thái `in_progress`.
+
+        Yêu cầu quay về `pending`, gỡ liên kết người/đội phụ trách, xoá toạ độ
+        đội, và **ghi lại ai đã trả lại vào lúc nào** (hiển thị cho người dân và
+        các đội khác). Phát sự kiện `tracking_cancelled` vào phòng theo dõi.
+      parameters:
+        - $ref: "#/components/parameters/RequestId"
+      responses:
+        "200":
+          description: Đã trả lại nhiệm vụ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data: { $ref: "#/components/schemas/RescueRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404":
+          description: Không phải nhiệm vụ của người gọi, hoặc không ở trạng thái đang thực hiện
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /sos/{id}/complete:
+    put:
+      tags: [SOS]
+      summary: Hoàn tất nhiệm vụ
+      description: |
+        **Vai trò: `rescuer` hoặc `admin`.**
+
+        - `rescuer`: chỉ hoàn tất được nhiệm vụ **đang do chính mình phụ trách**.
+        - `admin`: hoàn tất được bất kỳ nhiệm vụ nào đang `in_progress`.
+
+        Sau khi hoàn tất: ghi mốc thời gian, ghi nhật ký, phát `tracking_ended`
+        vào phòng theo dõi, gửi thông báo + email cho người gửi yêu cầu, và gửi
+        thông báo + email cho **toàn bộ người thân đã kết nối** của người đó
+        ("đã được cứu hộ an toàn").
+
+        > Lưu ý phía giao diện: nút hoàn tất luôn có một bước xác nhận để tránh
+        > bấm nhầm — ràng buộc này nằm ở client, không phải ở API.
+      parameters:
+        - $ref: "#/components/parameters/RequestId"
+      responses:
+        "200":
+          description: Đã hoàn tất
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data: { $ref: "#/components/schemas/RescueRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Vai trò không phải cứu hộ hoặc quản trị
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "404":
+          description: Không phải nhiệm vụ của người gọi, hoặc nhiệm vụ không ở trạng thái đang thực hiện
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  # ════════════════════════════════════════════════════════════
+  # FAMILY
+  # ════════════════════════════════════════════════════════════
+
+  /family/search:
+    get:
+      tags: [Family]
+      summary: Tìm người dùng theo số điện thoại
+      description: |
+        Dùng trước khi gửi lời mời kết nối người thân. Không tìm thấy vẫn trả
+        **200** với `data: null` (không phải 404). Không bao giờ trả về chính
+        người gọi.
+      parameters:
+        - name: phone
+          in: query
+          required: true
+          schema: { type: string }
+          example: "+84901234567"
+      responses:
+        "200":
+          description: OK (có thể `data = null`)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  data:
+                    nullable: true
+                    type: object
+                    properties:
+                      id: { type: integer }
+                      phoneNumber: { type: string }
+                      displayName: { type: string }
+                      avatarUrl: { type: string }
+                      safetyStatus: { type: string, enum: [unknown, safe, danger, injured] }
+        "400":
+          description: Thiếu tham số `phone`
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /family/request:
+    post:
+      tags: [Family]
+      summary: Gửi lời mời kết nối người thân
+      description: |
+        Tạo lời mời ở trạng thái chờ và gửi thông báo in-app cho người nhận
+        (không gửi email). Đã kết nối hoặc đã có lời mời đang chờ (theo cả hai
+        chiều) → 409.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [receiver_id]
+              properties:
+                receiver_id: { type: integer, example: 42 }
+                relation: { type: string, example: "Mẹ" }
+      responses:
+        "201":
+          description: Đã gửi lời mời
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data: { $ref: "#/components/schemas/FamilyConnection" }
+        "400":
+          description: Thiếu `receiver_id`
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409":
+          description: Đã kết nối hoặc đã gửi lời mời trước đó
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /family/requests:
+    get:
+      tags: [Family]
+      summary: Danh sách lời mời kết nối đang chờ tôi phản hồi
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer, description: ID của kết nối (dùng cho accept/reject) }
+                        relation: { type: string }
+                        createdAt: { type: string, format: date-time }
+                        from:
+                          type: object
+                          properties:
+                            id: { type: integer }
+                            phoneNumber: { type: string }
+                            displayName: { type: string }
+                            avatarUrl: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /family/requests/{id}/accept:
+    put:
+      tags: [Family]
+      summary: Chấp nhận lời mời kết nối
+      description: Chỉ người nhận mới chấp nhận được, và chỉ khi lời mời còn đang chờ. Người gửi nhận thông báo in-app.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Đã kết nối
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data: { $ref: "#/components/schemas/FamilyConnection" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404":
+          description: Lời mời không tồn tại hoặc đã được xử lý
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /family/requests/{id}/reject:
+    put:
+      tags: [Family]
+      summary: Từ chối lời mời kết nối
+      description: Lời mời bị **xoá hẳn** khỏi cơ sở dữ liệu (không lưu trạng thái từ chối).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Đã từ chối
+          content: { application/json: { schema: { $ref: "#/components/schemas/SimpleSuccess" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404":
+          description: Lời mời không tồn tại hoặc đã được xử lý
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /family/members:
+    get:
+      tags: [Family]
+      summary: Danh sách người thân đã kết nối
+      description: |
+        Trả về cả hai chiều của mối quan hệ (người mình mời và người mời mình),
+        kèm trạng thái an toàn, ghi chú sức khoẻ, và vị trí gần nhất đã biết.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/FamilyMember" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /family/members/{connectionId}:
+    delete:
+      tags: [Family]
+      summary: Gỡ kết nối người thân
+      description: Cả hai phía của kết nối đều gỡ được.
+      parameters:
+        - name: connectionId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Đã gỡ kết nối
+          content: { application/json: { schema: { $ref: "#/components/schemas/SimpleSuccess" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404":
+          description: Kết nối không tồn tại (hoặc người gọi không thuộc kết nối này)
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /family/status:
+    put:
+      tags: [Family]
+      summary: Cập nhật trạng thái an toàn của bản thân
+      description: |
+        Trường nào không gửi thì giữ nguyên giá trị cũ. Trạng thái này hiển thị
+        cho tất cả người thân đã kết nối.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                safety_status:
+                  type: string
+                  enum: [unknown, safe, danger, injured]
+                health_note:
+                  type: string
+                  example: "Bị thương nhẹ ở chân, vẫn di chuyển được."
+      responses:
+        "200":
+          description: Đã cập nhật
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      id: { type: integer }
+                      safety_status: { type: string }
+                      health_note: { type: string }
+        "400":
+          description: Trạng thái không hợp lệ
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /family/location:
+    put:
+      tags: [Family, Locations]
+      summary: Cập nhật vị trí bền vững của bản thân
+      description: |
+        Ghi đè bản ghi vị trí duy nhất của người dùng (không lưu lịch sử).
+        Ngoài ra còn **đồng bộ toạ độ sang các yêu cầu cứu hộ đang mở** của chính
+        người đó, để điểm trên bản đồ đi theo người dùng.
+
+        Đây là đường ghi vị trí qua REST; luồng vị trí liên tục thời gian thực đi
+        qua WebSocket (xem phần WebSocket trong mô tả chung).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [latitude, longitude]
+              properties:
+                latitude: { type: number, format: double, example: 16.0544 }
+                longitude: { type: number, format: double, example: 108.2022 }
+                address:
+                  type: string
+                  description: Tuỳ chọn. Chuỗi rỗng sẽ **không** ghi đè địa chỉ đang có.
+      responses:
+        "200":
+          description: Đã cập nhật vị trí
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      id: { type: integer, description: ID người dùng }
+                      latitude: { type: number, format: double }
+                      longitude: { type: number, format: double }
+                      address: { type: string }
+                      location_updated_at: { type: string, format: date-time }
+        "400":
+          description: Thiếu toạ độ
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  # ════════════════════════════════════════════════════════════
+  # LOCATIONS
+  # ════════════════════════════════════════════════════════════
+
+  /locations/live:
+    get:
+      tags: [Locations]
+      summary: Vị trí trực tiếp của những người đang trực tuyến theo vai trò
+      description: |
+        Đọc thẳng từ bộ nhớ nóng Redis. Một người được coi là **đang trực tuyến**
+        khi bản ghi vị trí của họ chưa hết hạn (TTL 60 giây kể từ lần gửi cuối).
+
+        Bản đồ lũ gọi endpoint này định kỳ (~4 giây) để vẽ các marker di chuyển.
+        Nếu Redis không được cấu hình hoặc đang lỗi, endpoint trả về mảng rỗng
+        thay vì báo lỗi.
+      parameters:
+        - name: role
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [rescuer, citizen]
+            default: rescuer
+          description: Giá trị không hợp lệ sẽ được coi là `rescuer`.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/LiveLocation" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /locations/live/{userId}:
+    get:
+      tags: [Locations]
+      summary: Vị trí của một người cụ thể
+      description: |
+        Đọc xuyên tầng: ưu tiên vị trí trực tiếp trong Redis (`online: true`);
+        nếu không có thì đọc vị trí bền vững gần nhất trong PostgreSQL
+        (`online: false`). Không có dữ liệu nào → `data: null` với mã 200.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK (có thể `data = null`)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    nullable: true
+                    allOf:
+                      - $ref: "#/components/schemas/LiveLocation"
+        "400":
+          description: "`userId` không hợp lệ"
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /locations/nearby:
+    get:
+      tags: [Locations]
+      summary: Tìm người đang trực tuyến trong bán kính
+      description: |
+        Truy vấn không gian trên Redis, trả về **sắp xếp theo khoảng cách tăng
+        dần**. Kết quả được đối chiếu lại với bản ghi hiện diện nên những người
+        đã offline (bản ghi hết hạn) bị loại bỏ, và toạ độ trả về là toạ độ chính
+        xác chứ không phải toạ độ giải mã từ chỉ mục không gian.
+
+        Đây là nền tảng cho tính năng "đội cứu hộ gần nhất".
+      parameters:
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [rescuer, citizen]
+            default: rescuer
+        - name: lat
+          in: query
+          required: true
+          schema: { type: number, format: double }
+          example: 16.0544
+        - name: lng
+          in: query
+          required: true
+          schema: { type: number, format: double }
+          example: 108.2022
+        - name: radius
+          in: query
+          schema: { type: number, default: 10 }
+          description: Bán kính tính bằng **km**.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId: { type: integer }
+                        distanceKm: { type: number, format: double, example: 1.23 }
+                        lat: { type: number, format: double }
+                        lng: { type: number, format: double }
+        "400":
+          description: Thiếu hoặc sai `lat`/`lng`
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  # ════════════════════════════════════════════════════════════
+  # WATER SENSORS
+  # ════════════════════════════════════════════════════════════
+
+  /sensors:
+    get:
+      tags: [Water Sensors]
+      summary: Danh sách cảm biến của tôi
+      description: |
+        Mỗi thiết bị kèm ảnh chụp số đo mới nhất (`percent`, `level`,
+        `lastSeenAt`) nên giao diện chỉ cần một lần gọi. `online` là **tính
+        toán tại thời điểm đọc**: đúng khi thiết bị có tin trong 45 giây gần
+        nhất. Không bao giờ trả về device key.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/WaterSensor" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+    post:
+      tags: [Water Sensors]
+      summary: Ghép một board cảm biến mới — chỉ cứu hộ & quản trị
+      description: |
+        **Người dân không tạo được cảm biến** (403). Cảm biến là thiết bị do đội
+        triển khai: người tạo sở hữu nó, chịu trách nhiệm hiệu chuẩn và là người
+        nhận cảnh báo khi nó vượt ngưỡng.
+
+        Trả về `deviceKey` **đúng một lần** — máy chủ chỉ giữ SHA-256 của nó.
+        Mất key thì dùng `POST /sensors/{id}/rotate-key` để cấp key khác.
+
+        Mỗi tài khoản ghép tối đa **50** cảm biến.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 80, example: "Cảm biến sân sau" }
+                latitude: { type: number, format: double }
+                longitude: { type: number, format: double }
+                address: { type: string }
+                calibration:
+                  description: Bảng hiệu chuẩn `[[phần_trăm, raw], ...]` (từ calib.json trên board).
+                  type: array
+                  items:
+                    type: array
+                    items: { type: integer }
+                  example: [[0, 0], [50, 18400], [100, 39000]]
+      responses:
+        "201":
+          description: Đã tạo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    allOf:
+                      - $ref: "#/components/schemas/WaterSensor"
+                      - type: object
+                        properties:
+                          deviceKey: { type: string, example: "aqg_XcJ2..." }
+        "400":
+          description: Vượt quá số cảm biến cho phép
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Người dân không được tạo cảm biến
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /sensors/monitor:
+    get:
+      tags: [Water Sensors]
+      summary: Toàn bộ cảm biến mực nước trong hệ thống — chỉ cứu hộ & quản trị
+      description: |
+        Nguồn dữ liệu cho mục **Mực nước** ở Trung tâm Giám sát. Trả về mọi
+        thiết bị của mọi người dùng, kèm chủ sở hữu và chuỗi số đo 6 giờ gần
+        nhất (tối đa 24 điểm mỗi thiết bị) để vẽ đường sparkline — một query
+        duy nhất, không gọi thêm lần nào cho từng thiết bị.
+
+        Thứ tự trả về đã xếp theo mức độ khẩn: đang vượt ngưỡng → đang ngập từ
+        mức 5 → bình thường → mất kết nối. Người trực mở trang là thấy ngay chỗ
+        cần lo trước.
+
+        Khác `GET /sensors` (của chính mình) ở hai điểm: có `owner`, và **không**
+        có `keyPrefix` — đó là một mẩu khoá bí mật của người khác.
+
+        `owner.phoneNumber` chỉ xuất hiện với **admin**; cứu hộ chỉ thấy tên.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "#/components/schemas/WaterSensor"
+                        - type: object
+                          properties:
+                            owner:
+                              type: object
+                              properties:
+                                id: { type: integer, example: 7 }
+                                displayName: { type: string, example: "Nguyễn Văn A" }
+                                phoneNumber:
+                                  type: string
+                                  description: Chỉ trả về cho admin.
+                                  example: "+84901234567"
+                            canManage:
+                              type: boolean
+                              description: >
+                                Người gọi có được sửa/xoá thiết bị này không —
+                                server tự chấm (admin: mọi thiết bị; cứu hộ:
+                                thiết bị mình tạo). Giao diện chỉ dùng để ẩn/hiện nút.
+                            history:
+                              description: Số đo 6 giờ gần nhất, cũ trước mới sau.
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  percent: { type: integer, example: 63 }
+                                  at: { type: string, format: date-time }
+                  summary:
+                    type: object
+                    properties:
+                      total: { type: integer, example: 12 }
+                      online: { type: integer, example: 9 }
+                      offline: { type: integer, example: 3 }
+                      warning:
+                        type: integer
+                        description: Số thiết bị đang online và vượt ngưỡng của chủ thiết bị.
+                        example: 2
+                      critical:
+                        type: integer
+                        description: Số thiết bị đang online và ở mức 9 (đầy).
+                        example: 1
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Người dân không được xem thiết bị của người khác
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /sensors/{id}:
+    put:
+      tags: [Water Sensors]
+      summary: Cập nhật thiết bị (tên, ngưỡng cảnh báo, vị trí, hiệu chuẩn)
+      description: |
+        Quản trị sửa được **mọi** thiết bị; cứu hộ chỉ sửa thiết bị mình tạo
+        (thiết bị của người khác trả về 404). Người dân bị chặn (403).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 80 }
+                alertThreshold: { type: integer, minimum: 1, maximum: 100 }
+                alertEnabled: { type: boolean }
+                address: { type: string }
+                latitude: { type: number, format: double }
+                longitude: { type: number, format: double }
+                calibration:
+                  type: array
+                  items:
+                    type: array
+                    items: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data: { $ref: "#/components/schemas/WaterSensor" }
+        "400":
+          description: Dữ liệu không hợp lệ
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404":
+          description: Không tìm thấy cảm biến của bạn
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+    delete:
+      tags: [Water Sensors]
+      summary: Gỡ thiết bị
+      description: |
+        Xoá luôn toàn bộ số đo đã lưu của thiết bị (ON DELETE CASCADE).
+
+        **Quản trị gỡ được mọi thiết bị** — kể cả của người khác, để dọn thiết
+        bị hỏng hoặc của người đã rời đội. Cứu hộ chỉ gỡ được thiết bị mình tạo
+        (của người khác trả về 404). Người dân bị chặn (403).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Đã gỡ
+          content: { application/json: { schema: { $ref: "#/components/schemas/SimpleSuccess" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404":
+          description: Không tìm thấy cảm biến của bạn
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /sensors/{id}/rotate-key:
+    post:
+      tags: [Water Sensors]
+      summary: Cấp device key mới
+      description: |
+        Key cũ **mất hiệu lực ngay lập tức** — board đang chạy sẽ nhận `401`
+        cho tới khi được nạp key mới.
+
+        Quản trị xoay được key của mọi thiết bị; cứu hộ chỉ thiết bị mình tạo.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    allOf:
+                      - $ref: "#/components/schemas/WaterSensor"
+                      - type: object
+                        properties:
+                          deviceKey: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404":
+          description: Không tìm thấy cảm biến của bạn
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /sensors/{id}/readings:
+    get:
+      tags: [Water Sensors]
+      summary: Chuỗi số đo để vẽ biểu đồ
+      description: |
+        Trả về tối đa **1000** điểm, cũ trước mới sau. Máy chủ đã lấy mẫu thưa
+        khi ghi (chỉ lưu khi mực nước đổi ≥ 1% hoặc đã quá 20 giây), nên chuỗi
+        này thưa hơn nhịp gửi thật của board (mặc định 2 giây/lần).
+
+        Người dân chỉ đọc được thiết bị của chính mình; **cứu hộ và quản trị đọc
+        được mọi thiết bị** (Trung tâm Giám sát cần vẽ biểu đồ cho thiết bị của
+        người khác).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: hours
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 168, default: 6 }
+          description: Khoảng thời gian nhìn lại, tính bằng giờ.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        percent: { type: integer, example: 63 }
+                        level: { type: integer, example: 4 }
+                        raw: { type: integer, example: 23274 }
+                        at: { type: string, format: date-time }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404":
+          description: Không tìm thấy cảm biến của bạn
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /sensors/ingest:
+    post:
+      tags: [Water Sensors]
+      summary: Board ESP32 gửi một số đo
+      security:
+        - deviceKeyAuth: []
+      description: |
+        Endpoint **dành cho thiết bị**, xác thực bằng header `X-Device-Key`
+        (không dùng JWT).
+
+        `raw` là nguồn sự thật: máy chủ tự quy đổi ra phần trăm bằng bảng hiệu
+        chuẩn đang lưu, nên hiệu chuẩn lại không cần nạp lại firmware.
+        `percent` do board gửi chỉ được dùng khi thiếu `raw`.
+
+        Mỗi lần gọi đều làm mới dấu "còn sống" của thiết bị, nhưng **chỉ ghi
+        vào chuỗi số đo** khi mực nước đổi ≥ 1% hoặc đã quá 20 giây kể từ lần
+        ghi trước. Khi mực nước vượt `alertThreshold`, máy chủ tạo thông báo
+        (kèm email) cho chủ thiết bị và đẩy `sensor_alert` qua WebSocket.
+        Chống làm phiền: cùng một mức thì chờ 15 phút mới báo lại, leo lên mức
+        cao hơn thì chỉ cần cách lần báo trước 60 giây.
+
+        Giới hạn tần suất: 240 lần/phút cho mỗi IP.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                raw:
+                  type: integer
+                  description: Giá trị ADC 0-65535 (trung bình đã cắt hai đầu).
+                  example: 23274
+                percent:
+                  type: integer
+                  description: Phần trăm board tự tính — chỉ dùng khi thiếu `raw`.
+                  example: 63
+                voltage_mv: { type: integer, example: 1100 }
+                calibration:
+                  description: Board gửi ở lần POST đầu sau khi khởi động; máy chủ lưu đè.
+                  type: array
+                  items:
+                    type: array
+                    items: { type: integer }
+      responses:
+        "200":
+          description: Đã nhận
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      percent: { type: integer, example: 63 }
+                      level: { type: integer, example: 4 }
+                      stored:
+                        type: boolean
+                        description: Số đo này có được ghi vào chuỗi lịch sử không.
+                      alert:
+                        type: boolean
+                        description: Lần gửi này có kích hoạt cảnh báo ngập không.
+        "400":
+          description: Thiếu cả `raw` lẫn `percent`
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401":
+          description: Thiếu hoặc sai device key
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "429":
+          description: Gửi quá dày
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  # ════════════════════════════════════════════════════════════
+  # NOTIFICATIONS
+  # ════════════════════════════════════════════════════════════
+
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: Danh sách thông báo của tôi
+      description: |
+        Trả về tối đa **50** thông báo mới nhất kèm số lượng chưa đọc.
+        Giao diện gọi lại mỗi ~25 giây.
+
+        Các giá trị `type` đang dùng: `welcome`, `family_request`,
+        `family_accepted`, `sos_accepted`, `sos_resolved`, `family_sos_resolved`,
+        `admin_announcement`, `flood_alert`.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Notification" }
+                  unreadCount: { type: integer, example: 3 }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /notifications/read-all:
+    put:
+      tags: [Notifications]
+      summary: Đánh dấu tất cả thông báo là đã đọc
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { $ref: "#/components/schemas/SimpleSuccess" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /notifications/{id}/read:
+    put:
+      tags: [Notifications]
+      summary: Đánh dấu một thông báo là đã đọc
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content: { application/json: { schema: { $ref: "#/components/schemas/SimpleSuccess" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404":
+          description: Không tìm thấy thông báo (hoặc không thuộc về người gọi)
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /notifications/{id}:
+    delete:
+      tags: [Notifications]
+      summary: Xoá một thông báo của mình
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Đã xoá
+          content: { application/json: { schema: { $ref: "#/components/schemas/SimpleSuccess" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404":
+          description: Không tìm thấy thông báo (hoặc không thuộc về người gọi)
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /notifications/admin/send:
+    post:
+      tags: [Notifications]
+      summary: Quản trị gửi thông báo
+      description: |
+        **Chỉ `admin`.** Ba kiểu đối tượng nhận:
+
+        | `target` | Ý nghĩa | Có gửi email không? |
+        | --- | --- | --- |
+        | `all` | Mọi tài khoản đang hoạt động | Không (tránh spam) |
+        | `role` | Mọi tài khoản đang hoạt động thuộc `role` | Không |
+        | `user` | Một tài khoản (`userId`) | Có, nếu người đó có email |
+
+        Rate limit: 20 lần / phút / IP.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target, title]
+              properties:
+                target: { type: string, enum: [all, user, role] }
+                userId:
+                  type: integer
+                  description: Bắt buộc khi `target = user`.
+                role:
+                  type: string
+                  enum: [citizen, rescuer, admin]
+                  description: Dùng khi `target = role`.
+                title: { type: string, example: "Cảnh báo mưa lớn tối nay" }
+                body: { type: string, default: "" }
+                type: { type: string, default: admin_announcement }
+      responses:
+        "200":
+          description: Đã gửi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  sentCount: { type: integer, example: 128 }
+        "400":
+          description: Thiếu tiêu đề, `target` không hợp lệ, hoặc thiếu người nhận
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404":
+          description: Không tìm thấy người nhận (khi `target = user`)
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /notifications/admin/flood-alert:
+    post:
+      tags: [Notifications]
+      summary: Phát cảnh báo vùng lũ mới tới toàn bộ người dùng
+      description: |
+        **Chỉ `admin`.** Được gọi khi quản trị tạo một vùng ngập mới trên bản đồ
+        và chọn phát cảnh báo.
+
+        - Tạo thông báo in-app cho **toàn bộ** tài khoản đang hoạt động (ghi hàng loạt).
+        - Gửi email cho những ai có email — chạy **nền**, rải khoảng 3 thư/giây
+          để không vượt hạn mức nhà cung cấp. Phản hồi trả về ngay, không chờ gửi xong.
+        - Tiêu đề và nội dung được tự sinh từ tên vùng, mức độ và mực nước.
+
+        Rate limit: 10 lần / phút / IP.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, example: "Khu vực cầu Hoà Xuân" }
+                severity:
+                  type: string
+                  enum: [safe, low, moderate, severe, critical]
+                  default: low
+                waterLevel:
+                  type: number
+                  description: Mực nước tính bằng mét. Chỉ đưa vào nội dung khi > 0.
+                  example: 1.4
+                location:
+                  type: object
+                  properties:
+                    lat: { type: number, format: double }
+                    lng: { type: number, format: double }
+      responses:
+        "200":
+          description: Đã phát cảnh báo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  sentCount:
+                    type: integer
+                    description: Số thông báo in-app đã tạo.
+                    example: 240
+                  emailQueued:
+                    type: integer
+                    description: Số email đã được xếp hàng gửi nền.
+                    example: 96
+        "400":
+          description: Thiếu tên vùng lũ
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  # ════════════════════════════════════════════════════════════
+  # ANALYTICS
+  # ════════════════════════════════════════════════════════════
+
+  /analytics/overview:
+    get:
+      tags: [Analytics]
+      summary: Chỉ số tổng quan
+      description: |
+        **Chỉ `admin`.** `avgResponseMinutes` = trung bình khoảng cách từ lúc tạo
+        yêu cầu tới lúc được phân công, tính trên các yêu cầu đã có người phụ
+        trách và đang/đã xử lý. `resolutionRate` = phần trăm yêu cầu đã hoàn tất
+        trên tổng số yêu cầu.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      totalUsers: { type: integer, example: 240 }
+                      newUsers7d: { type: integer, example: 18 }
+                      totalRequests: { type: integer, example: 137 }
+                      pendingRequests: { type: integer, example: 4 }
+                      activeRequests: { type: integer, example: 3 }
+                      resolvedRequests: { type: integer, example: 128 }
+                      avgResponseMinutes: { type: integer, example: 12 }
+                      resolutionRate: { type: integer, example: 93 }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /analytics/users:
+    get:
+      tags: [Analytics]
+      summary: Tăng trưởng người dùng và phân bố vai trò
+      description: |
+        **Chỉ `admin`.** Chuỗi tăng trưởng luôn đủ **30 ngày liên tục** (ngày
+        không có đăng ký nào vẫn xuất hiện với giá trị 0).
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      growth:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            date: { type: string, format: date }
+                            count: { type: integer }
+                      roles:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            role: { type: string }
+                            count: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /analytics/rescue:
+    get:
+      tags: [Analytics]
+      summary: Xu hướng cứu hộ và hiệu suất phản hồi
+      description: |
+        **Chỉ `admin`.** Gồm chuỗi 30 ngày số yêu cầu, phân bố theo mức khẩn cấp
+        và theo trạng thái, và thời gian xử lý nhanh nhất / chậm nhất / trung
+        bình (đơn vị **phút**).
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: object
+                    properties:
+                      trend:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            date: { type: string, format: date }
+                            count: { type: integer }
+                      urgency:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            urgency: { type: string }
+                            count: { type: integer }
+                      status:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            status: { type: string }
+                            count: { type: integer }
+                      performance:
+                        type: object
+                        properties:
+                          fastest: { type: integer, example: 3 }
+                          slowest: { type: integer, example: 210 }
+                          average: { type: integer, example: 27 }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  # ════════════════════════════════════════════════════════════
+  # EXPORT
+  # ════════════════════════════════════════════════════════════
+
+  /export/{dataset}:
+    get:
+      tags: [Export]
+      summary: Xuất một tập dữ liệu ra CSV
+      description: |
+        **Chỉ `admin`.** Trả về **file CSV** (không phải JSON) kèm header
+        `Content-Disposition: attachment`, tên file dạng
+        `aquaguard_<dataset>[_anon]_<YYYY-MM-DD>.csv`. File có sẵn BOM UTF-8 để
+        Excel hiển thị tiếng Việt đúng.
+
+        Có thể thêm đuôi `.csv` vào tên tập dữ liệu (`/export/users.csv`).
+
+        **Các tập dữ liệu và cột ngày dùng để lọc:**
+
+        | `dataset` | Nội dung | Lọc theo |
+        | --- | --- | --- |
+        | `users` | Toàn bộ tài khoản | ngày tạo |
+        | `rescue_requests` | Yêu cầu cứu hộ (kèm tên người, tên đội) | ngày tạo yêu cầu |
+        | `user_locations` | Vị trí gần nhất của mỗi người | ngày cập nhật |
+        | `rescue_groups` | Đội cứu hộ | ngày tạo |
+        | `rescue_group_members` | Thành viên từng đội | ngày tham gia |
+        | `rescue_request_logs` | Nhật ký đổi trạng thái | ngày ghi |
+        | `audit_logs` | Nhật ký hành động hệ thống | ngày ghi |
+        | `analytics_summary` | Bảng tổng hợp dạng `metric,value` | ngày tạo yêu cầu |
+
+        **Chế độ ẩn danh (`anonymize=1`)** — áp dụng cho các cột chứa dữ liệu cá nhân:
+
+        - tên, số điện thoại, email, mô tả/địa chỉ tự do, địa chỉ IP → **bỏ trống**;
+        - ngày sinh → **chỉ giữ năm**;
+        - toạ độ → **làm tròn 2 chữ số thập phân** (~1,1 km, cỡ mức phường/xã);
+        - mã số (ID) **được giữ nguyên** để các file vẫn ghép nối được với nhau.
+
+        Rate limit: 60 lần / phút / IP.
+      parameters:
+        - name: dataset
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              - users
+              - rescue_requests
+              - user_locations
+              - rescue_groups
+              - rescue_group_members
+              - rescue_request_logs
+              - audit_logs
+              - analytics_summary
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+          description: Ngày bắt đầu (bao gồm cả ngày này).
+          example: "2026-07-01"
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+          description: Ngày kết thúc (bao gồm cả ngày này).
+          example: "2026-07-31"
+        - name: anonymize
+          in: query
+          schema: { type: string, enum: ["1", "true"] }
+          description: Bật chế độ ẩn danh. Bỏ trống = xuất đầy đủ dữ liệu cá nhân.
+      responses:
+        "200":
+          description: File CSV
+          content:
+            text/csv:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404":
+          description: Tên tập dữ liệu không tồn tại
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500":
+          description: Xuất dữ liệu thất bại
+          content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
+
+  # ════════════════════════════════════════════════════════════
+  # WEBRTC
+  # ════════════════════════════════════════════════════════════
+
+  /rtc/ice-servers:
+    get:
+      tags: [WebRTC]
+      summary: Lấy danh sách máy chủ ICE cho cuộc gọi
+      description: |
+        Trình duyệt gọi một lần trước mỗi cuộc gọi. Thông tin đăng nhập TURN
+        **không bao giờ** được nhúng vào mã frontend — máy chủ tự dựng danh sách:
+
+        1. Luôn có một máy chủ STUN công cộng.
+        2. Nếu cấu hình Cloudflare TURN: máy chủ **cấp phát credential ngắn hạn**
+           (24 giờ) cho phiên này.
+        3. Hoặc nếu cấu hình TURN tĩnh: trả về thông tin từ biến môi trường.
+
+        Không cấu hình TURN cũng không lỗi — cuộc gọi vẫn chạy được qua STUN
+        trên phần lớn mạng gia đình/văn phòng.
+
+        Rate limit: 30 lần / phút / IP.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  iceServers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        urls:
+                          oneOf:
+                            - type: string
+                            - type: array
+                              items: { type: string }
+                        username: { type: string }
+                        credential: { type: string }
+                    example:
+                      - urls: "stun:stun.l.google.com:19302"
+                      - urls: ["turn:turn.example.com:3478"]
+                        username: "abc123"
+                        credential: "xyz789"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+# ════════════════════════════════════════════════════════════
+# COMPONENTS
+# ════════════════════════════════════════════════════════════
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT lấy từ `POST /auth/register` hoặc `POST /auth/login`, hạn 7 ngày.
+        Với WebSocket, token được truyền qua query string (`?token=...`) thay vì header.
+
+    deviceKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Device-Key
+      description: |
+        Key dài hạn của một board cảm biến, cấp khi ghép thiết bị
+        (`POST /sensors`). Chỉ dùng cho `POST /sensors/ingest` — board không
+        đăng nhập được nên không dùng JWT. Máy chủ chỉ lưu SHA-256 của key.
+
+  parameters:
+    RequestId:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer }
+      description: ID của yêu cầu cứu hộ.
+    GroupId:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer }
+      description: ID của đội cứu hộ.
+
+  responses:
+    Unauthorized:
+      description: Thiếu token, token sai hoặc đã hết hạn
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          example: { success: false, message: "Invalid token." }
+    Forbidden:
+      description: Vai trò không đủ quyền thực hiện thao tác này
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          example: { success: false, message: "Admin access required." }
+    NotFound:
+      description: Không tìm thấy tài nguyên
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    TooManyRequests:
+      description: Vượt giới hạn tần suất
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+          example: { success: false, message: "Too many requests, please try again later." }
+    ServerError:
+      description: Lỗi máy chủ
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  schemas:
+
+    ErrorResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        message: { type: string, example: "Lỗi server" }
+
+    ErrorCodeResponse:
+      type: object
+      description: Lỗi có kèm mã nghiệp vụ để client hiển thị đúng hướng dẫn.
+      properties:
+        success: { type: boolean, example: false }
+        code:
+          type: string
+          enum: [NO_TEAM, NOT_AUTHORIZED_ROLE]
+          example: NO_TEAM
+        message: { type: string }
+
+    SimpleSuccess:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        message: { type: string }
+
+    WaterSensor:
+      type: object
+      description: Một board ESP32 cảm biến mực nước, kèm ảnh chụp số đo mới nhất.
+      properties:
+        id: { type: integer, example: 1 }
+        name: { type: string, example: "Cảm biến sân sau" }
+        keyPrefix:
+          type: string
+          description: 12 ký tự đầu của device key — để nhận ra key đã nạp, không dùng để xác thực.
+          example: "aqg_XcJ2mQ1p"
+        latitude: { type: number, format: double, nullable: true }
+        longitude: { type: number, format: double, nullable: true }
+        address: { type: string, example: "" }
+        calibrated:
+          type: boolean
+          description: Đã có bảng hiệu chuẩn ≥ 2 điểm hay chưa. Chưa thì phần trăm chỉ là ước lượng.
+        alertEnabled: { type: boolean }
+        alertThreshold: { type: integer, example: 58 }
+        percent: { type: integer, nullable: true, example: 63 }
+        raw: { type: integer, nullable: true, example: 23274 }
+        level:
+          type: integer
+          nullable: true
+          description: >
+            Dải mức 0-9 (ngưỡng % để vào mức, xem backend/config/waterLevels.js):
+            0 khô (0%) · 1 vừa chạm nước (2%) · 2 ngập rất thấp (10%) ·
+            3 ngập thấp (20%) · 4 ngập thấp–vừa (32%) · 5 ngập vừa (44%) ·
+            6 ngập vừa–cao (56%) · 7 ngập cao (68%) · 8 ngập rất cao (80%) ·
+            9 đầy, cảnh báo (90%)
+          example: 7
+        levelKey:
+          type: string
+          enum: [dry, damp, veryLow, low, lowMid, moderate, midHigh, high, veryHigh, critical]
+        lastSeenAt: { type: string, format: date-time, nullable: true }
+        online:
+          type: boolean
+          description: Đúng khi thiết bị có tin trong 45 giây gần nhất.
+        createdAt: { type: string, format: date-time }
+
+    AuthUser:
+      type: object
+      properties:
+        id: { type: integer, example: 7 }
+        uid:
+          type: string
+          description: "Định danh phía client, dạng `phone_<id>`."
+          example: phone_7
+        phoneNumber: { type: string, example: "+84901234567" }
+        displayName: { type: string, example: "Nguyễn Văn A" }
+        role: { type: string, enum: [citizen, rescuer, admin] }
+        avatarUrl: { type: string, example: "" }
+
+    AuthSuccess:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        message: { type: string }
+        data:
+          type: object
+          properties:
+            user: { $ref: "#/components/schemas/AuthUser" }
+            accessToken:
+              type: string
+              description: JWT hạn 7 ngày.
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    Profile:
+      type: object
+      properties:
+        id: { type: integer }
+        phoneNumber: { type: string }
+        displayName: { type: string }
+        email: { type: string }
+        role: { type: string, enum: [citizen, rescuer, admin] }
+        avatarUrl: { type: string }
+        gender: { type: string, enum: ["", male, female, other] }
+        dateOfBirth: { type: string, format: date, nullable: true }
+        emergencyContact: { type: string }
+        address: { type: string, description: Ưu tiên địa chỉ trong bảng vị trí, sau đó tới địa chỉ trong hồ sơ. }
+        latitude: { type: number, format: double, nullable: true }
+        longitude: { type: number, format: double, nullable: true }
+        locationUpdatedAt: { type: string, format: date-time, nullable: true }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    UserSummary:
+      type: object
+      properties:
+        id: { type: integer }
+        uid: { type: string, example: phone_7 }
+        phoneNumber: { type: string }
+        displayName: { type: string }
+        role: { type: string, enum: [citizen, rescuer, admin] }
+        avatarUrl: { type: string }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    RescuerSummary:
+      allOf:
+        - $ref: "#/components/schemas/UserSummary"
+        - type: object
+          properties:
+            hasActiveGroup:
+              type: boolean
+              description: Người này đã thuộc một đội đang hoạt động hay chưa.
+            hasPendingInviteFromMe:
+              type: boolean
+              description: Người gọi đã gửi lời mời đang chờ cho người này hay chưa.
+
+    RescueRequest:
+      type: object
+      description: Bản ghi thô của một yêu cầu cứu hộ (tên trường theo cột cơ sở dữ liệu).
+      properties:
+        id: { type: integer, example: 101 }
+        user_id: { type: integer, nullable: true }
+        location: { type: string }
+        description: { type: string }
+        latitude: { type: number, format: double, nullable: true }
+        longitude: { type: number, format: double, nullable: true }
+        images:
+          type: array
+          items: { type: string, format: uri }
+          description: Danh sách URL ảnh trên Cloudinary.
+        urgency: { type: string, enum: [low, medium, high, critical] }
+        status: { type: string, enum: [pending, assigned, in_progress, resolved, cancelled] }
+        assigned_to:
+          type: integer
+          nullable: true
+          description: ID người phụ trách (với nhiệm vụ giao theo đội, đây là nhóm trưởng).
+        assigned_group_id: { type: integer, nullable: true }
+        accepted_mode: { type: string, enum: [individual, group] }
+        rescuer_latitude: { type: number, format: double, nullable: true }
+        rescuer_longitude: { type: number, format: double, nullable: true }
+        last_cancelled_by: { type: integer, nullable: true }
+        last_cancelled_at: { type: string, format: date-time, nullable: true }
+        assigned_at: { type: string, format: date-time, nullable: true }
+        resolved_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    RescueRequestEnriched:
+      allOf:
+        - $ref: "#/components/schemas/RescueRequest"
+        - type: object
+          description: |
+            Bổ sung các trường lấy từ phép nối bảng. Với yêu cầu còn đang mở,
+            `latitude`/`longitude` đã được thay bằng vị trí mới nhất.
+          properties:
+            user_name: { type: string, nullable: true }
+            user_phone: { type: string, nullable: true }
+            user_gender: { type: string, nullable: true }
+            user_date_of_birth: { type: string, format: date, nullable: true }
+            user_address: { type: string, nullable: true }
+            user_age:
+              type: integer
+              nullable: true
+              description: Tuổi tính từ ngày sinh; `null` nếu chưa khai ngày sinh.
+            assigned_name: { type: string, nullable: true }
+            assigned_group_name: { type: string, nullable: true }
+            last_cancelled_by_name:
+              type: string
+              nullable: true
+              description: Tên người đã trả lại nhiệm vụ gần nhất.
+
+    RescueGroupMember:
+      type: object
+      properties:
+        id: { type: integer, description: ID người dùng }
+        displayName: { type: string }
+        phoneNumber: { type: string }
+        avatarUrl: { type: string }
+        isActive: { type: boolean }
+        memberRole: { type: string, enum: [leader, co_leader, member] }
+        joinStatus: { type: string, enum: [active, left, removed] }
+        joinedAt: { type: string, format: date-time }
+
+    MyRescueGroupPayload:
+      type: object
+      description: |
+        Cấu trúc dùng chung cho mọi endpoint thao tác với đội — sau bất kỳ thay
+        đổi nào, server đều trả về lại toàn bộ trạng thái đội của người gọi.
+      properties:
+        group:
+          nullable: true
+          type: object
+          properties:
+            id: { type: integer }
+            name: { type: string }
+            description: { type: string }
+            createdBy: { type: integer, nullable: true }
+            leaderId: { type: integer, nullable: true }
+            memberRole:
+              type: string
+              enum: [leader, co_leader, member]
+              description: Cấp bậc của **người gọi** trong đội này.
+            joinedAt: { type: string, format: date-time }
+            status: { type: string, enum: [active, archived] }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+            members:
+              type: array
+              items: { $ref: "#/components/schemas/RescueGroupMember" }
+            pendingInvites:
+              type: array
+              description: Lời mời đội **đã gửi đi** và đang chờ phản hồi.
+              items:
+                type: object
+                properties:
+                  id: { type: integer }
+                  phoneNumber: { type: string }
+                  status: { type: string, example: pending }
+                  createdAt: { type: string, format: date-time }
+                  userId: { type: integer, nullable: true }
+                  displayName: { type: string }
+                  avatarUrl: { type: string }
+        canAcceptMission:
+          type: boolean
+          description: "`true` khi người gọi là nhóm trưởng hoặc nhóm phó của một đội đang hoạt động."
+        pendingInvites:
+          type: array
+          description: Lời mời mà **người gọi nhận được** và đang chờ phản hồi.
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              status: { type: string, example: pending }
+              createdAt: { type: string, format: date-time }
+              group:
+                type: object
+                properties:
+                  id: { type: integer }
+                  name: { type: string }
+                  description: { type: string }
+              inviter:
+                type: object
+                properties:
+                  id: { type: integer }
+                  displayName: { type: string }
+                  phoneNumber: { type: string }
+
+    RescueGroupAdminView:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        description: { type: string }
+        status: { type: string, enum: [active, archived] }
+        created_at: { type: string, format: date-time }
+        member_count: { type: string, description: Số thành viên đang hoạt động (trả về dạng chuỗi số). }
+        leader_name: { type: string, nullable: true }
+        leader_id: { type: integer, nullable: true }
+        members:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              displayName: { type: string }
+              phoneNumber: { type: string }
+              avatarUrl: { type: string, nullable: true }
+              memberRole: { type: string, enum: [leader, co_leader, member] }
+              joinedAt: { type: string, format: date-time }
+
+    FamilyConnection:
+      type: object
+      properties:
+        id: { type: integer }
+        requester_id: { type: integer }
+        receiver_id: { type: integer }
+        relation: { type: string }
+        status: { type: string, enum: [pending, accepted, rejected] }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    FamilyMember:
+      type: object
+      properties:
+        connectionId: { type: integer, description: Dùng cho thao tác gỡ kết nối. }
+        id: { type: integer, description: ID người dùng của người thân. }
+        phoneNumber: { type: string }
+        displayName: { type: string }
+        avatarUrl: { type: string }
+        relation: { type: string, example: "Mẹ" }
+        safetyStatus: { type: string, enum: [unknown, safe, danger, injured] }
+        healthNote: { type: string }
+        address: { type: string }
+        latitude: { type: number, format: double, nullable: true }
+        longitude: { type: number, format: double, nullable: true }
+        locationUpdatedAt: { type: string, format: date-time, nullable: true }
+
+    Notification:
+      type: object
+      properties:
+        id: { type: integer }
+        type:
+          type: string
+          example: sos_accepted
+          description: "`welcome`, `family_request`, `family_accepted`, `sos_accepted`, `sos_resolved`, `family_sos_resolved`, `admin_announcement`, `flood_alert`."
+        title: { type: string }
+        body: { type: string }
+        metadata:
+          type: object
+          description: Dữ liệu kèm theo, tuỳ loại thông báo (ví dụ `requestId`, `senderId`, `severity`, `location`).
+          additionalProperties: true
+        is_read: { type: boolean }
+        created_at: { type: string, format: date-time }
+
+    LiveLocation:
+      type: object
+      properties:
+        userId: { type: integer }
+        role: { type: string, nullable: true, enum: [citizen, rescuer, admin] }
+        lat: { type: number, format: double }
+        lng: { type: number, format: double }
+        ts:
+          type: integer
+          nullable: true
+          format: int64
+          description: Thời điểm cập nhật (epoch milliseconds).
+        online:
+          type: boolean
+          description: "`true` = lấy từ bộ nhớ nóng (còn tươi trong 60 giây); `false` = vị trí bền vững cuối cùng biết được."

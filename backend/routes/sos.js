@@ -4,6 +4,7 @@ const { upload, uploadToCloudinary } = require("../utils/upload");
 const { authMiddleware, requireAdmin, requireRoles } = require("../middleware/auth");
 const { getLiveLocations } = require("../redisClient");
 const { createNotification } = require("../utils/notifications");
+const dispatch = require("../services/dispatch");
 
 const router = express.Router();
 
@@ -113,6 +114,13 @@ router.post("/", authMiddleware, requireRoles(["citizen"]), upload.array("images
 
     // Log the creation
     await logStatusChange(newRequest.id, req.user.id, null, "pending");
+
+    // Điều phối tự động — FIRE-AND-FORGET, cố ý không await.
+    // Nạn nhân đang trong lũ: response phải trả về ngay, việc quét rescuer và
+    // gửi lời mời chạy nền. Mọi lỗi ở đây được service tự nuốt và log.
+    dispatch.start(newRequest.id).catch((e) =>
+      console.error("[SOS] auto-dispatch error:", e.message)
+    );
 
     return res.status(201).json({ success: true, data: newRequest });
   } catch (err) {
@@ -346,6 +354,10 @@ router.put("/:id/assign", authMiddleware, requireAdmin, async (req, res) => {
 
     await logStatusChange(parseInt(id), req.user.id, "pending", "assigned");
 
+    // Admin đã giành quyền điều phối → auto-dispatch rút lui hẳn khỏi request
+    // này (dispatch_status='manual') và huỷ mọi lời mời đang treo.
+    dispatch.markManual(parseInt(id, 10)).catch(() => {});
+
     return res.json({ success: true, data: result.rows[0] });
   } catch (err) {
     console.error("Assign SOS error:", err);
@@ -365,7 +377,10 @@ router.put("/:id/accept", authMiddleware, requireRoles(["rescuer"]), async (req,
     const { id } = req.params;
     const { latitude, longitude } = req.body;
 
-    // ── Guard: Only leader / co_leader of an active team may accept ──
+    // ── Guard: chỉ cần thuộc một đội cứu hộ đang hoạt động ──
+    // Từ khi có auto-dispatch, nhiệm vụ được giao cho CÁ NHÂN rescuer chứ không
+    // còn chỉ leader/co_leader — mọi thành viên đội đều nhận được. Ràng buộc
+    // "phải có đội" thì vẫn giữ, để nhiệm vụ luôn gắn với một assigned_group_id.
     const teamRoleRes = await pool.query(
       `SELECT m.member_role
        FROM rescue_group_members m
@@ -377,21 +392,11 @@ router.put("/:id/accept", authMiddleware, requireRoles(["rescuer"]), async (req,
       [req.user.id]
     );
 
-    const teamRole = teamRoleRes.rows[0]?.member_role;
-
-    if (!teamRole) {
+    if (!teamRoleRes.rows[0]?.member_role) {
       return res.status(403).json({
         success: false,
         code: "NO_TEAM",
         message: "Bạn cần tham gia một nhóm cứu hộ trước khi nhận nhiệm vụ.",
-      });
-    }
-
-    if (!["leader", "co_leader"].includes(teamRole)) {
-      return res.status(403).json({
-        success: false,
-        code: "NOT_AUTHORIZED_ROLE",
-        message: "Chỉ trưởng nhóm hoặc phó nhóm mới có thể nhận nhiệm vụ cứu hộ.",
       });
     }
 
@@ -450,6 +455,15 @@ router.put("/:id/accept", authMiddleware, requireRoles(["rescuer"]), async (req,
     const request = result.rows[0];
 
     await logStatusChange(parseInt(id), req.user.id, "pending", "in_progress");
+
+    // Nếu chính người được hệ thống giao vừa bấm bắt đầu, giữ nguyên phân công
+    // ('auto_assigned') — watchdog tự bỏ qua vì request đã sang 'in_progress'.
+    // Chỉ thu hồi khi một rescuer KHÁC giành lấy ca này.
+    dispatch
+      .closeAssignment(parseInt(id, 10), "superseded", "taken_by_other", {
+        exceptRescuerId: req.user.id,
+      })
+      .catch(() => {});
 
     // Fetch rescuer name for broadcast
     const userResult = await pool.query("SELECT display_name FROM users WHERE id = $1", [req.user.id]);
@@ -538,6 +552,16 @@ router.put("/:id/cancel", authMiddleware, requireRoles(["rescuer"]), async (req,
       requestId: parseInt(id, 10),
     });
 
+    // Rescuer chủ động bỏ ca → đánh dấu 'released'. Đây là dữ liệu nuôi tiêu
+    // chí "độ tin cậy" khi chấm điểm: ai hay bỏ ca sẽ bị hạ điểm ở lần giao sau.
+    // Rồi giao lại ngay cho người kế — họ không bị giao lại chính ca này
+    // (findCandidates loại người đã từng được giao), và dispatch_attempts giữ
+    // nguyên nên không thể lặp vô hạn.
+    dispatch
+      .closeAssignment(parseInt(id, 10), "released", "rescuer_cancelled")
+      .then(() => dispatch.assignBest(parseInt(id, 10)))
+      .catch(() => {});
+
     return res.json({ success: true, data: result.rows[0] });
   } catch (err) {
     console.error("Cancel SOS error:", err);
@@ -579,6 +603,9 @@ router.put("/:id/complete", authMiddleware, async (req, res) => {
     }
 
     await logStatusChange(parseInt(id), req.user.id, "in_progress", "resolved");
+
+    // Đóng sổ phân công: 'completed' KHÔNG bị tính vào tỉ lệ bỏ ca.
+    dispatch.closeAssignment(parseInt(id, 10), "completed", "resolved").catch(() => {});
 
     // Broadcast tracking_ended to the tracking room
     broadcastToRoom(req, parseInt(id), {

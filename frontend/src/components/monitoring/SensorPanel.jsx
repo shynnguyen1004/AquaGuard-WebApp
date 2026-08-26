@@ -1,5 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
+import Sparkline from "./Sparkline";
+import WaterSensorCard, { waterSensorStatus } from "./WaterSensorCard";
+import WaterSensorDetail from "./WaterSensorDetail";
+import WaterSensorSetupModal from "./WaterSensorSetupModal";
 import {
   SENSOR_UNITS,
   SENSOR_ICONS,
@@ -23,31 +27,6 @@ const STAT_STYLE = {
   danger:  { bg: "bg-danger/10",  text: "text-danger" },
   slate:   { bg: "bg-slate-400/10", text: "text-slate-400" },
 };
-
-// ── Inline SVG sparkline of the recent reading history ──
-function Sparkline({ values, color }) {
-  const { path, area } = useMemo(() => {
-    const w = 100;
-    const h = 28;
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const span = max - min || 1;
-    const pts = values.map((v, i) => {
-      const x = (i / (values.length - 1)) * w;
-      const y = h - ((v - min) / span) * (h - 4) - 2;
-      return [x, y];
-    });
-    const line = pts.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-    return { path: line, area: `${line} L${w},${h} L0,${h} Z` };
-  }, [values]);
-
-  return (
-    <svg viewBox="0 0 100 28" preserveAspectRatio="none" className="w-full h-8">
-      <path d={area} fill={color} opacity="0.12" />
-      <path d={path} fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-    </svg>
-  );
-}
 
 // ── One device card ──
 function SensorCard({ sensor }) {
@@ -157,23 +136,60 @@ function Stat({ icon, label, value, color }) {
   );
 }
 
-export default function SensorPanel({ sensors }) {
+/**
+ * Tab "Cảm biến IoT".
+ *
+ * Hai nguồn dữ liệu, cố ý KHÔNG trộn lẫn:
+ *   • `waterSensors` — cảm biến mực nước THẬT do người dân tự lắp (ESP32),
+ *     lấy từ GET /api/sensors/monitor.
+ *   • `sensors` — trạm mưa / lưu lượng MÔ PHỎNG (chưa có phần cứng).
+ *
+ * Trộn thiết bị thật với thiết bị giả trong cùng một loại thì người trực không
+ * biết nên tin con số nào, nên loại "Mực nước" giờ chỉ còn thiết bị thật.
+ *
+ * Đây cũng là nơi DUY NHẤT ghép và quản lý cảm biến: thiết bị thuộc về đội cứu
+ * hộ triển khai nó, nên nút "Thêm cảm biến" nằm ở đây chứ không phải trên
+ * dashboard của người dân.
+ */
+export default function SensorPanel({ sensors, waterSensors = [], waterLoading = false, onWaterChanged }) {
   const { t } = useLanguage();
   const [filter, setFilter] = useState("all");
+  // Chỉ giữ ID chứ KHÔNG giữ cả object thiết bị: giữ object thì modal ôm một
+  // bản chụp lúc bấm vào và đứng im, trong khi nhịp poll vẫn chảy vào danh
+  // sách. Tra lại từ danh sách mỗi lần render thì modal tự sống theo.
+  const [detailId, setDetailId] = useState(null);
+  const [showSetup, setShowSetup] = useState(false);
 
   const counts = useMemo(() => {
-    const online = sensors.filter((s) => s.online).length;
-    const warning = sensors.filter((s) => sensorStatus(s) === "warning").length;
-    const critical = sensors.filter((s) => sensorStatus(s) === "critical").length;
-    return { total: sensors.length, online, offline: sensors.length - online, warning, critical };
-  }, [sensors]);
+    const simOnline = sensors.filter((s) => s.online).length;
+    const simWarn = sensors.filter((s) => sensorStatus(s) === "warning").length;
+    const simCrit = sensors.filter((s) => sensorStatus(s) === "critical").length;
+
+    const waterStatuses = waterSensors.map(waterSensorStatus);
+    return {
+      total: sensors.length + waterSensors.length,
+      online: simOnline + waterStatuses.filter((st) => st !== "offline").length,
+      offline:
+        sensors.length - simOnline + waterStatuses.filter((st) => st === "offline").length,
+      warning: simWarn + waterStatuses.filter((st) => st === "warning").length,
+      critical: simCrit + waterStatuses.filter((st) => st === "critical").length,
+    };
+  }, [sensors, waterSensors]);
+
+  const detailSensor = detailId ? waterSensors.find((s) => s.id === detailId) : null;
+
+  // Thiết bị bị gỡ khi modal đang mở (admin xoá, hoặc người khác xoá) → đóng lại.
+  useEffect(() => {
+    if (detailId && waterSensors.length > 0 && !detailSensor) setDetailId(null);
+  }, [detailId, detailSensor, waterSensors.length]);
 
   const types = ["all", "water_level", "rainfall", "flow"];
-  const visible = filter === "all" ? sensors : sensors.filter((s) => s.type === filter);
+  const showWater = filter === "all" || filter === "water_level";
+  const visibleSim = filter === "all" ? sensors : sensors.filter((s) => s.type === filter);
 
   return (
     <div className="space-y-5">
-      {/* Stat row */}
+      {/* Hàng thống kê */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <Stat icon="sensors" label={t("monitoring.sensors.total")} value={counts.total} color="primary" />
         <Stat icon="wifi" label={t("monitoring.sensors.online")} value={counts.online} color="safe" />
@@ -182,7 +198,7 @@ export default function SensorPanel({ sensors }) {
         <Stat icon="crisis_alert" label={t("monitoring.sensors.status_critical")} value={counts.critical} color="danger" />
       </div>
 
-      {/* Type filter */}
+      {/* Lọc theo loại */}
       <div className="flex gap-2 overflow-x-auto pb-1">
         {types.map((tp) => (
           <button
@@ -200,12 +216,99 @@ export default function SensorPanel({ sensors }) {
         ))}
       </div>
 
-      {/* Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        {visible.map((s) => (
-          <SensorCard key={s.id} sensor={s} />
-        ))}
-      </div>
+      {/* ── Cảm biến mực nước thật ── */}
+      {showWater && (
+        <section className="space-y-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-sm font-bold flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary filled-icon text-base">water_drop</span>
+              {t("monitoring.sensors.type_water_level")}
+            </h3>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-safe/10 text-safe border border-safe/20">
+              {t("monitoring.water.realDevice")}
+            </span>
+            <span className="text-[11px] text-slate-400">{t("monitoring.water.sourceNote")}</span>
+
+            <button
+              onClick={() => setShowSetup(true)}
+              className="ml-auto inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-bold text-white transition-opacity hover:opacity-90"
+            >
+              <span className="material-symbols-outlined text-base">add</span>
+              {t("waterSensor.add")}
+            </button>
+          </div>
+
+          {waterLoading && waterSensors.length === 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-56 rounded-2xl bg-slate-100 dark:bg-slate-800/50 animate-pulse" />
+              ))}
+            </div>
+          ) : waterSensors.length === 0 ? (
+            <div className="text-center py-10 bg-white dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+              <span className="material-symbols-outlined text-4xl text-slate-200 dark:text-slate-600 mb-2 block">
+                sensors_off
+              </span>
+              <p className="text-sm font-bold text-slate-400 dark:text-slate-500">
+                {t("monitoring.water.emptyTitle")}
+              </p>
+              <p className="text-xs text-slate-400 dark:text-slate-600 mt-1 mb-4 max-w-sm mx-auto">
+                {t("monitoring.water.emptyDesc")}
+              </p>
+              <button
+                onClick={() => setShowSetup(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white hover:opacity-90"
+              >
+                <span className="material-symbols-outlined text-lg">add</span>
+                {t("waterSensor.add")}
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {waterSensors.map((s) => (
+                <WaterSensorCard key={s.id} sensor={s} onOpen={(x) => setDetailId(x.id)} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ── Thiết bị mô phỏng (mưa / lưu lượng) ── */}
+      {visibleSim.length > 0 && (
+        <section className="space-y-3">
+          {filter === "all" && (
+            <div className="flex items-center gap-2 flex-wrap pt-1">
+              <h3 className="text-sm font-bold flex items-center gap-2">
+                <span className="material-symbols-outlined text-slate-400 filled-icon text-base">rainy</span>
+                {t("monitoring.water.otherDevices")}
+              </h3>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-400/10 text-slate-400 border border-slate-300/30">
+                {t("monitoring.water.simulated")}
+              </span>
+            </div>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {visibleSim.map((s) => (
+              <SensorCard key={s.id} sensor={s} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {detailSensor && (
+        <WaterSensorDetail
+          sensor={detailSensor}
+          onClose={() => setDetailId(null)}
+          onChanged={onWaterChanged}
+        />
+      )}
+
+      {showSetup && (
+        <WaterSensorSetupModal
+          onClose={() => setShowSetup(false)}
+          onCreated={onWaterChanged}
+        />
+      )}
     </div>
   );
 }

@@ -151,9 +151,9 @@ async function buildMyRescueGroupPayload(userId) {
 
   return {
     group,
-    canAcceptMission: activeGroup
-      ? ["leader", "co_leader"].includes(activeGroup.member_role)
-      : false,
+    // Từ khi có auto-dispatch, nhiệm vụ giao cho CÁ NHÂN rescuer — mọi thành
+    // viên của một đội đang hoạt động đều nhận được, không chỉ leader/co_leader.
+    canAcceptMission: Boolean(activeGroup),
     pendingInvites: receivedInvitesRes.rows.map((row) => ({
       id: row.id,
       status: row.status,

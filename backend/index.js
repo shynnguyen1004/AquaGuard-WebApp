@@ -15,6 +15,9 @@ const locationRoutes = require("./routes/locations");
 const notificationRoutes = require("./routes/notifications");
 const rtcRoutes = require("./routes/rtc");
 const exportRoutes = require("./routes/export");
+const dispatchRoutes = require("./routes/dispatch");
+const sensorRoutes = require("./routes/sensors");
+const dispatchService = require("./services/dispatch");
 const { rateLimit } = require("./middleware/rateLimit");
 
 const app = express();
@@ -66,6 +69,11 @@ app.use("/api/notifications/admin/send", rateLimit({ windowMs: 60 * 1000, max: 2
 app.use("/api/notifications/admin/flood-alert", rateLimit({ windowMs: 60 * 1000, max: 10, message: "Too many flood alerts sent. Please slow down." }));
 // Limit admin data exports (can be heavy queries)
 app.use("/api/export", rateLimit({ windowMs: 60 * 1000, max: 60, message: "Too many export requests. Please slow down." }));
+// Duty toggle: cheap query, but flipping it re-triggers dispatch — don't let it be spammed.
+app.use("/api/dispatch/duty", rateLimit({ windowMs: 60 * 1000, max: 30, message: "Too many duty changes. Please slow down." }));
+// Cảm biến ESP32 gửi mỗi ~30s. Rộng tay vì nhiều board có thể chung một IP
+// (cùng nhà, cùng NAT), nhưng vẫn chặn được board hỏng gửi dồn dập.
+app.use("/api/sensors/ingest", rateLimit({ windowMs: 60 * 1000, max: 240, message: "Too many sensor readings. Slow down." }));
 app.use("/api/auth", authRoutes);
 app.use("/api/sos", sosRoutes);
 app.use("/api/family", familyRoutes);
@@ -74,6 +82,8 @@ app.use("/api/locations", locationRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/rtc", rtcRoutes);
 app.use("/api/export", exportRoutes);
+app.use("/api/dispatch", dispatchRoutes);
+app.use("/api/sensors", sensorRoutes);
 
 // ── Health check ──
 app.get("/api/health", (req, res) => {
@@ -446,12 +456,32 @@ wss.on("connection", (ws, req) => {
   });
 });
 
-// Heartbeat to clean up dead connections
+// Heartbeat: reap dead connections AND keep presence alive.
+//
+// The Redis presence hash has a 60s TTL and used to be refreshed only by
+// `presence_location` messages from the browser. But browsers throttle
+// setInterval/watchPosition in BACKGROUND tabs (and freeze them when a phone
+// screen is off), so a rescuer who merely switched tabs would silently expire
+// out of the dispatch pool while still logged in and on duty.
+//
+// A WebSocket, by contrast, stays open through backgrounding. So the socket —
+// not the GPS timer — is the real liveness signal: on each beat we re-write the
+// last known fix, refreshing the TTL. Position accuracy still comes from the
+// browser when it can send; this only stops presence from lapsing.
 const heartbeatInterval = setInterval(() => {
   wss.clients.forEach((ws) => {
     if (!ws.isAlive) return ws.terminate();
     ws.isAlive = false;
     ws.ping();
+
+    if (ws.userId && ws.lastLocation) {
+      setLiveLocation(
+        ws.userId,
+        ws.userRole,
+        ws.lastLocation.latitude,
+        ws.lastLocation.longitude
+      );
+    }
   });
 }, 30000);
 
@@ -462,11 +492,38 @@ app.set("wss", wss);
 app.set("trackingRooms", trackingRooms);
 app.set("userSockets", userSockets);
 
+// ── Auto-dispatch wiring ──
+// The dispatch service must be able to ring a rescuer's phone and open the
+// tracking room, but it must NOT require this file (that would be a cycle:
+// index → routes/sos → services/dispatch → index). So we inject the two
+// transport functions here instead, after the WebSocket server exists.
+dispatchService.setTransport({
+  sendToUser,
+  broadcastToRoom: (requestId, message) => {
+    const room = trackingRooms.get(requestId);
+    if (!room) return;
+    const payload = JSON.stringify(message);
+    room.forEach((client) => {
+      if (client.readyState === 1) client.send(payload);
+    });
+  },
+});
+
+// Persistent countdown for pending offers. Lives in the DB (expires_at), so a
+// Render free-tier sleep/restart mid-offer recovers on the next tick instead of
+// losing the request.
+const dispatchSweeper = dispatchService.startSweeper();
+wss.on("close", () => {
+  if (dispatchSweeper) clearInterval(dispatchSweeper);
+});
+
 // ── Start server ──
 server.listen(PORT, () => {
   console.log(`\n🚀 AquaGuard API Server running on port ${PORT}`);
   console.log(`   ├── POST /api/auth/register`);
   console.log(`   ├── POST /api/auth/login`);
   console.log(`   ├── WS   ws://localhost:${PORT} (live tracking)`);
+  console.log(`   ├── PUT  /api/dispatch/duty (bật/tắt ca trực)`);
+  console.log(`   ├── POST /api/sensors/ingest (cảm biến mực nước ESP32)`);
   console.log(`   └── GET  /api/health\n`);
 });

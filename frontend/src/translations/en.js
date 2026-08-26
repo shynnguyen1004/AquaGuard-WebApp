@@ -324,6 +324,12 @@ const en = {
     subtitleRescuer: "Real-time water levels and drone imagery to spot people trapped in flooded areas.",
     liveOn: "Live",
     liveOff: "Paused",
+    sound: {
+      on: "Alarm on",
+      hint: "Sounds at {n}% water level, and again on danger",
+      off: "Muted",
+      blocked: "Click to enable sound",
+    },
     tabs: {
       sensors: "IoT Sensors",
       drones: "Drone Surveillance",
@@ -347,6 +353,20 @@ const en = {
       dangerLevel: "Danger",
       secAgo: "{n}s ago",
       minAgo: "{n}m ago",
+    },
+    // ── Real water level sensors (citizen-owned ESP32) ──
+    water: {
+      realDevice: "Real device",
+      simulated: "Simulated",
+      sourceNote: "Team-deployed ESP32 boards, live readings",
+      otherDevices: "Rainfall & flow stations",
+      emptyTitle: "No water level sensor yet",
+      emptyDesc: "Pair an ESP32 board to track water levels live at the spots that matter.",
+      owner: "Responsible",
+      contact: "Contact",
+      threshold: "Threshold",
+      coords: "Coordinates",
+      noAddress: "No location set",
     },
     drones: {
       activeDrones: "Active Drones",
@@ -415,6 +435,71 @@ const en = {
   },
 
   // ── Status Card ──
+  // ── Water level sensor (ESP32) ──
+  waterSensor: {
+    online: "Online",
+    offline: "Offline",
+    never: "No data yet",
+    justNow: "just now",
+    minutesAgo: "min ago",
+    hoursAgo: "h ago",
+    daysAgo: "d ago",
+
+    levels: {
+      dry: "Dry",
+      damp: "Touching water",
+      veryLow: "Very low",
+      low: "Low flooding",
+      lowMid: "Low–moderate",
+      moderate: "Moderate flooding",
+      midHigh: "Moderate–high",
+      high: "High flooding",
+      veryHigh: "Very high",
+      critical: "Full — alert",
+    },
+
+    add: "Add sensor",
+
+    threshold: "Alert threshold",
+    thresholdHint: "Send an alert when the water rises above this level",
+    alertsEnabled: "Alerts on",
+    notCalibrated: "Not calibrated — the percentage is only an estimate",
+    rawValue: "Raw value",
+
+    chart: "Water level history",
+    range6h: "6 hours",
+    range24h: "24 hours",
+    range7d: "7 days",
+    noData: "Not enough data to plot yet",
+
+    settings: "Device settings",
+    name: "Device name",
+    save: "Save",
+    cancel: "Cancel",
+    remove: "Remove device",
+    removeConfirm: "Remove this sensor? All stored readings will be deleted.",
+    rotateKey: "Rotate key",
+    rotateConfirm: "Rotate the key? The board using the old key will stop reporting until you flash the new one.",
+
+    setupTitle: "Pair a new sensor",
+    setupDesc: "Name the device, then flash its key onto the ESP32 board.",
+    namePlaceholder: "e.g. Backyard sensor",
+    useMyLocation: "Use my current location",
+    locationSet: "Location captured",
+    locationFailed: "Could not get your location",
+    create: "Create device",
+    creating: "Creating…",
+
+    keyTitle: "Device key",
+    keyWarning: "This key is shown ONCE. Copy it into the board's config.py now — if you lose it you must rotate the key.",
+    copy: "Copy",
+    copied: "Copied",
+    firmwareHint: "Paste into hardware/esp32-water-level/config.py, then reflash the board:",
+    done: "Done",
+
+    alertToast: "Flood alert from sensor",
+  },
+
   statusCard: {
     currentStatus: "Current Status",
     danger: "Danger",
@@ -970,6 +1055,36 @@ const en = {
     rescuer: "Rescue Team",
     citizen: "Citizen",
     user: "User",
+  },
+
+  // ── Automatic rescue dispatch ──
+  dispatch: {
+    // Duty shift
+    onDuty: "On duty",
+    offDuty: "Off duty",
+    needTeam: "You need to join a rescue team before going on duty.",
+    dutyError: "Could not change duty status. Please try again.",
+    dutyHint: "Go on duty to receive rescue requests near you",
+
+    // Mission assigned
+    offerLabel: "Auto dispatch",
+    assignedTitle: "You have been assigned a mission",
+    awayFromYou: "away from you",
+    citizen: "Citizen",
+    location: "Location",
+    description: "Description",
+    dismiss: "Dismiss",
+    viewMission: "View mission",
+    confirmHint: "Open the mission and press start so your team knows you're on the way.",
+    assignedHint: "This mission has been assigned to you.",
+
+    // Urgency levels
+    urgency: {
+      critical: "Critical",
+      high: "High",
+      medium: "Medium",
+      low: "Low",
+    },
   },
 
   // ── Safety Protocols Page ──

@@ -5,6 +5,8 @@ import { CallProvider } from "./contexts/CallContext";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { ToastProvider } from "./components/common/Toast";
 import { NotificationProvider } from "./contexts/NotificationContext";
+import { DispatchProvider } from "./contexts/DispatchContext";
+import DispatchAssignmentModal from "./components/dispatch/DispatchAssignmentModal";
 import ErrorBoundary from "./components/common/ErrorBoundary";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import LoginPage from "./pages/LoginPage";
@@ -15,6 +17,8 @@ import UnauthorizedPage from "./pages/UnauthorizedPage";
 export default function App() {
   // Cây provider: thứ tự lồng nhau quan trọng — Auth phải bọc ngoài LiveLocation
   // (cần token) và NotificationProvider nằm trong cùng để dùng được Toast.
+  // DispatchProvider phải nằm TRONG LiveLocationProvider: nó không tự mở
+  // WebSocket mà bám vào socket always-on của LiveLocation qua subscribe().
   return (
     <ErrorBoundary>
       <BrowserRouter>
@@ -24,6 +28,7 @@ export default function App() {
               <ToastProvider>
                 <CallProvider>
                 <NotificationProvider>
+                <DispatchProvider>
                 <Routes>
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -38,6 +43,9 @@ export default function App() {
                   />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
+                {/* Ngoài <Routes> để báo được ở bất kỳ trang nào */}
+                <DispatchAssignmentModal />
+                </DispatchProvider>
                 </NotificationProvider>
                 </CallProvider>
               </ToastProvider>

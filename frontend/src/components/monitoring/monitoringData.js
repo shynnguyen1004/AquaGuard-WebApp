@@ -34,12 +34,13 @@ function genHistory(base, spread, n = 18) {
   return out;
 }
 
-// ── IoT sensor devices (water level, rainfall, flow rate) ──
+// ── IoT sensor devices (rainfall, flow rate) ──
+//
+// KHÔNG còn thiết bị "water_level" giả ở đây: mực nước giờ là dữ liệu THẬT từ
+// các board ESP32 của người dân (GET /api/sensors/monitor, xem SensorPanel).
+// Trộn trạm đo giả vào cùng loại với thiết bị thật thì người trực không biết
+// con số nào đáng tin.
 const SENSOR_SEED = [
-  { id: "WL-01", name: "Cầu Bình Triệu",   type: "water_level", location: "TP. Thủ Đức",   value: 2.4, warn: 3.0, danger: 4.2 },
-  { id: "WL-02", name: "Kênh Nhiêu Lộc",   type: "water_level", location: "Q. Tân Bình",   value: 3.3, warn: 3.0, danger: 4.5 },
-  { id: "WL-03", name: "Rạch Xuyên Tâm",   type: "water_level", location: "Q. Bình Thạnh", value: 4.6, warn: 3.5, danger: 4.5 },
-  { id: "WL-04", name: "Cống Mễ Cốc",      type: "water_level", location: "Q. 8",          value: 1.8, warn: 2.8, danger: 4.0 },
   { id: "RN-01", name: "Trạm mưa Gò Vấp",  type: "rainfall",    location: "Q. Gò Vấp",     value: 38,  warn: 50,  danger: 80 },
   { id: "RN-02", name: "Trạm mưa An Phú",  type: "rainfall",    location: "TP. Thủ Đức",   value: 64,  warn: 50,  danger: 80 },
   { id: "FL-01", name: "Lưu lượng Tham Lương", type: "flow",    location: "Q. 12",         value: 41,  warn: 55,  danger: 75 },

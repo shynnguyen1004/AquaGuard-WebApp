@@ -37,3 +37,5 @@ documents/
 # Claude Code
 CLAUDE.md
 .claude/
+# Firmware cảm biến — chứa WiFi password + device key
+hardware/esp32-water-level/config.py

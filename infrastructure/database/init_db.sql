@@ -49,6 +49,10 @@ CREATE TABLE IF NOT EXISTS users (
                         CHECK (role IN ('citizen', 'rescuer', 'admin')),
     is_active           BOOLEAN DEFAULT TRUE,
 
+    -- Trực ca (rescuer only) — chỉ 'on' mới nhận được lời mời auto-dispatch
+    duty_status         VARCHAR(10) NOT NULL DEFAULT 'off'
+                        CHECK (duty_status IN ('on', 'off')),
+
     -- Location (address only — live GPS is in user_locations table)
     address             TEXT DEFAULT '',
 
@@ -66,6 +70,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_users_phone    ON users (phone_number);
 CREATE INDEX IF NOT EXISTS idx_users_role     ON users (role);
 CREATE INDEX IF NOT EXISTS idx_users_active   ON users (is_active) WHERE is_active = TRUE;
+CREATE INDEX IF NOT EXISTS idx_users_duty     ON users (duty_status) WHERE duty_status = 'on';
 
 -- Auto-update trigger
 CREATE OR REPLACE TRIGGER trigger_users_updated_at
@@ -111,6 +116,22 @@ CREATE TABLE IF NOT EXISTS rescue_requests (
     last_cancelled_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
     last_cancelled_at   TIMESTAMPTZ,
 
+    -- Auto-dispatch bookkeeping (trục SONG SONG với `status` — mô tả quá trình
+    -- điều phối, không thay thế vòng đời pending → in_progress → resolved)
+    dispatch_status     VARCHAR(20) NOT NULL DEFAULT 'none'
+                        CHECK (dispatch_status IN (
+                            'none',            -- chưa chạy điều phối
+                            'searching',       -- đang quét ứng viên
+                            'assigned_direct', -- đã giao thẳng cho một rescuer
+                            'no_candidate',    -- hết ứng viên → admin điều phối tay
+                            'manual',          -- admin đã can thiệp tay
+                            -- di sản của chế độ "mời + chờ nhận" (trước 012)
+                            'offered', 'auto_assigned'
+                        )),
+    dispatch_attempts   INTEGER NOT NULL DEFAULT 0,
+    dispatch_radius_km  DOUBLE PRECISION,
+    auto_assigned_at    TIMESTAMPTZ,
+
     -- Timeline milestones
     assigned_at         TIMESTAMPTZ,
     resolved_at         TIMESTAMPTZ,
@@ -121,6 +142,8 @@ CREATE TABLE IF NOT EXISTS rescue_requests (
 );
 
 -- Indexes
+CREATE INDEX IF NOT EXISTS idx_rr_dispatch_status ON rescue_requests (dispatch_status)
+    WHERE dispatch_status IN ('searching', 'offered', 'no_candidate');
 CREATE INDEX IF NOT EXISTS idx_rr_status      ON rescue_requests (status);
 CREATE INDEX IF NOT EXISTS idx_rr_user_id     ON rescue_requests (user_id);
 CREATE INDEX IF NOT EXISTS idx_rr_assigned    ON rescue_requests (assigned_to);
@@ -348,6 +371,120 @@ CREATE INDEX IF NOT EXISTS idx_user_locations_user ON user_locations (user_id);
 
 
 -- ════════════════════════════════════════════════════════════
+-- 12. RESCUE DISPATCH OFFERS — Nhật ký phân công tự động
+-- Mỗi dòng = một lần hệ thống giao một SOS cho một rescuer.
+-- Dùng cho: audit (vì sao chọn người này — điểm, khoảng cách), loại người
+-- đã thử khi phải giao lại, và tính tỉ lệ bỏ ca để chấm độ tin cậy.
+-- ════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS rescue_dispatch_offers (
+    id                  SERIAL PRIMARY KEY,
+
+    request_id          INTEGER NOT NULL REFERENCES rescue_requests(id) ON DELETE CASCADE,
+    rescuer_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    -- Team của rescuer lúc được giao → đi vào rescue_requests.assigned_group_id
+    -- để GET /api/sos/team của đồng đội vẫn hoạt động.
+    group_id            INTEGER REFERENCES rescue_groups(id) ON DELETE SET NULL,
+
+    -- Ảnh chụp lúc giao (audit + hiển thị "cách bạn 1.2 km")
+    distance_km         DOUBLE PRECISION,
+    score               DOUBLE PRECISION,
+    rescuer_latitude    DOUBLE PRECISION,
+    rescuer_longitude   DOUBLE PRECISION,
+    attempt             INTEGER NOT NULL DEFAULT 1,
+
+    status              VARCHAR(20) NOT NULL DEFAULT 'auto_assigned'
+                        CHECK (status IN (
+                            'auto_assigned', -- hệ thống đã giao cho người này
+                            'released',      -- rescuer tự bỏ ca sau khi được giao
+                            'reassigned',    -- watchdog thu hồi vì rescuer mất tích
+                            'superseded',    -- admin điều phối tay đè lên
+                            'completed',
+                            -- di sản của chế độ "mời + chờ nhận" (trước 012)
+                            'offered', 'accepted', 'declined', 'expired', 'cancelled'
+                        )),
+
+    -- Chỉ có nghĩa với chế độ mời cũ; giao thẳng không có hạn chót.
+    expires_at          TIMESTAMPTZ,
+    responded_at        TIMESTAMPTZ,
+    created_at          TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_rdo_request ON rescue_dispatch_offers (request_id, status);
+CREATE INDEX IF NOT EXISTS idx_rdo_rescuer ON rescue_dispatch_offers (rescuer_id, status);
+CREATE INDEX IF NOT EXISTS idx_rdo_history
+    ON rescue_dispatch_offers (rescuer_id, created_at DESC);
+-- Watchdog quét đúng index này: ai được giao mà chưa bắt đầu.
+CREATE INDEX IF NOT EXISTS idx_rdo_active
+    ON rescue_dispatch_offers (created_at) WHERE status = 'auto_assigned';
+-- Mỗi request chỉ có đúng MỘT phân công đang hiệu lực.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_rdo_one_active_assignment
+    ON rescue_dispatch_offers (request_id) WHERE status = 'auto_assigned';
+
+
+-- ════════════════════════════════════════════════════════════
+-- 13. WATER SENSORS — cảm biến mực nước ESP32 do người dân lắp
+-- Thiết bị xác thực bằng device key (SHA-256), không dùng JWT.
+-- Xem backend/migrations/013_water_sensors.sql
+-- ════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS water_sensors (
+    id                  SERIAL PRIMARY KEY,
+    user_id             INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+
+    name                VARCHAR(80)  NOT NULL DEFAULT 'Cảm biến mực nước',
+    device_key_hash     CHAR(64)     NOT NULL UNIQUE,
+    device_key_prefix   VARCHAR(12)  NOT NULL DEFAULT '',
+
+    latitude            DOUBLE PRECISION,
+    longitude           DOUBLE PRECISION,
+    address             TEXT NOT NULL DEFAULT '',
+
+    -- Bảng hiệu chuẩn nhiều điểm [[phần_trăm, raw], ...] (bản sao calib.json)
+    calibration         JSONB,
+
+    alert_enabled       BOOLEAN NOT NULL DEFAULT TRUE,
+    alert_threshold     SMALLINT NOT NULL DEFAULT 58
+                        CHECK (alert_threshold BETWEEN 1 AND 100),
+    last_alert_level    SMALLINT NOT NULL DEFAULT 0,
+    last_alert_at       TIMESTAMPTZ,
+
+    -- Ảnh chụp lần đọc gần nhất (danh sách thiết bị chỉ cần 1 query)
+    last_raw            INTEGER,
+    last_percent        SMALLINT,
+    last_level          SMALLINT,
+    last_seen_at        TIMESTAMPTZ,
+
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_water_sensors_user ON water_sensors (user_id);
+CREATE INDEX IF NOT EXISTS idx_water_sensors_live
+    ON water_sensors (last_seen_at DESC)
+    WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
+
+
+-- ════════════════════════════════════════════════════════════
+-- 14. WATER SENSOR READINGS — chuỗi số đo (đã lấy mẫu thưa)
+-- ════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS water_sensor_readings (
+    id              BIGSERIAL PRIMARY KEY,
+    sensor_id       INTEGER NOT NULL REFERENCES water_sensors(id) ON DELETE CASCADE,
+
+    raw             INTEGER,
+    percent         SMALLINT NOT NULL,
+    level           SMALLINT NOT NULL DEFAULT 0,
+    voltage_mv      INTEGER,
+
+    recorded_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_wsr_sensor_time
+    ON water_sensor_readings (sensor_id, recorded_at DESC);
+
+
+-- ════════════════════════════════════════════════════════════
 -- SEED DATA (development only)
 -- ════════════════════════════════════════════════════════════
 -- Password: "password123" → bcrypt hash placeholder
@@ -362,6 +499,6 @@ ON CONFLICT (phone_number) DO NOTHING;
 
 
 -- ════════════════════════════════════════════════════════════
--- DONE — 11 tables ready
+-- DONE — 14 tables ready
 -- Verify: \dt (list tables)
 -- ════════════════════════════════════════════════════════════

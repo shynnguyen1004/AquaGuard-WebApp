@@ -1,5 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useLiveLocation } from "../contexts/LiveLocationContext";
+import { useToast } from "../components/common/Toast";
+import { api } from "../services/api";
+import useAlarmSound from "../hooks/useAlarmSound";
+import { alarmStage, SIREN_FLOOR_PCT } from "../components/monitoring/WaterSensorCard";
 import SensorPanel from "../components/monitoring/SensorPanel";
 import DronePanel from "../components/monitoring/DronePanel";
 import {
@@ -50,18 +55,37 @@ function DroneIcon({ className = "" }) {
  *   • Drone Surveillance — aerial drone camera feeds with computer-vision
  *     detection of flood zones and people in danger.
  *
- * All data is simulated (no backend yet): a single interval nudges every reading
- * so the dashboard feels live. State lives here so both tabs keep moving even
- * while the other tab is on screen.
+ * Data comes from two places, and the split matters:
+ *   • Water level is REAL — the ESP32 boards citizens install at home, read
+ *     through GET /api/sensors/monitor and polled while "live" is on.
+ *   • Rainfall / flow / drones are still simulated (no hardware yet); an
+ *     interval nudges those readings so the screen feels alive.
+ *
+ * State lives here so both tabs keep moving even while the other is on screen.
  */
 export default function MonitoringCenter({ role = "admin" }) {
   const { t } = useLanguage();
+  const { subscribe } = useLiveLocation();
+  const { showToast } = useToast();
+  // Bóc ra từng cái: hook trả về object MỚI mỗi lần render, đưa nguyên object
+  // vào deps thì effect đăng ký socket bị huỷ và đăng ký lại liên tục.
+  // `play`/`toggleMute` là useCallback nên ổn định.
+  const {
+    muted: alarmMuted,
+    blocked: alarmBlocked,
+    play: playAlarm,
+    toggleMute: toggleAlarm,
+  } = useAlarmSound();
   const [tab, setTab] = useState("sensors");
   const [sensors, setSensors] = useState(makeInitialSensors);
   const [drones, setDrones] = useState(makeInitialDrones);
   const [live, setLive] = useState(true);
   const liveRef = useRef(live);
   liveRef.current = live;
+
+  // Cảm biến mực nước THẬT
+  const [waterSensors, setWaterSensors] = useState([]);
+  const [waterLoading, setWaterLoading] = useState(true);
 
   useEffect(() => {
     const iv = setInterval(() => {
@@ -71,6 +95,90 @@ export default function MonitoringCenter({ role = "admin" }) {
     }, 3000);
     return () => clearInterval(iv);
   }, []);
+
+  // Poll thay vì WebSocket: server chỉ đẩy `sensor_reading` cho CHỦ thiết bị,
+  // còn trang này xem thiết bị của cả khu — 5 giây một lần là đủ nhanh cho
+  // việc trực mà không phải mở thêm đường đẩy dữ liệu riêng.
+  const loadWaterSensors = useCallback(async () => {
+    try {
+      const res = await api.get("/sensors/monitor");
+      if (res.success) setWaterSensors(res.data || []);
+    } catch {
+      // Im lặng: mất mạng chốc lát không nên làm trắng cả trang giám sát.
+    } finally {
+      setWaterLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadWaterSensors();
+    const iv = setInterval(() => {
+      if (liveRef.current) loadWaterSensors();
+    }, 5000);
+    return () => clearInterval(iv);
+  }, [loadWaterSensors]);
+
+  // Đẩy từ server, không đợi nhịp poll.
+  //
+  // Thiết bị thuộc về người đã lắp nó, mà người đó thường chính là người đang
+  // ngồi trực — nên `sensor_reading` (server gửi cho CHỦ thiết bị) tới thẳng
+  // tab này qua socket always-on. Vá luôn vào state để thẻ và cả popup chi tiết
+  // nhảy số ngay, thay vì chờ tới 5 giây. Thiết bị của người khác vẫn dựa vào
+  // poll — đó là lý do vẫn giữ cả hai đường.
+  useEffect(() => {
+    return subscribe((msg) => {
+      if (msg.type === "sensor_reading") {
+        if (!liveRef.current) return;
+        setWaterSensors((prev) =>
+          prev.map((s) =>
+            s.id === msg.sensorId
+              ? {
+                  ...s,
+                  percent: msg.percent,
+                  level: msg.level,
+                  levelKey: msg.levelKey,
+                  raw: msg.raw,
+                  lastSeenAt: msg.at,
+                  online: true,
+                }
+              : s
+          )
+        );
+      } else if (msg.type === "sensor_alert") {
+        // Chỉ báo bằng chữ. Việc hú do quy tắc nấc báo động bên dưới lo, để
+        // không có hai nguồn phát tiếng cãi nhau.
+        showToast(`${t("waterSensor.alertToast")}: ${msg.name} — ${msg.percent}%`, "error");
+        loadWaterSensors();
+      }
+    });
+  }, [subscribe, showToast, t, loadWaterSensors]);
+
+  // ── Còi hú ──
+  //
+  // Một quy tắc duy nhất: hú khi NẤC BÁO ĐỘNG của một thiết bị TĂNG
+  // (xem alarmStage) — chạm SIREN_FLOOR_PCT là nấc 1, vào vùng đỏ là nấc 2.
+  //
+  // Tính trên đúng dữ liệu đang vẽ nên thiết bị của ai cũng hú được, kể cả khi
+  // chỉ có đường poll hoặc khi thiết bị đã tắt cảnh báo. Sàn 10 giây trong
+  // useAlarmSound lo phần không hú chồng lên nhau.
+  //
+  // `null` = chưa có lần chụp đầu: mở trang mà sẵn có thiết bị đang ngập thì
+  // chỉ ghi nhận chứ không hú — nếu không, mỗi lần chuyển trang lại rú lên một
+  // tràng cho một tình huống người trực đã biết.
+  const alarmStagesRef = useRef(null);
+  useEffect(() => {
+    const next = new Map(waterSensors.map((s) => [s.id, alarmStage(s)]));
+    const before = alarmStagesRef.current;
+    alarmStagesRef.current = next;
+    if (before === null) return;
+
+    for (const [id, stage] of next) {
+      if (stage > (before.get(id) ?? 0)) {
+        playAlarm();
+        break;
+      }
+    }
+  }, [waterSensors, playAlarm]);
 
   const tabs = [
     { key: "sensors", icon: "sensors", label: t("monitoring.tabs.sensors") },
@@ -92,6 +200,31 @@ export default function MonitoringCenter({ role = "admin" }) {
             </p>
           </div>
 
+          <div className="flex items-center gap-2">
+          {/* Bật/tắt còi hú */}
+          <button
+            onClick={toggleAlarm}
+            title={t("monitoring.sound.hint").replace("{n}", String(SIREN_FLOOR_PCT))}
+            className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold border transition-colors ${
+              alarmMuted
+                ? "bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700"
+                : alarmBlocked
+                  ? "bg-warning/10 text-warning border-warning/20"
+                  : "bg-danger/10 text-danger border-danger/20"
+            }`}
+          >
+            <span className="material-symbols-outlined text-lg">
+              {alarmMuted ? "volume_off" : "volume_up"}
+            </span>
+            <span className="hidden sm:inline">
+              {alarmBlocked
+                ? t("monitoring.sound.blocked")
+                : alarmMuted
+                  ? t("monitoring.sound.off")
+                  : t("monitoring.sound.on")}
+            </span>
+          </button>
+
           {/* Live toggle */}
           <button
             onClick={() => setLive((v) => !v)}
@@ -104,6 +237,7 @@ export default function MonitoringCenter({ role = "admin" }) {
             <span className={`size-2 rounded-full ${live ? "bg-safe animate-pulse" : "bg-slate-400"}`} />
             {live ? t("monitoring.liveOn") : t("monitoring.liveOff")}
           </button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -129,7 +263,16 @@ export default function MonitoringCenter({ role = "admin" }) {
         </div>
 
         {/* Content */}
-        {tab === "sensors" ? <SensorPanel sensors={sensors} /> : <DronePanel drones={drones} />}
+        {tab === "sensors" ? (
+          <SensorPanel
+            sensors={sensors}
+            waterSensors={waterSensors}
+            waterLoading={waterLoading}
+            onWaterChanged={loadWaterSensors}
+          />
+        ) : (
+          <DronePanel drones={drones} />
+        )}
       </div>
     </div>
   );

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AquaGuard API — Swagger UI</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+  <style>
+    body { margin: 0; background: #fafafa; }
+    .topbar { display: none; }
+    .aq-note {
+      font: 14px/1.5 system-ui, sans-serif;
+      background: #0e6ba8; color: #fff; padding: 10px 16px;
+    }
+    .aq-note code { background: rgba(255,255,255,.18); padding: 1px 5px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="aq-note">
+    Trang này phải được mở qua <code>http://localhost:3000</code> thì nút
+    <strong>Try it out</strong> mới gọi được backend (CORS allowlist).
+    Lấy token ở <code>POST /auth/login</code> → bấm <strong>Authorize</strong> → dán token.
+  </div>
+  <div id="swagger-ui"></div>
+
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
+  <script>
+    window.ui = SwaggerUIBundle({
+      url: "./05-api-swagger.yaml",
+      dom_id: "#swagger-ui",
+      presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+      layout: "StandaloneLayout",
+      deepLinking: true,
+      tryItOutEnabled: true,
+      persistAuthorization: true,
+      docExpansion: "none",
+      filter: true,
+      defaultModelsExpandDepth: 1,
+    });
+  </script>
+</body>
+</html>
