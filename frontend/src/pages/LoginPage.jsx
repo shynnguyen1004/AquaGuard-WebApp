@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import { normalizePhone, isValidVNPhone } from "../utils/phone";
+import BoatRevealBackground from "../components/auth/BoatRevealBackground";
+import RainOverlay from "../components/auth/RainOverlay";
 
 export default function LoginPage() {
   const { loginWithGoogle, loginWithPhonePassword, registerWithPhone, error, clearError, loading } = useAuth();
@@ -241,84 +243,70 @@ export default function LoginPage() {
     setLanguage(language === "vi" ? "en" : "vi");
   };
 
-  return (
-    <div className="flex h-screen w-full overflow-hidden bg-background-dark relative">
-      {/* Language Toggle Button — top right */}
-      <button
-        onClick={toggleLanguage}
-        className="absolute top-5 right-5 z-50 flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/[0.07] backdrop-blur-xl border border-white/10 hover:bg-white/[0.12] hover:border-white/20 transition-all group"
-        title={language === "vi" ? "Switch to English" : "Chuyển sang Tiếng Việt"}
-      >
-        <span className="material-symbols-outlined text-lg text-slate-300 group-hover:text-white transition-colors">
-          translate
-        </span>
-        <span className="text-xs font-bold text-slate-300 group-hover:text-white transition-colors uppercase tracking-wider">
-          {language === "vi" ? "EN" : "VI"}
-        </span>
-      </button>
-
-      {/* Animated Background */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -left-40 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute top-1/3 -right-20 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-pulse [animation-delay:1s]" />
-        <div className="absolute -bottom-32 left-1/3 w-72 h-72 bg-primary/15 rounded-full blur-3xl animate-pulse [animation-delay:2s]" />
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
-            backgroundSize: "60px 60px",
-          }}
-        />
-      </div>
-
-      {/* Left Side — Branding */}
-      <div className="hidden lg:flex flex-1 items-center justify-center relative z-10">
-        <div className="max-w-lg px-12">
-          <div className="p-6">
-            <img alt="AquaGuard" src="/images/Logo/Tranparent_Dark/TD_App_Logo.png" />
+  const registerStepIndicator = (
+    <div className="flex items-center justify-center gap-2 pt-1">
+      {[1, 2, 3].map((step) => (
+        <div key={step} className={`flex items-center gap-2${step < 3 ? " flex-1 max-w-[120px]" : ""}`}>
+          <div
+            className={`size-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 shrink-0 ${
+              registerStep === step
+                ? "bg-primary text-white shadow-lg shadow-primary/30 scale-110"
+                : registerStep > step
+                  ? "bg-primary/20 text-primary"
+                  : "bg-white/5 text-slate-500 border border-white/10"
+            }`}
+          >
+            {registerStep > step ? (
+              <span className="material-symbols-outlined text-sm">check</span>
+            ) : (
+              step
+            )}
           </div>
-          <h2 className="text-4xl font-bold text-white leading-tight mb-4">
-            {t("loginPage.brandingTitle")}
-            <br />
-            <span className="text-primary">{t("loginPage.brandingHighlight")}</span>
-          </h2>
-          <p className="text-slate-400 text-lg leading-relaxed mb-8">
-            {t("loginPage.brandingDesc")}
-          </p>
-          <div className="space-y-4">
-            {[
-              { icon: "map", text: t("loginPage.featureMap") },
-              { icon: "emergency", text: t("loginPage.featureRescue") },
-              { icon: "notifications_active", text: t("loginPage.featureWarnings") },
-            ].map((feature) => (
-              <div key={feature.icon} className="flex items-center gap-3 text-slate-300">
-                <div className="size-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-primary text-xl">
-                    {feature.icon}
-                  </span>
-                </div>
-                <span className="text-sm font-medium">{feature.text}</span>
-              </div>
-            ))}
-          </div>
+          {step < 3 && (
+            <div className={`flex-1 h-0.5 rounded-full transition-all duration-300 ${
+              registerStep > step ? "bg-primary/40" : "bg-white/10"
+            }`} />
+          )}
         </div>
-      </div>
+      ))}
+    </div>
+  );
 
-      {/* Right Side — Login Form */}
-      <div className="flex-1 flex items-center justify-center relative z-10 px-4 sm:px-6 overflow-y-auto">
-        <div className="w-full max-w-md py-6 sm:py-10 my-auto">
-          <div className="bg-white/[0.03] backdrop-blur-2xl border border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl">
-            {/* Mobile logo */}
-            <div className="lg:hidden flex items-center justify-center mb-8">
-              <img src="/images/Logo/Tranparent_Dark/TD_App_Logo.png" alt="AquaGuard" className="h-30 w-auto" />
+  return (
+    <BoatRevealBackground>
+      <RainOverlay />
+      <div className="relative z-10 flex flex-col h-screen w-full">
+        {/* Language toggle */}
+        <button
+          onClick={toggleLanguage}
+          className="absolute top-5 right-5 z-50 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/30 backdrop-blur-sm border border-white/15 hover:bg-black/40 hover:border-white/25 transition-all group"
+          title={language === "vi" ? "Switch to English" : "Chuyển sang Tiếng Việt"}
+        >
+          <span className="material-symbols-outlined text-base text-slate-300 group-hover:text-white transition-colors">
+            translate
+          </span>
+          <span className="text-xs font-bold text-slate-300 group-hover:text-white transition-colors uppercase tracking-wider">
+            {language === "vi" ? "EN" : "VI"}
+          </span>
+        </button>
+
+        {/* Centered login/register cluster */}
+        <div className="flex-1 flex items-center justify-center px-4 sm:px-6 overflow-y-auto min-h-0 py-8">
+          <div className="w-full max-w-[420px] my-auto">
+            <div className="flex justify-center mb-6">
+              <img
+                alt="AquaGuard"
+                src="/images/Logo/Transparent_Stroked/TS_App_Logo.png"
+                className="w-[25.2rem] sm:w-[28.8rem] xl:w-[32.4rem] h-auto drop-shadow-lg"
+              />
             </div>
 
-            <div className="text-center mb-5 sm:mb-8">
-              <h3 className="text-xl sm:text-2xl font-bold text-white mb-1.5">
+            <div className="rounded-3xl bg-black/45 backdrop-blur-md border border-white/10 p-6 sm:p-8 shadow-2xl">
+              <div className="mb-6 min-h-[4.5rem] text-center">
+              <h3 className="text-2xl sm:text-3xl font-bold text-white mb-2">
                 {phoneMode === "register" ? t("loginPage.createAccount") : t("loginPage.welcomeBack")}
               </h3>
-              <p className="text-slate-400 text-sm">
+              <p className="text-slate-400 text-sm sm:text-base">
                 {phoneMode === "register"
                   ? t("loginPage.registerSubtitle")
                   : t("loginPage.signInSubtitle")}
@@ -346,58 +334,6 @@ export default function LoginPage() {
 
             {/* ── Phone Login / Register (Primary) ── */}
             <div>
-              {/* Phone sub-mode tabs */}
-              <div className="flex gap-1 mb-5">
-                <button
-                  onClick={() => switchPhoneMode("login")}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${phoneMode === "login"
-                    ? "text-primary border-b-2 border-primary"
-                    : "text-slate-500 hover:text-slate-300"
-                    }`}
-                >
-                  {t("loginPage.loginTab")}
-                </button>
-                <button
-                  onClick={() => switchPhoneMode("register")}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${phoneMode === "register"
-                    ? "text-primary border-b-2 border-primary"
-                    : "text-slate-500 hover:text-slate-300"
-                    }`}
-                >
-                  {t("loginPage.registerTab")}
-                </button>
-              </div>
-
-              {/* ── Step Indicator (register only) ── */}
-              {phoneMode === "register" && (
-                <div className="flex items-center justify-center gap-2 mb-6">
-                  {[1, 2, 3].map((step) => (
-                    <div key={step} className={`flex items-center gap-2${step < 3 ? " flex-1 max-w-[120px]" : ""}`}>
-                      <div
-                        className={`size-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 shrink-0 ${
-                          registerStep === step
-                            ? "bg-primary text-white shadow-lg shadow-primary/30 scale-110"
-                            : registerStep > step
-                              ? "bg-primary/20 text-primary"
-                              : "bg-white/5 text-slate-500 border border-white/10"
-                        }`}
-                      >
-                        {registerStep > step ? (
-                          <span className="material-symbols-outlined text-sm">check</span>
-                        ) : (
-                          step
-                        )}
-                      </div>
-                      {step < 3 && (
-                        <div className={`flex-1 h-0.5 rounded-full transition-all duration-300 ${
-                          registerStep > step ? "bg-primary/40" : "bg-white/10"
-                        }`} />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
               {/* ── LOGIN FORM ── */}
               {phoneMode === "login" && (
                 <form onSubmit={handlePhoneLogin} className="space-y-4">
@@ -616,6 +552,8 @@ export default function LoginPage() {
                         )}
                       </div>
 
+                      {registerStepIndicator}
+
                       {/* Next button */}
                       <button
                         type="button"
@@ -702,6 +640,8 @@ export default function LoginPage() {
                           {t("loginPage.emailHint")}
                         </p>
                       </div>
+
+                      {registerStepIndicator}
 
                       {/* Back / Next buttons */}
                       <div className="flex gap-3">
@@ -806,6 +746,8 @@ export default function LoginPage() {
                         </div>
                       </div>
 
+                      {registerStepIndicator}
+
                       {/* Back / Submit buttons */}
                       <div className="flex gap-3">
                         <button
@@ -867,14 +809,13 @@ export default function LoginPage() {
 
             {/* Google Login hidden — uncomment to re-enable */}
 
+            <p className="text-center text-xs text-slate-500 mt-6 pt-4 border-t border-white/10">
+              {t("loginPage.footer")}
+            </p>
+            </div>
           </div>
-
-          {/* Footer */}
-          <p className="text-center text-xs text-slate-600 mt-6">
-            {t("loginPage.footer")}
-          </p>
         </div>
       </div>
-    </div>
+    </BoatRevealBackground>
   );
 }

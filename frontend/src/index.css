@@ -36,3 +36,23 @@ body {
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/* CSS rain — adapted from https://codepen.io/vishwaoffl/pen/oNyrbLy */
+.rain-drop {
+  position: absolute;
+  top: -5vmin;
+  border: 0.25vmin solid transparent;
+  border-bottom-color: #abc2e9;
+  animation-name: rain-fall;
+  animation-timing-function: ease-in;
+  animation-iteration-count: infinite;
+}
+
+@keyframes rain-fall {
+  from {
+    transform: rotate(91deg) translateX(0);
+  }
+  to {
+    transform: rotate(91deg) translateX(calc(100vh + 5vmin));
+  }
+}
