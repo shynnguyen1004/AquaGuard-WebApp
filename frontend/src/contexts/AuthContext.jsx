@@ -10,7 +10,7 @@ import {
   getStoredToken,
   loadRoleFromStorage,
   loadUserFromStorage,
-  migrateLegacyPhoneSessionToTab,
+  migratePhoneSessionToPersistent,
   saveRoleToStorage,
   saveTokenToStorage,
   saveUserToStorage,
@@ -98,7 +98,7 @@ export function AuthProvider({ children }) {
   const updateRole = (newRole) => {
     const resolved = newRole || ROLES.CITIZEN;
     setRole(resolved);
-    saveRoleToStorage(resolved, "session");
+    saveRoleToStorage(resolved, "local");
   };
 
   // ── Update the authenticated user (e.g. after editing profile in Settings) ──
@@ -106,16 +106,14 @@ export function AuthProvider({ children }) {
     setUser((prev) => {
       if (!prev) return prev;
       const next = { ...prev, ...updates };
-      // Phone-auth sessions live in sessionStorage, Firebase sessions in localStorage
-      const storageType = next.uid?.startsWith("phone_") ? "session" : "local";
-      saveUserToStorage(next, storageType);
+      saveUserToStorage(next, "local");
       return next;
     });
   };
 
   // ── Restore session on mount ──
   useEffect(() => {
-    migrateLegacyPhoneSessionToTab();
+    migratePhoneSessionToPersistent();
 
     // Check stored phone-auth session first
     const storedUser = loadUserFromStorage();
@@ -123,7 +121,7 @@ export function AuthProvider({ children }) {
     const storedRole = loadRoleFromStorage();
 
     if (storedUser && storedToken && storedUser.uid?.startsWith("phone_")) {
-      // Phone-auth user — restore from localStorage
+      // Phone-auth user — restore from localStorage (persists across browser restarts)
       setUser({ ...storedUser, role: storedRole });
       setToken(storedToken);
       setRole(storedRole);
@@ -275,11 +273,11 @@ export function AuthProvider({ children }) {
         role: data.data.user.role,
       };
 
-      saveTokenToStorage(data.data.accessToken, "session");
+      saveTokenToStorage(data.data.accessToken, "local");
       setToken(data.data.accessToken);
       setUser(userData);
       updateRole(userData.role);
-      saveUserToStorage(userData, "session");
+      saveUserToStorage(userData, "local");
       setIsFirstLogin(true);
 
       // Sync GPS location after registration
@@ -328,11 +326,11 @@ export function AuthProvider({ children }) {
         role: data.data.user.role,
       };
 
-      saveTokenToStorage(data.data.accessToken, "session");
+      saveTokenToStorage(data.data.accessToken, "local");
       setToken(data.data.accessToken);
       setUser(userData);
       updateRole(userData.role);
-      saveUserToStorage(userData, "session");
+      saveUserToStorage(userData, "local");
 
       // Sync GPS location after phone login
       syncLocationAfterAuth(data.data.accessToken);

@@ -61,28 +61,24 @@ export function clearAuthStorage() {
   clearKeyAcrossStorages(USER_KEY);
 }
 
-export function migrateLegacyPhoneSessionToTab() {
+/** One-time migration: move phone-auth sessions from tab-scoped to persistent storage. */
+export function migratePhoneSessionToPersistent() {
   const sessionUser = sessionStorage.getItem(USER_KEY);
   const sessionToken = sessionStorage.getItem(TOKEN_KEY);
-  if (sessionUser || sessionToken) return;
-
-  const rawUser = localStorage.getItem(USER_KEY);
-  const token = localStorage.getItem(TOKEN_KEY);
-  const role = localStorage.getItem(ROLE_KEY);
-
-  if (!rawUser || !token) return;
+  if (!sessionUser || !sessionToken) return;
 
   try {
-    const parsedUser = JSON.parse(rawUser);
+    const parsedUser = JSON.parse(sessionUser);
     if (!parsedUser?.uid?.startsWith("phone_")) return;
 
-    sessionStorage.setItem(USER_KEY, rawUser);
-    sessionStorage.setItem(TOKEN_KEY, token);
-    if (role) sessionStorage.setItem(ROLE_KEY, role);
+    const sessionRole = sessionStorage.getItem(ROLE_KEY);
+    localStorage.setItem(USER_KEY, sessionUser);
+    localStorage.setItem(TOKEN_KEY, sessionToken);
+    if (sessionRole) localStorage.setItem(ROLE_KEY, sessionRole);
 
-    localStorage.removeItem(USER_KEY);
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(ROLE_KEY);
+    sessionStorage.removeItem(USER_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(ROLE_KEY);
   } catch {
     // ignore invalid legacy session data
   }
