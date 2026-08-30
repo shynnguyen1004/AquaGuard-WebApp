@@ -291,22 +291,22 @@ export default function LoginPage() {
         </button>
 
         {/* Centered login/register cluster */}
-        <div className="flex-1 flex items-center justify-center px-4 sm:px-6 overflow-y-auto min-h-0 py-8">
-          <div className="w-full max-w-[420px] my-auto">
-            <div className="flex justify-center mb-6">
+        <div className="flex-1 flex items-center justify-center px-5 sm:px-6 overflow-y-auto min-h-0 py-5 sm:py-8">
+          <div className="w-full max-w-[22rem] sm:max-w-[400px] md:max-w-[420px] my-auto">
+            <div className="flex justify-center mb-4 sm:mb-6">
               <img
                 alt="AquaGuard"
                 src="/images/Logo/Transparent_Stroked/TS_App_Logo.png"
-                className="w-[25.2rem] sm:w-[28.8rem] xl:w-[32.4rem] h-auto drop-shadow-lg"
+                className="w-[14.3rem] sm:w-[22.46rem] xl:w-[25.27rem] h-auto drop-shadow-lg"
               />
             </div>
 
-            <div className="rounded-3xl bg-black/45 backdrop-blur-md border border-white/10 p-6 sm:p-8 shadow-2xl">
-              <div className="mb-6 min-h-[4.5rem] text-center">
-              <h3 className="text-2xl sm:text-3xl font-bold text-white mb-2">
+            <div className="rounded-2xl sm:rounded-3xl bg-black/45 backdrop-blur-md border border-white/10 p-4 sm:p-6 md:p-8 shadow-2xl">
+              <div className="mb-4 sm:mb-6 text-center">
+              <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-1.5 sm:mb-2">
                 {phoneMode === "register" ? t("loginPage.createAccount") : t("loginPage.welcomeBack")}
               </h3>
-              <p className="text-slate-400 text-sm sm:text-base">
+              <p className="text-slate-400 text-xs sm:text-sm md:text-base">
                 {phoneMode === "register"
                   ? t("loginPage.registerSubtitle")
                   : t("loginPage.signInSubtitle")}
@@ -809,7 +809,7 @@ export default function LoginPage() {
 
             {/* Google Login hidden — uncomment to re-enable */}
 
-            <p className="text-center text-xs text-slate-500 mt-6 pt-4 border-t border-white/10">
+            <p className="text-center text-[10px] sm:text-xs text-slate-500 mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-white/10">
               {t("loginPage.footer")}
             </p>
             </div>

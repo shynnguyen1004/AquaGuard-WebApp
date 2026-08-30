@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 
-const BG_SRC = "/images/Aqua_Login_BG.png";
+const BG_SRC = "/images/Aqua_Login_BG.jpg";
 
 // Sim texture resolution (longest side). Higher = finer waves, more GPU cost.
 const SIM_SIZE = 420;
@@ -264,7 +264,8 @@ export default function BoatRevealBackground({ children }) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     };
 
-    // "object-fit: cover" mapping from canvas UV to image UV.
+    // object-fit: cover + object-position: center — portrait image fills mobile,
+    // desktop crops to the vertical center of the image.
     const coverUv = (imgW, imgH) => {
       const canvasAspect = canvas.width / canvas.height;
       const imgAspect = imgW / imgH;
@@ -404,7 +405,7 @@ export default function BoatRevealBackground({ children }) {
           src={BG_SRC}
           alt=""
           aria-hidden="true"
-          className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none"
+          className="absolute inset-0 w-full h-full object-cover object-center select-none pointer-events-none"
           draggable={false}
         />
         <div className="absolute inset-0 bg-background-dark/25 pointer-events-none" aria-hidden="true" />
