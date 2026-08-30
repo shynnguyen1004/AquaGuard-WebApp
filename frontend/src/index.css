@@ -10,7 +10,8 @@
   --color-warning: #f59e0b;
   --color-safe: #10b981;
   --color-critical: #a855f7;
-  --font-display: "Inter", sans-serif;
+  --font-sans: "Montserrat", sans-serif;
+  --font-display: "Montserrat", sans-serif;
   --radius: 0.5rem;
   --radius-lg: 1rem;
   --radius-xl: 1.5rem;
@@ -18,7 +19,7 @@
 }
 
 body {
-  font-family: "Inter", sans-serif;
+  font-family: "Montserrat", sans-serif;
 }
 
 .material-symbols-outlined {
