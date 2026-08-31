@@ -2,8 +2,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { getCachedGpsPosition, cacheGpsPosition } from "../../utils/locationSync";
+import { formatCoordinates, reverseGeocodeAddress } from "../../utils/reverseGeocode";
 
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 const SOS_SOUND_URL = "/sounds/aquaguard_sos.mp3";
 const ACCURACY_RANK = { none: 0, cached: 1, low: 2, high: 3 };
 
@@ -43,24 +43,6 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
   const [gpsErrorReason, setGpsErrorReason] = useState(null); // "denied" | "unavailable" | "timeout" | "unsupported" | null
   const gpsAccuracyRef = useRef("none"); // "none" | "cached" | "low" | "high"
 
-  const reverseGeocode = async (lat, lng) => {
-    if (GOOGLE_MAPS_API_KEY) {
-      const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GOOGLE_MAPS_API_KEY}&language=vi&result_type=street_address|route|sublocality|locality`;
-      const res = await fetch(geocodeUrl);
-      const data = await res.json();
-      if (data.status === "OK" && data.results?.length > 0) {
-        return data.results[0].formatted_address;
-      }
-    }
-
-    const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=vi`;
-    const fallbackRes = await fetch(nominatimUrl, {
-      headers: { "User-Agent": "AquaGuard-WebApp" },
-    });
-    const fallbackData = await fallbackRes.json();
-    return fallbackData.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-  };
-
   // Helper: update GPS state only if this accuracy tier is better than current
   const lastGpsAddressRef = useRef(""); // track last GPS-set address to detect manual edits
   const updateGps = useCallback(async (lat, lng, tier) => {
@@ -73,25 +55,18 @@ export default function RescueRequestForm({ onClose, onSubmit }) {
     // Cache for future instant use
     cacheGpsPosition(lat, lng);
 
-    try {
-      const address = await reverseGeocode(lat, lng);
-      setFormData((prev) => {
-        // Only update location if user hasn't manually edited it
-        const userHasEdited = prev.location.trim() && prev.location !== lastGpsAddressRef.current;
-        if (userHasEdited) return prev;
-        lastGpsAddressRef.current = address;
-        return { ...prev, location: address };
-      });
-    } catch (err) {
-      console.error("Reverse geocoding failed:", err);
-      setFormData((prev) => {
-        const fallback = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-        const userHasEdited = prev.location.trim() && prev.location !== lastGpsAddressRef.current;
-        if (userHasEdited) return prev;
-        lastGpsAddressRef.current = fallback;
-        return { ...prev, location: fallback };
-      });
-    }
+    // Đây là chỗ DUY NHẤT còn fallback ra toạ độ: ô địa chỉ là bắt buộc
+    // (xem validate), nên thà gửi toạ độ còn hơn chặn một lời kêu cứu.
+    const address =
+      (await reverseGeocodeAddress(lat, lng)) || formatCoordinates(lat, lng, 6);
+
+    setFormData((prev) => {
+      // Only update location if user hasn't manually edited it
+      const userHasEdited = prev.location.trim() && prev.location !== lastGpsAddressRef.current;
+      if (userHasEdited) return prev;
+      lastGpsAddressRef.current = address;
+      return { ...prev, location: address };
+    });
   }, []);
 
   const mapGpsErrorReason = (err) => {

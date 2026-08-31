@@ -99,6 +99,23 @@ mỗi lần đọc rồi tắt ngay.
    Với `UPLOAD_MODE = "wifi"` thì bỏ qua bước này, chỉ cần cài thư viện HTTP
    cho board một lần: `mpremote connect <port> mip install urequests`.
 
+## Cầu nối báo `CERTIFICATE_VERIFY_FAILED`
+
+Python tải từ python.org trên macOS **không dùng kho chứng chỉ của hệ điều
+hành** — nó trông chờ gói `certifi`, mà gói đó chỉ được cài khi bạn chạy
+`Install Certificates.command` sau lúc cài Python. Bỏ qua bước đó thì mọi
+request HTTPS đều hỏng, kể cả tới server hoàn toàn bình thường.
+
+```bash
+"/Applications/Python 3.10/Install Certificates.command"   # chạy một lần
+```
+
+Hoặc chạy cầu nối bằng Python khác đã có sẵn certifi (Anaconda, Homebrew).
+`serial_bridge.py` tự dò `certifi` và in hướng dẫn này khi thiếu.
+
+Lỗi này **chỉ xảy ra ở chế độ `serial`** — chế độ `wifi` do board tự bắt tay
+TLS bằng mbedtls, không dính tới chứng chỉ của Python.
+
 ## Khi số đo không chuẩn
 
 Gần như luôn là do hiệu chuẩn, theo thứ tự hay gặp:

@@ -423,7 +423,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_rdo_one_active_assignment
 
 
 -- ════════════════════════════════════════════════════════════
--- 13. WATER SENSORS — cảm biến mực nước ESP32 do người dân lắp
+-- 13. WATER SENSORS — cảm biến mực nước ESP32 do đội cứu hộ triển khai
 -- Thiết bị xác thực bằng device key (SHA-256), không dùng JWT.
 -- Xem backend/migrations/013_water_sensors.sql
 -- ════════════════════════════════════════════════════════════
@@ -433,8 +433,11 @@ CREATE TABLE IF NOT EXISTS water_sensors (
     user_id             INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 
     name                VARCHAR(80)  NOT NULL DEFAULT 'Cảm biến mực nước',
-    device_key_hash     CHAR(64)     NOT NULL UNIQUE,
+    device_key_hash     CHAR(64)     NOT NULL UNIQUE,   -- dùng để XÁC THỰC
     device_key_prefix   VARCHAR(12)  NOT NULL DEFAULT '',
+    -- Key dạng đọc được, chỉ trả về cho người quản lý được thiết bị (xem
+    -- migration 014). Xác thực vẫn dựa trên hash ở trên.
+    device_key          TEXT,
 
     latitude            DOUBLE PRECISION,
     longitude           DOUBLE PRECISION,

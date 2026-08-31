@@ -90,6 +90,7 @@ const vi = {
       detectLocation: "Xác định vị trí",
       detecting: "Đang xác định...",
       locationDetected: "Đã xác định vị trí thành công!",
+      locationDetectedNoAddress: "Đã lấy toạ độ, nhưng chưa tra được địa chỉ. Bạn có thể tự nhập.",
       locationError: "Không thể xác định vị trí của bạn.",
       locationPermissionDenied: "Quyền truy cập vị trí bị từ chối. Vui lòng cho phép truy cập vị trí trong cài đặt trình duyệt (Trình duyệt → Cài đặt → Quyền riêng tư → Vị trí).",
       locationUnavailable: "Không thể lấy thông tin vị trí. Vui lòng kiểm tra dịch vụ vị trí của thiết bị.",
@@ -326,8 +327,10 @@ const vi = {
     liveOff: "Tạm dừng",
     sound: {
       on: "Còi cảnh báo",
-      hint: "Hú khi mực nước chạm {n}% hoặc vào mức nguy hiểm",
+      hint: "Hú liên tục khi mực nước từ {n}% trở lên, tới khi rút về an toàn",
       off: "Đã tắt tiếng",
+      silence: "Tắt tiếng",
+      acknowledged: "Đã tắt đợt này",
       blocked: "Bấm để bật tiếng",
     },
     tabs: {
@@ -422,7 +425,8 @@ const vi = {
   // ── Tiêu đề ──
   header: {
     welcomeBack: "Chào mừng trở lại,",
-    location: "Thành phố Đà Nẵng, Việt Nam",
+    locationDetecting: "Đang xác định vị trí...",
+    locationUnknown: "Chưa xác định được vị trí",
     riskLabel: "Mức độ rủi ro hiện tại",
     riskValue: "AN TOÀN",
     searchPlaceholder: "Tìm kiếm khu vực hoặc điểm cứu hộ...",
@@ -489,8 +493,13 @@ const vi = {
     create: "Tạo thiết bị",
     creating: "Đang tạo…",
 
+    deviceKey: "Device key",
+    showKey: "Hiện key",
+    hideKey: "Ẩn key",
+    keyLegacy: "Thiết bị ghép trước bản cập nhật này không xem lại được key. Bấm Cấp key mới để lấy key khác.",
+    keyRotated: "Đã cấp key mới. Key cũ hết hiệu lực ngay — nạp key này vào config.py rồi khởi động lại board.",
     keyTitle: "Key của thiết bị",
-    keyWarning: "Key này chỉ hiện MỘT LẦN. Chép ngay vào config.py của board — mất thì phải cấp key mới.",
+    keyWarning: "Chép key này vào config.py của board. Sau này xem lại được trong phần cài đặt thiết bị.",
     copy: "Chép",
     copied: "Đã chép",
     firmwareHint: "Dán vào hardware/esp32-water-level/config.py rồi nạp lại board:",

@@ -2,51 +2,58 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { api } from "../../services/api";
+import { getCachedGpsPosition } from "../../utils/locationSync";
+import { extractCityLabel, looksLikeCoordinates, reverseGeocode } from "../../utils/reverseGeocode";
 import NotificationBell from "../notifications/NotificationBell";
-
-/**
- * Extract a short city/locality string from a full address.
- * Handles Vietnamese addresses from Google Maps & Nominatim, e.g.:
- *   "268 Lý Thường Kiệt, Phường 14, Quận 10, Thành phố Hồ Chí Minh, Việt Nam"
- *   → "Thành phố Hồ Chí Minh, Việt Nam"
- * Falls back to the last 2 comma-separated parts if no city keyword matches.
- */
-function extractCity(address) {
-  if (!address) return null;
-
-  const parts = address.split(",").map((p) => p.trim());
-  if (parts.length <= 2) return address;
-
-  // Vietnamese city keywords
-  const cityKeywords = ["thành phố", "tp.", "tp ", "tỉnh", "city", "province"];
-
-  for (let i = 0; i < parts.length; i++) {
-    const lower = parts[i].toLowerCase();
-    if (cityKeywords.some((kw) => lower.includes(kw))) {
-      // Return from this part to the end (e.g. "Thành phố Hồ Chí Minh, Việt Nam")
-      return parts.slice(i).join(", ");
-    }
-  }
-
-  // Fallback: last 2 parts (usually city + country)
-  return parts.slice(-2).join(", ");
-}
 
 export default function Header() {
   const { user, token } = useAuth();
   const { t } = useLanguage();
   const [cityLabel, setCityLabel] = useState(null);
+  const [resolving, setResolving] = useState(true);
 
   const fetchUserCity = useCallback(async () => {
     if (!token) return;
+    setResolving(true);
     try {
-      const res = await api.get("/auth/profile");
-      if (res.success && res.data?.address) {
-        const city = extractCity(res.data.address);
-        if (city) setCityLabel(city);
+      // Ưu tiên GPS đang chạy: LiveLocationProvider ghi mỗi lần đọc vị trí vào
+      // cache này, nên nó là chỗ user đang đứng THẬT. Hồ sơ trong DB chỉ là vị
+      // trí lần sync gần nhất — đi tỉnh khác là nó sai ngay.
+      const live = getCachedGpsPosition(600000); // chấp nhận tối đa 10 phút
+      if (live) {
+        const resolved = await reverseGeocode(live.latitude, live.longitude);
+        if (resolved?.full) {
+          setCityLabel(extractCityLabel(resolved.full));
+          return;
+        }
       }
+
+      const res = await api.get("/auth/profile");
+      if (!res.success || !res.data) return;
+
+      const { address, latitude, longitude } = res.data;
+
+      // Địa chỉ đã đọc được thì dùng luôn.
+      if (address && !looksLikeCoordinates(address)) {
+        const city = extractCityLabel(address);
+        if (city) {
+          setCityLabel(city);
+          return;
+        }
+      }
+
+      // Hồ sơ chưa có địa chỉ, hoặc đang lưu chuỗi toạ độ từ lần sync GPS
+      // trước (reverse-geocode lúc đó thất bại) — tra lại từ toạ độ.
+      const lat = Number(latitude);
+      const lng = Number(longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+      const resolved = await reverseGeocode(lat, lng);
+      if (resolved?.full) setCityLabel(extractCityLabel(resolved.full));
     } catch {
-      // Silently fail — fallback to translation key
+      // Im lặng — chỗ hiển thị sẽ báo "chưa xác định được".
+    } finally {
+      setResolving(false);
     }
   }, [token]);
 
@@ -56,7 +63,14 @@ export default function Header() {
     // Also listen for profile updates from SettingsPage
     const onProfileUpdate = () => fetchUserCity();
     window.addEventListener("profile_updated", onProfileUpdate);
-    return () => window.removeEventListener("profile_updated", onProfileUpdate);
+
+    // GPS về sau lần render đầu (hoặc user di chuyển) → tra lại.
+    const retry = setInterval(fetchUserCity, 120000);
+
+    return () => {
+      window.removeEventListener("profile_updated", onProfileUpdate);
+      clearInterval(retry);
+    };
   }, [fetchUserCity]);
 
   return (
@@ -73,7 +87,7 @@ export default function Header() {
               location_on
             </span>
             <span className="text-xs font-medium truncate">
-              {cityLabel || t("header.location")}
+              {cityLabel || t(resolving ? "header.locationDetecting" : "header.locationUnknown")}
             </span>
           </div>
         </div>

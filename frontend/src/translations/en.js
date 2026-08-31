@@ -90,6 +90,7 @@ const en = {
       detectLocation: "Detect Location",
       detecting: "Detecting...",
       locationDetected: "Location detected successfully!",
+      locationDetectedNoAddress: "Got your coordinates, but could not look up the address. You can type it in.",
       locationError: "Could not detect your location.",
       locationPermissionDenied: "Location permission denied. Please allow location access in your browser settings (Browser → Settings → Privacy → Location).",
       locationUnavailable: "Location information is unavailable. Please check your device's location services.",
@@ -326,8 +327,10 @@ const en = {
     liveOff: "Paused",
     sound: {
       on: "Alarm on",
-      hint: "Sounds at {n}% water level, and again on danger",
+      hint: "Sounds continuously from {n}% until the water is safe again",
       off: "Muted",
+      silence: "Silence",
+      acknowledged: "Silenced this time",
       blocked: "Click to enable sound",
     },
     tabs: {
@@ -422,7 +425,8 @@ const en = {
   // ── Header ──
   header: {
     welcomeBack: "Welcome back,",
-    location: "Da Nang City, Vietnam",
+    locationDetecting: "Locating...",
+    locationUnknown: "Location unavailable",
     riskLabel: "Current Risk Level",
     riskValue: "SAFE",
     searchPlaceholder: "Search zone or rescue point...",
@@ -490,8 +494,13 @@ const en = {
     create: "Create device",
     creating: "Creating…",
 
+    deviceKey: "Device key",
+    showKey: "Show key",
+    hideKey: "Hide key",
+    keyLegacy: "Devices paired before this update cannot show their key. Use Rotate key to get a new one.",
+    keyRotated: "New key issued. The old one stopped working immediately — flash this into config.py and restart the board.",
     keyTitle: "Device key",
-    keyWarning: "This key is shown ONCE. Copy it into the board's config.py now — if you lose it you must rotate the key.",
+    keyWarning: "Copy this key into the config.py on the board. You can look it up again later in device settings.",
     copy: "Copy",
     copied: "Copied",
     firmwareHint: "Paste into hardware/esp32-water-level/config.py, then reflash the board:",

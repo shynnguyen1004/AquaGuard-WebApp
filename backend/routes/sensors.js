@@ -137,11 +137,16 @@ function ownedBy(user, id) {
 function shapeMonitorSensor(row, user) {
   const base = shapeSensor(row);
   delete base.keyPrefix;
+  // Server tự chấm quyền thay vì để giao diện đoán: admin sửa/xoá được mọi
+  // thiết bị, rescuer chỉ thiết bị mình tạo. Giao diện chỉ việc ẩn/hiện nút.
+  const canManage = user.role === "admin" || row.user_id === user.id;
   return {
     ...base,
-    // Server tự chấm quyền thay vì để giao diện đoán: admin sửa/xoá được mọi
-    // thiết bị, rescuer chỉ thiết bị mình tạo. Giao diện chỉ việc ẩn/hiện nút.
-    canManage: user.role === "admin" || row.user_id === user.id,
+    canManage,
+    // Key chỉ đi kèm khi người gọi quản lý được thiết bị. Người trực xem máy
+    // của đồng đội không có lý do gì để cầm khoá của máy đó.
+    // `null` = thiết bị tạo trước migration 014, không khôi phục lại được.
+    deviceKey: canManage ? row.device_key || null : undefined,
     owner: {
       id: row.user_id,
       displayName: row.owner_name || "",
@@ -437,15 +442,16 @@ router.post("/", authMiddleware, requireRoles(["rescuer", "admin"]), async (req,
 
     const result = await pool.query(
       `INSERT INTO water_sensors
-         (user_id, name, device_key_hash, device_key_prefix,
+         (user_id, name, device_key_hash, device_key_prefix, device_key,
           latitude, longitude, address, calibration)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
       [
         req.user.id,
         name,
         hash,
         prefix,
+        key,
         Number.isFinite(lat) ? lat : null,
         Number.isFinite(lng) ? lng : null,
         address,
@@ -541,10 +547,12 @@ router.post("/:id/rotate-key", authMiddleware, requireRoles(["rescuer", "admin"]
     const { key, hash, prefix } = generateDeviceKey();
     const result = await pool.query(
       `UPDATE water_sensors
-       SET device_key_hash = $${scope.values.length + 1}, device_key_prefix = $${scope.values.length + 2}
+       SET device_key_hash = $${scope.values.length + 1},
+           device_key_prefix = $${scope.values.length + 2},
+           device_key = $${scope.values.length + 3}
        WHERE ${scope.clause}
        RETURNING *`,
-      [...scope.values, hash, prefix]
+      [...scope.values, hash, prefix, key]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: "Không tìm thấy cảm biến" });

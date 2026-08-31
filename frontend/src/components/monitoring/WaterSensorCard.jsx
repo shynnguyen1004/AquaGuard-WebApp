@@ -38,17 +38,11 @@ export function waterSensorStatus(s) {
 export const SIREN_FLOOR_PCT = 30;
 
 /**
- * Nấc báo động dùng cho còi: 0 = yên, 1 = đã qua ngưỡng hú, 2 = nguy hiểm.
- *
- * Còi chỉ kêu khi nấc TĂNG, nên một trận lũ dâng dần hú đúng hai lần: lúc chạm
- * ngưỡng hú và lúc bước vào vùng đỏ. Nước rút rồi dâng lại thì nấc tụt xuống trước,
- * nên lần dâng sau vẫn hú — đúng ý.
+ * Biên độ trễ khi TẮT còi: phải tụt xuống dưới (SIREN_FLOOR_PCT − ngần này)
+ * mới cho im. Nước dao động quanh đúng ranh giới mà không có độ trễ thì còi
+ * bật tắt liên tục, nghe còn khó chịu hơn để nó hú thẳng.
  */
-export function alarmStage(sensor) {
-  if (!sensor.online || sensor.percent == null) return 0;
-  if (waterSensorStatus(sensor) === "critical") return 2;
-  return sensor.percent >= SIREN_FLOOR_PCT ? 1 : 0;
-}
+export const ALARM_CLEAR_MARGIN = 3;
 
 /** Xu hướng suy ra từ chuỗi số đo gần đây (so điểm cuối với ~5 điểm trước). */
 export function waterTrend(history) {

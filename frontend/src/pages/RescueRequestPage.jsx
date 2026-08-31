@@ -5,6 +5,7 @@ import ConfirmDialog from "../components/common/ConfirmDialog";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import { getStoredToken } from "../utils/authStorage";
+import { extractCityName, reverseGeocodeCity } from "../utils/reverseGeocode";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
@@ -36,8 +37,6 @@ const GENDER_OPTION_DEFS = [
   { key: "other", labelKey: "rescueQueue.genderOther" },
 ];
 
-const gpsCityCache = new Map();
-
 function formatGender(value, t) {
   if (!value) return t("rescueQueue.unknown");
   if (value === "male") return t("rescueQueue.genderMale");
@@ -57,46 +56,10 @@ function displayUrgency(urgency, t) {
   return t(keys[u] || "sosPage.medium");
 }
 
-function extractCityFromLocation(location) {
-  if (!location || typeof location !== "string") return "";
-  const normalized = location.replace(/\s+/g, " ").trim();
-  const match = normalized.match(/thành phố\s+([^,]+)/i);
-  if (match?.[1]) return match[1].trim();
-  return "";
-}
-
-async function reverseGeocodeCity(lat, lng) {
-  if (typeof lat !== "number" || typeof lng !== "number") return "";
-  const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
-  if (gpsCityCache.has(cacheKey)) return gpsCityCache.get(cacheKey);
-
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=vi`
-    );
-    const data = await res.json();
-    const addr = data?.address || {};
-    const city =
-      addr.city ||
-      addr.municipality ||
-      addr.town ||
-      addr.county ||
-      addr.state ||
-      "";
-    gpsCityCache.set(cacheKey, city || "");
-    return city || "";
-  } catch {
-    gpsCityCache.set(cacheKey, "");
-    return "";
-  }
-}
-
 function formatCity(value, t) {
   if (value) return value;
   return t("rescueQueue.unknown");
 }
-
-
 
 function formatTimeAgo(iso, t) {
   if (!iso) return "";
@@ -607,8 +570,6 @@ export default function RescueRequestPage() {
     }
   };
 
-
-
   const handleViewTracking = (request) => {
     setTrackingRequest(request);
   };
@@ -637,7 +598,7 @@ export default function RescueRequestPage() {
     () =>
       tabFiltered.map((r) => ({
         ...r,
-        cityFromLocation: cityByRequestId[r.id] || extractCityFromLocation(r.location),
+        cityFromLocation: cityByRequestId[r.id] || extractCityName(r.location),
       })),
     [tabFiltered, cityByRequestId]
   );
@@ -658,7 +619,7 @@ export default function RescueRequestPage() {
       const resolved = await Promise.all(
         targets.map(async (r) => {
           const city = await reverseGeocodeCity(Number(r.latitude), Number(r.longitude));
-          return [r.id, city || extractCityFromLocation(r.location)];
+          return [r.id, city || extractCityName(r.location)];
         })
       );
 

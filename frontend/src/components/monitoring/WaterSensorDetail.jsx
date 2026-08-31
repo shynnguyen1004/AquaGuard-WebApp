@@ -282,6 +282,22 @@ function SensorManage({ sensor, onChanged, onDeleted }) {
   const [alertEnabled, setAlertEnabled] = useState(sensor.alertEnabled);
   const [saving, setSaving] = useState(false);
   const [newKey, setNewKey] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Key hiện tại: `newKey` là key vừa xoay (chưa kịp về qua vòng poll),
+  // còn `sensor.deviceKey` là bản server trả cho người quản lý được thiết bị.
+  const deviceKey = newKey || sensor.deviceKey || "";
+
+  const copyKey = async () => {
+    try {
+      await navigator.clipboard.writeText(deviceKey);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard bị chặn (http, quyền) — key vẫn hiện trên màn hình để chép tay.
+    }
+  };
 
   const patch = async (body) => {
     setSaving(true);
@@ -299,7 +315,10 @@ function SensorManage({ sensor, onChanged, onDeleted }) {
     if (!window.confirm(t("waterSensor.rotateConfirm"))) return;
     try {
       const res = await api.post(`/sensors/${sensor.id}/rotate-key`, {});
-      if (res.success) setNewKey(res.data.deviceKey);
+      if (res.success) {
+        setNewKey(res.data.deviceKey);
+        setShowKey(true);
+      }
       onChanged?.();
     } catch {
       // bỏ qua
@@ -318,6 +337,42 @@ function SensorManage({ sensor, onChanged, onDeleted }) {
 
   return (
     <div className="space-y-3 rounded-xl bg-slate-50 p-4 dark:bg-slate-800/50">
+      {/* ── Device key ── */}
+      <div>
+        <label className="mb-1 block text-[11px] font-bold text-slate-500 dark:text-slate-400">
+          {t("waterSensor.deviceKey")}
+        </label>
+        {deviceKey ? (
+          <div className="flex items-center gap-2 rounded-lg bg-white p-2 dark:bg-slate-900">
+            <code className="flex-1 break-all font-mono text-[11px] text-slate-700 dark:text-slate-200">
+              {showKey ? deviceKey : `${deviceKey.slice(0, 8)}${"•".repeat(18)}`}
+            </code>
+            <button
+              onClick={() => setShowKey((v) => !v)}
+              className="flex-shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+              title={showKey ? t("waterSensor.hideKey") : t("waterSensor.showKey")}
+            >
+              <span className="material-symbols-outlined text-base">
+                {showKey ? "visibility_off" : "visibility"}
+              </span>
+            </button>
+            <button
+              onClick={copyKey}
+              className="flex-shrink-0 flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1.5 text-[11px] font-bold hover:opacity-80 dark:bg-slate-800"
+            >
+              <span className="material-symbols-outlined text-sm">
+                {copied ? "check" : "content_copy"}
+              </span>
+              {copied ? t("waterSensor.copied") : t("waterSensor.copy")}
+            </button>
+          </div>
+        ) : (
+          <p className="rounded-lg bg-amber-50 p-2.5 text-[11px] text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">
+            {t("waterSensor.keyLegacy")}
+          </p>
+        )}
+      </div>
+
       <div>
         <label className="mb-1 block text-[11px] font-bold text-slate-500 dark:text-slate-400">
           {t("waterSensor.name")}
@@ -376,14 +431,9 @@ function SensorManage({ sensor, onChanged, onDeleted }) {
       </label>
 
       {newKey && (
-        <div className="rounded-lg bg-amber-50 p-2.5 dark:bg-amber-500/10">
-          <p className="mb-1 text-[11px] font-bold text-amber-700 dark:text-amber-300">
-            {t("waterSensor.keyWarning")}
-          </p>
-          <code className="block break-all font-mono text-[11px] text-amber-900 dark:text-amber-200">
-            {newKey}
-          </code>
-        </div>
+        <p className="rounded-lg bg-amber-50 p-2.5 text-[11px] text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">
+          {t("waterSensor.keyRotated")}
+        </p>
       )}
 
       <div className="flex gap-2 border-t border-slate-200 pt-3 dark:border-slate-700">

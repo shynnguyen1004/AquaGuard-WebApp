@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import RescueTrackingMap from "../../components/rescue/RescueTrackingMap";
 import StatusPills from "../../components/rescue/StatusPills";
 import { getStoredToken } from "../../utils/authStorage";
+import { extractCityName, reverseGeocodeCity } from "../../utils/reverseGeocode";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
@@ -40,41 +41,6 @@ function formatAdminGender(value) {
   if (value === "female") return "Female";
   if (value === "other") return "Other";
   return "Unknown";
-}
-const gpsCityCache = new Map();
-
-function extractCityFromLocation(location) {
-  if (!location || typeof location !== "string") return "";
-  const normalized = location.replace(/\s+/g, " ").trim();
-  const match = normalized.match(/thành phố\s+([^,]+)/i);
-  if (match?.[1]) return match[1].trim();
-  return "";
-}
-
-async function reverseGeocodeCity(lat, lng) {
-  if (typeof lat !== "number" || typeof lng !== "number") return "";
-  const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
-  if (gpsCityCache.has(cacheKey)) return gpsCityCache.get(cacheKey);
-
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=vi`
-    );
-    const data = await res.json();
-    const addr = data?.address || {};
-    const city =
-      addr.city ||
-      addr.municipality ||
-      addr.town ||
-      addr.county ||
-      addr.state ||
-      "";
-    gpsCityCache.set(cacheKey, city || "");
-    return city || "";
-  } catch {
-    gpsCityCache.set(cacheKey, "");
-    return "";
-  }
 }
 
 function formatTimeAgo(iso) {
@@ -464,7 +430,7 @@ export default function AdminSOSRequestsPage() {
     () =>
       filtered.map((r) => ({
         ...r,
-        cityFromLocation: cityByRequestId[r.id] || extractCityFromLocation(r.location),
+        cityFromLocation: cityByRequestId[r.id] || extractCityName(r.location),
       })),
     [filtered, cityByRequestId]
   );
@@ -485,7 +451,7 @@ export default function AdminSOSRequestsPage() {
       const resolved = await Promise.all(
         targets.map(async (r) => {
           const city = await reverseGeocodeCity(Number(r.latitude), Number(r.longitude));
-          return [r.id, city || extractCityFromLocation(r.location)];
+          return [r.id, city || extractCityName(r.location)];
         })
       );
 

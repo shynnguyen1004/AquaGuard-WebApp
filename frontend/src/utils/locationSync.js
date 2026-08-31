@@ -4,6 +4,8 @@
  * Used after login/register to automatically save the user's location.
  */
 
+import { reverseGeocodeAddress } from "./reverseGeocode";
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 const GPS_CACHE_KEY = "aquaguard_gps_cache";
 
@@ -91,39 +93,6 @@ function getCurrentPosition() {
 }
 
 /**
- * Attempt to reverse-geocode coordinates into a human-readable address.
- * Uses Nominatim (free) as fallback if no Google Maps API key is configured.
- */
-async function reverseGeocode(latitude, longitude) {
-  try {
-    const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
-
-    if (GOOGLE_MAPS_API_KEY) {
-      const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}&language=vi&result_type=street_address|route|sublocality|locality`;
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data.status === "OK" && data.results.length > 0) {
-        return data.results[0].formatted_address;
-      }
-    }
-
-    // Fallback: Nominatim
-    const url = `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=vi`;
-    const res = await fetch(url, {
-      headers: { "User-Agent": "AquaGuard-WebApp" },
-    });
-    const data = await res.json();
-    if (data.display_name) {
-      return data.display_name;
-    }
-  } catch (err) {
-    console.warn("[LocationSync] Reverse geocode failed:", err.message);
-  }
-
-  return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-}
-
-/**
  * Sync the user's GPS location to the backend.
  * This runs silently after login/register — errors are logged but never thrown.
  *
@@ -136,7 +105,10 @@ export async function syncLocationAfterAuth(token) {
     const coords = await getCurrentPosition();
     if (!coords) return;
 
-    const address = await reverseGeocode(coords.latitude, coords.longitude);
+    // Không tra được địa chỉ thì gửi chuỗi rỗng — backend sẽ giữ nguyên địa chỉ
+    // cũ. Tuyệt đối không gửi chuỗi toạ độ làm địa chỉ: nó sẽ nằm lại trong DB
+    // và hiện ra ở mọi chỗ đọc `address` (header, hàng đợi cứu hộ...).
+    const address = await reverseGeocodeAddress(coords.latitude, coords.longitude);
 
     await fetch(`${API_BASE}/family/location`, {
       method: "PUT",

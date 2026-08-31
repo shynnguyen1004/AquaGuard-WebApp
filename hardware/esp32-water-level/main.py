@@ -62,6 +62,10 @@ PERIOD_MS = 500     # chu kỳ đọc
 # vẫn bắt kịp nước dâng. Đặt 1.0 nếu muốn tắt hẳn làm mượt.
 SMOOTH_ALPHA = 0.35
 
+# Key sai thì thử lại dồn dập cũng vô ích — nó không tự khỏi. Giãn ra ngần này
+# giây, vừa đỡ tốn pin vừa để dòng hướng dẫn không trôi mất khỏi màn hình.
+AUTH_RETRY_S = 60
+
 # Bảng dự phòng khi chưa hiệu chuẩn: [phần trăm, giá trị raw].
 # Số lấy từ đo thực tế trên board này: khô = 0, ngâm nước = ~39000.
 DEFAULT_CALIB = [[0, 0], [100, 39000]]
@@ -190,12 +194,59 @@ def bar(pct, width=20):
 def wifi_connect(timeout_s=20):
     """Kết nối WiFi. Trả về True/False, KHÔNG raise — mất mạng thì board vẫn đo."""
     wlan = network.WLAN(network.STA_IF)
+
+    # Đưa giao diện về trạng thái sạch trước khi gọi connect().
+    # Sau vài lần soft-reset (Ctrl-D của mpremote), driver WiFi hay kẹt ở trạng
+    # thái dở dang và ném thẳng "Wifi Internal State Error" ngay lúc connect.
+    # Tắt hẳn rồi bật lại là cách chắc chắn nhất để gỡ.
+    try:
+        wlan.active(False)
+        time.sleep_ms(300)
+    except Exception:
+        pass
     wlan.active(True)
+    time.sleep_ms(300)
+
     if wlan.isconnected():
+        print("WiFi: đã kết nối sẵn — IP {}".format(wlan.ifconfig()[0]))
         return True
 
+    # Quét trước để phân biệt "sai mật khẩu" với "không nhìn thấy mạng" — hai
+    # lỗi này chữa theo hai cách hoàn toàn khác nhau. ESP32 chỉ thu được 2.4GHz,
+    # nên mạng 5GHz sẽ không bao giờ xuất hiện trong danh sách dưới đây.
+    seen = []
+    try:
+        for net in wlan.scan():
+            try:
+                seen.append(net[0].decode())
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    if seen and config.WIFI_SSID not in seen:
+        print('WiFi: KHÔNG thấy mạng "{}"'.format(config.WIFI_SSID))
+        print("  Mạng 2.4GHz đang bắt được: {}".format(", ".join(seen[:8]) or "(không có)"))
+        print("  • Kiểm tra tên có đúng từng ký tự không (phân biệt hoa thường)")
+        print("  • iPhone: Cài đặt → Điểm truy cập cá nhân → bật TỐI ĐA HOÁ TƯƠNG THÍCH")
+        print("    (không bật thì hotspot chỉ phát 5GHz, ESP32 không thấy)")
+        print("  • Giữ màn hình Điểm truy cập cá nhân mở tới khi board kết nối xong")
+        return False
+
     print("WiFi: đang kết nối tới {}...".format(config.WIFI_SSID))
-    wlan.connect(config.WIFI_SSID, config.WIFI_PASSWORD)
+
+    connected_call = False
+    for _ in range(3):
+        try:
+            wlan.connect(config.WIFI_SSID, config.WIFI_PASSWORD)
+            connected_call = True
+            break
+        except OSError as e:
+            print("  ! gọi connect lỗi ({}) — thử lại".format(e))
+            time.sleep_ms(800)
+    if not connected_call:
+        print("WiFi: driver không nhận lệnh kết nối. Rút điện board rồi cắm lại.")
+        return False
 
     deadline = time.time() + timeout_s
     while not wlan.isconnected() and time.time() < deadline:
@@ -204,19 +255,31 @@ def wifi_connect(timeout_s=20):
     if wlan.isconnected():
         print("WiFi: OK — IP {}".format(wlan.ifconfig()[0]))
         return True
-    print("WiFi: KHÔNG kết nối được (sẽ thử lại)")
+
+    print("WiFi: KHÔNG kết nối được (thấy mạng nhưng không vào được — thường là sai mật khẩu)")
     return False
 
 
 def post_reading(raw, pct, calib=None):
-    """Gửi một số đo lên server. Trả về dict phản hồi, hoặc None nếu lỗi.
+    """Gửi một số đo lên server.
 
-    Mọi lỗi mạng đều bị nuốt: một lần gửi hụt không được phép làm chết vòng đo
-    — cảm biến ngập lụt mà treo vì rớt WiFi thì vô dụng.
+    Trả về:
+        dict     — gửi thành công
+        "AUTH"   — server từ chối device key (401)
+        False    — server có trả lời nhưng lỗi khác
+        None     — KHÔNG gọi tới được server (lỗi mạng thật)
+
+    Phân biệt ba trường hợp này quan trọng: chỉ `None` mới đáng để dựng lại
+    kết nối WiFi. Server trả 401 nghĩa là mạng đang thông suốt — ngắt WiFi rồi
+    nối lại mỗi chu kỳ chỉ tổ tốn pin và làm log rối.
     """
     if requests is None:
         print("  ! thiếu urequests — chạy: mpremote connect <port> mip install urequests")
-        return None
+        return False
+
+    # Bắt tay TLS ngốn vài chục KB heap. ESP32 chạy lâu bị phân mảnh bộ nhớ,
+    # không dọn trước thì POST qua HTTPS hay chết giữa chừng với MemoryError.
+    gc.collect()
 
     payload = {
         "raw": raw,
@@ -226,11 +289,8 @@ def post_reading(raw, pct, calib=None):
     if calib:
         payload["calibration"] = calib
 
-    # Bắt tay TLS ngốn vài chục KB heap. ESP32 chạy lâu bị phân mảnh bộ nhớ,
-    # không dọn trước thì POST qua HTTPS hay chết giữa chừng với MemoryError.
-    gc.collect()
-
     resp = None
+    result = None
     try:
         resp = requests.post(
             config.API_URL,
@@ -238,17 +298,23 @@ def post_reading(raw, pct, calib=None):
             headers={"X-Device-Key": config.DEVICE_KEY},
         )
         if resp.status_code == 200:
-            return resp.json()
-        print("  ! server trả {} — {}".format(resp.status_code, resp.text[:80]))
+            result = resp.json()
+        elif resp.status_code == 401:
+            print("  ! server từ chối device key (401)")
+            result = "AUTH"
+        else:
+            print("  ! server trả {} — {}".format(resp.status_code, resp.text[:80]))
+            result = False
     except Exception as e:
         print("  ! gửi hụt: {}".format(e))
+        result = None
     finally:
         if resp:
             try:
                 resp.close()      # không đóng là rò socket, vài chục lần là hết RAM
             except Exception:
                 pass
-    return None
+    return result
 
 
 def main():
@@ -283,6 +349,7 @@ def main():
     current = 0
     next_post = time.time()      # gửi ngay lần đọc đầu tiên
     calib_sent = False
+    auth_warned = False
 
     while True:
         raw = smooth(read_raw())
@@ -311,16 +378,28 @@ def main():
         if time.time() >= next_post:
             if not online:
                 online = wifi_connect(timeout_s=10)
+            wait = config.POST_PERIOD
             if online:
                 # Gửi kèm bảng hiệu chuẩn ở lần đầu để server quy đổi giống board.
                 result = post_reading(raw, pct, None if calib_sent else (table if calibrated else None))
-                if result:
+
+                if isinstance(result, dict):
                     calib_sent = True
+                    auth_warned = False
                     if result.get("data", {}).get("alert"):
                         print("  → ĐÃ GỬI CẢNH BÁO NGẬP tới AquaGuard")
-                else:
-                    online = False       # ép kết nối lại ở chu kỳ sau
-            next_post = time.time() + config.POST_PERIOD
+                elif result is None:
+                    # Chỉ lỗi mạng mới đáng dựng lại WiFi.
+                    online = False
+                elif result == "AUTH":
+                    if not auth_warned:
+                        auth_warned = True
+                        print("    → Device key không còn hiệu lực trên máy chủ.")
+                        print("      Vào web → Trung tâm Giám sát → Mực nước → Thêm cảm biến,")
+                        print("      chép key mới vào config.py rồi nạp lại:")
+                        print("      mpremote connect <port> cp config.py :config.py")
+                    wait = AUTH_RETRY_S
+            next_post = time.time() + wait
 
         time.sleep_ms(PERIOD_MS)
 

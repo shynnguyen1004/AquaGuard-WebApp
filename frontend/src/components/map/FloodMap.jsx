@@ -7,6 +7,7 @@ import { getFirebaseDb } from "../../config/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useLanguage } from "../../contexts/LanguageContext";
 import MapLegend from "./MapLegend";
+import { formatCoordinates, reverseGeocodeAddress } from "../../utils/reverseGeocode";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
@@ -215,6 +216,35 @@ function parseLocation(location) {
     }
   }
   return null;
+}
+
+/**
+ * Dòng địa chỉ trong popup marker: tra ngược toạ độ ra địa chỉ, trong lúc chờ
+ * (và khi không tra được) thì hiển thị toạ độ để popup không bao giờ trống.
+ */
+function PopupAddress({ lat, lng }) {
+  const [address, setAddress] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    reverseGeocodeAddress(lat, lng).then((result) => {
+      if (!cancelled) setAddress(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [lat, lng]);
+
+  return (
+    <>
+      <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1 leading-snug">
+        {address || formatCoordinates(lat, lng)}
+      </p>
+      {address && (
+        <p className="text-[10px] text-slate-400 mt-0.5">{formatCoordinates(lat, lng)}</p>
+      )}
+    </>
+  );
 }
 
 export default function FloodMap({ onReady }) {
@@ -1148,9 +1178,7 @@ export default function FloodMap({ onReady }) {
                     <span className="material-symbols-outlined text-base">local_shipping</span>
                     {t("floodMap.rescuerOnline")}
                   </p>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    {r.lat.toFixed(5)}, {r.lng.toFixed(5)}
-                  </p>
+                  <PopupAddress lat={r.lat} lng={r.lng} />
                 </div>
               </Popup>
             </Marker>
@@ -1177,9 +1205,7 @@ export default function FloodMap({ onReady }) {
                     <span className="material-symbols-outlined text-base">my_location</span>
                     {t("floodMap.myLocationLabel")}
                   </p>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    {myLocation.lat.toFixed(5)}, {myLocation.lng.toFixed(5)}
-                  </p>
+                  <PopupAddress lat={myLocation.lat} lng={myLocation.lng} />
                 </div>
               </Popup>
             </Marker>

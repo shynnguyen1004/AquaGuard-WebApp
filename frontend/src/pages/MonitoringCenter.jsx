@@ -4,7 +4,7 @@ import { useLiveLocation } from "../contexts/LiveLocationContext";
 import { useToast } from "../components/common/Toast";
 import { api } from "../services/api";
 import useAlarmSound from "../hooks/useAlarmSound";
-import { alarmStage, SIREN_FLOOR_PCT } from "../components/monitoring/WaterSensorCard";
+import { ALARM_CLEAR_MARGIN, SIREN_FLOOR_PCT } from "../components/monitoring/WaterSensorCard";
 import SensorPanel from "../components/monitoring/SensorPanel";
 import DronePanel from "../components/monitoring/DronePanel";
 import {
@@ -67,15 +67,6 @@ export default function MonitoringCenter({ role = "admin" }) {
   const { t } = useLanguage();
   const { subscribe } = useLiveLocation();
   const { showToast } = useToast();
-  // Bóc ra từng cái: hook trả về object MỚI mỗi lần render, đưa nguyên object
-  // vào deps thì effect đăng ký socket bị huỷ và đăng ký lại liên tục.
-  // `play`/`toggleMute` là useCallback nên ổn định.
-  const {
-    muted: alarmMuted,
-    blocked: alarmBlocked,
-    play: playAlarm,
-    toggleMute: toggleAlarm,
-  } = useAlarmSound();
   const [tab, setTab] = useState("sensors");
   const [sensors, setSensors] = useState(makeInitialSensors);
   const [drones, setDrones] = useState(makeInitialDrones);
@@ -155,30 +146,24 @@ export default function MonitoringCenter({ role = "admin" }) {
 
   // ── Còi hú ──
   //
-  // Một quy tắc duy nhất: hú khi NẤC BÁO ĐỘNG của một thiết bị TĂNG
-  // (xem alarmStage) — chạm SIREN_FLOOR_PCT là nấc 1, vào vùng đỏ là nấc 2.
+  // Cờ TRẠNG THÁI, không phải sự kiện: còn thiết bị nào ở mức đáng báo động
+  // thì còi còn kêu (xem useAlarmSound). Bật ở SIREN_FLOOR_PCT, nhưng chỉ tắt
+  // khi đã tụt xuống dưới ngưỡng đó vài phần trăm — nước dao động quanh đúng
+  // ranh giới thì còi sẽ bật tắt liên tục, nghe còn khó chịu hơn hú thẳng.
   //
-  // Tính trên đúng dữ liệu đang vẽ nên thiết bị của ai cũng hú được, kể cả khi
-  // chỉ có đường poll hoặc khi thiết bị đã tắt cảnh báo. Sàn 10 giây trong
-  // useAlarmSound lo phần không hú chồng lên nhau.
-  //
-  // `null` = chưa có lần chụp đầu: mở trang mà sẵn có thiết bị đang ngập thì
-  // chỉ ghi nhận chứ không hú — nếu không, mỗi lần chuyển trang lại rú lên một
-  // tràng cho một tình huống người trực đã biết.
-  const alarmStagesRef = useRef(null);
+  // Tính trên đúng dữ liệu đang vẽ nên thiết bị của ai cũng kêu được, kể cả
+  // khi chỉ có đường poll hoặc thiết bị đã tắt cảnh báo.
+  const [alarming, setAlarming] = useState(false);
   useEffect(() => {
-    const next = new Map(waterSensors.map((s) => [s.id, alarmStage(s)]));
-    const before = alarmStagesRef.current;
-    alarmStagesRef.current = next;
-    if (before === null) return;
+    const above = (floor) =>
+      waterSensors.some((s) => s.online && s.percent != null && s.percent >= floor);
 
-    for (const [id, stage] of next) {
-      if (stage > (before.get(id) ?? 0)) {
-        playAlarm();
-        break;
-      }
-    }
-  }, [waterSensors, playAlarm]);
+    setAlarming((prev) =>
+      prev ? above(SIREN_FLOOR_PCT - ALARM_CLEAR_MARGIN) : above(SIREN_FLOOR_PCT)
+    );
+  }, [waterSensors]);
+
+  const alarm = useAlarmSound(alarming);
 
   const tabs = [
     { key: "sensors", icon: "sensors", label: t("monitoring.tabs.sensors") },
@@ -201,27 +186,33 @@ export default function MonitoringCenter({ role = "admin" }) {
           </div>
 
           <div className="flex items-center gap-2">
-          {/* Bật/tắt còi hú */}
+          {/* Còi hú: đang hú → bấm để im đợt này; đang im → bật/tắt hẳn */}
           <button
-            onClick={toggleAlarm}
+            onClick={alarm.onToggle}
             title={t("monitoring.sound.hint").replace("{n}", String(SIREN_FLOOR_PCT))}
             className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold border transition-colors ${
-              alarmMuted
-                ? "bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700"
-                : alarmBlocked
-                  ? "bg-warning/10 text-warning border-warning/20"
-                  : "bg-danger/10 text-danger border-danger/20"
+              alarm.ringing
+                ? "bg-danger text-white border-danger animate-pulse"
+                : alarm.muted
+                  ? "bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700"
+                  : alarm.blocked
+                    ? "bg-warning/10 text-warning border-warning/20"
+                    : "bg-safe/10 text-safe border-safe/20"
             }`}
           >
             <span className="material-symbols-outlined text-lg">
-              {alarmMuted ? "volume_off" : "volume_up"}
+              {alarm.ringing ? "notifications_active" : alarm.muted ? "volume_off" : "volume_up"}
             </span>
             <span className="hidden sm:inline">
-              {alarmBlocked
-                ? t("monitoring.sound.blocked")
-                : alarmMuted
-                  ? t("monitoring.sound.off")
-                  : t("monitoring.sound.on")}
+              {alarm.ringing
+                ? t("monitoring.sound.silence")
+                : alarm.blocked
+                  ? t("monitoring.sound.blocked")
+                  : alarm.muted
+                    ? t("monitoring.sound.off")
+                    : alarm.acknowledged
+                      ? t("monitoring.sound.acknowledged")
+                      : t("monitoring.sound.on")}
             </span>
           </button>
 

@@ -1,5 +1,5 @@
 -- ════════════════════════════════════════════════════════════
--- 013: CẢM BIẾN MỰC NƯỚC — thiết bị ESP32 của người dân
+-- 013: CẢM BIẾN MỰC NƯỚC — thiết bị ESP32 do đội cứu hộ triển khai
 -- ════════════════════════════════════════════════════════════
 -- Áp dụng thủ công (không có migration runner):
 --   psql "$DATABASE_URL" -f backend/migrations/013_water_sensors.sql
@@ -9,11 +9,12 @@
 -- Idempotent: chạy lại nhiều lần không lỗi.
 
 -- ────────────────────────────────────────────────────────────
--- 1. THIẾT BỊ — mỗi board ESP32 gắn cảm biến mực nước là một dòng
+-- 1. THIẾT BỊ — mỗi board ESP32 gắn cảm biến mực nước là một dòng.
+--    user_id = người TẠO (rescuer/admin), cũng là người nhận cảnh báo.
 --
 --    Thiết bị KHÔNG đăng nhập bằng JWT (nó không có người ngồi bấm), mà gửi
 --    dữ liệu kèm header X-Device-Key. Chỉ lưu SHA-256 của key: rò database
---    cũng không giả mạo được thiết bị. `device_key_prefix` (8 ký tự đầu) chỉ
+--    cũng không giả mạo được thiết bị. `device_key_prefix` (12 ký tự đầu) chỉ
 --    để người dùng nhận ra "đây đúng là key mình đã nạp vào board".
 -- ────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS water_sensors (
@@ -37,7 +38,7 @@ CREATE TABLE IF NOT EXISTS water_sensors (
     -- Cảnh báo khi mức nước chạm ngưỡng (%). alert_level lưu mức đã báo gần
     -- nhất để không spam lại cùng một mức.
     alert_enabled       BOOLEAN NOT NULL DEFAULT TRUE,
-    alert_threshold     SMALLINT NOT NULL DEFAULT 58,   -- = mức "NGẬP CAO"
+    alert_threshold     SMALLINT NOT NULL DEFAULT 58,   -- người phụ trách tự chỉnh
     last_alert_level    SMALLINT NOT NULL DEFAULT 0,
     last_alert_at       TIMESTAMPTZ,
 
@@ -76,7 +77,7 @@ CREATE TABLE IF NOT EXISTS water_sensor_readings (
 
     raw             INTEGER,            -- giá trị ADC 0-65535
     percent         SMALLINT NOT NULL,  -- 0-100 sau khi nội suy hiệu chuẩn
-    level           SMALLINT NOT NULL DEFAULT 0,  -- 0..5, xem config/waterLevels.js
+    level           SMALLINT NOT NULL DEFAULT 0,  -- 0..9, xem config/waterLevels.js
     voltage_mv      INTEGER,
 
     recorded_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -85,5 +86,5 @@ CREATE TABLE IF NOT EXISTS water_sensor_readings (
 CREATE INDEX IF NOT EXISTS idx_wsr_sensor_time
     ON water_sensor_readings (sensor_id, recorded_at DESC);
 
-COMMENT ON TABLE water_sensors IS 'Cảm biến mực nước ESP32 do người dân tự lắp';
+COMMENT ON TABLE water_sensors IS 'Cảm biến mực nước ESP32 do đội cứu hộ triển khai';
 COMMENT ON TABLE water_sensor_readings IS 'Chuỗi số đo mực nước (đã lấy mẫu thưa)';

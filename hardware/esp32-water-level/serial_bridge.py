@@ -21,6 +21,7 @@ lệnh. Ctrl-C để dừng.
 import argparse
 import json
 import os
+import ssl
 import sys
 import time
 import urllib.error
@@ -35,6 +36,36 @@ except ImportError:
     )
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def make_ssl_context():
+    """Bộ xác minh HTTPS.
+
+    Python tải từ python.org trên macOS KHÔNG dùng kho chứng chỉ của hệ điều
+    hành — nó trông chờ `certifi`, mà certifi lại chỉ được cài khi bạn chạy
+    "Install Certificates.command" sau lúc cài Python. Bỏ qua bước đó thì mọi
+    request HTTPS chết với CERTIFICATE_VERIFY_FAILED, kể cả tới server hoàn
+    toàn bình thường.
+
+    Nên ở đây tự trỏ vào certifi nếu có, thay vì phó mặc cho máy đã được cấu
+    hình đúng hay chưa.
+    """
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        return ssl.create_default_context()
+
+
+SSL_CONTEXT = make_ssl_context()
+
+SSL_HINT = """
+  ✗ Không xác minh được chứng chỉ HTTPS. Python bạn đang chạy thiếu kho chứng chỉ gốc.
+    Chọn MỘT trong hai cách:
+      1) Chạy một lần:  "/Applications/Python 3.10/Install Certificates.command"
+      2) Cài certifi:   {py} -m pip install certifi
+    Hoặc chạy cầu nối bằng Python khác đã có sẵn certifi.
+"""
 
 # Gửi ít nhất mỗi POST_PERIOD giây, nhưng nước đổi nhanh thì gửi ngay —
 # để cảnh báo không bị trễ cả nửa phút.
@@ -81,6 +112,7 @@ class Uploader:
         self.calib_sent = False
         self.sent = 0
         self.failed = 0
+        self.ssl_hint_shown = False
 
     def should_send(self, pct):
         if self.last_pct is None:
@@ -113,7 +145,7 @@ class Uploader:
         )
 
         try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=15, context=SSL_CONTEXT) as resp:
                 body = json.loads(resp.read().decode())
         except urllib.error.HTTPError as err:
             detail = err.read().decode(errors="replace")[:120]
@@ -126,6 +158,12 @@ class Uploader:
         except Exception as err:
             self.failed += 1
             print(f"  ! gửi hụt: {err}")
+            # Lỗi chứng chỉ là lỗi CẤU HÌNH MÁY, không phải mạng chập chờn —
+            # in hướng dẫn đúng một lần thay vì để người dùng nhìn cùng một
+            # dòng khó hiểu lặp lại mỗi hai giây.
+            if "CERTIFICATE_VERIFY_FAILED" in str(err) and not self.ssl_hint_shown:
+                self.ssl_hint_shown = True
+                print(SSL_HINT.format(py=sys.executable))
             return None
 
         self.sent += 1
@@ -221,6 +259,10 @@ def main():
         sys.exit("Thiếu URL. Điền API_URL vào config.py hoặc truyền --api.")
 
     uploader = Uploader(args.api, args.key, args.period)
+
+    if args.api.startswith("https://") and SSL_CONTEXT.cert_store_stats()["x509_ca"] == 0:
+        print("⚠ Python này không có chứng chỉ gốc nào — request HTTPS sẽ hỏng.")
+        print(SSL_HINT.format(py=sys.executable))
 
     print(f"Cầu nối serial → {args.api}")
     print(f"Cổng {args.port}, gửi tối thiểu mỗi {args.period}s (hoặc ngay khi mực nước đổi ≥{DELTA_PCT}%).")

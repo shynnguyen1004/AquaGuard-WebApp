@@ -4,9 +4,9 @@ import { useLanguage } from "../contexts/LanguageContext";
 import { getRoleBadgeClasses } from "../config/rbac";
 import { normalizePhone, formatPhoneDisplay } from "../utils/phone";
 import { resetTour } from "../utils/tourStorage";
+import { reverseGeocodeAddress } from "../utils/reverseGeocode";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 
 export default function SettingsPage({ defaultTab = "profile" }) {
   const { user, token, role, updateUser } = useAuth();
@@ -86,7 +86,7 @@ export default function SettingsPage({ defaultTab = "profile" }) {
     return age >= 0 ? age : null;
   };
 
-  // ── Detect location using Geolocation API + Google Maps Geocoding ──
+  // ── Detect location using Geolocation API + reverse geocoding ──
   const handleDetectLocation = () => {
     if (!navigator.geolocation) {
       setProfileMessage({ type: "error", text: t("settings.profile.locationError") });
@@ -101,39 +101,18 @@ export default function SettingsPage({ defaultTab = "profile" }) {
         const { latitude, longitude } = position.coords;
 
         try {
-          let address = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+          const address = await reverseGeocodeAddress(latitude, longitude);
 
-          if (GOOGLE_MAPS_API_KEY) {
-            const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}&language=vi&result_type=street_address|route|sublocality|locality`;
-            const res = await fetch(geocodeUrl);
-            const data = await res.json();
-
-            if (data.status === "OK" && data.results.length > 0) {
-              address = data.results[0].formatted_address;
-            }
-          } else {
-            // Fallback to Nominatim (free, no API key)
-            const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=vi`;
-            const res = await fetch(nominatimUrl, {
-              headers: { "User-Agent": "AquaGuard-WebApp" },
-            });
-            const data = await res.json();
-            if (data.display_name) {
-              address = data.display_name;
-            }
-          }
-
-          setProfile((p) => ({ ...p, address, latitude, longitude }));
-          setProfileMessage({ type: "success", text: t("settings.profile.locationDetected") });
-        } catch (err) {
-          console.error("Geocoding error:", err);
-          setProfile((p) => ({
-            ...p,
-            address: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
-            latitude,
-            longitude,
-          }));
-          setProfileMessage({ type: "success", text: t("settings.profile.locationDetected") });
+          // Toạ độ luôn được lưu; ô địa chỉ chỉ ghi đè khi tra được địa chỉ thật.
+          // Không tra được thì giữ nguyên những gì người dùng đã tự nhập —
+          // đổ chuỗi toạ độ vào đây là cách địa chỉ dạng số lọt vào DB.
+          setProfile((p) => ({ ...p, address: address || p.address, latitude, longitude }));
+          setProfileMessage({
+            type: "success",
+            text: address
+              ? t("settings.profile.locationDetected")
+              : t("settings.profile.locationDetectedNoAddress"),
+          });
         } finally {
           setDetectingLocation(false);
         }

@@ -1797,8 +1797,9 @@ paths:
         triển khai: người tạo sở hữu nó, chịu trách nhiệm hiệu chuẩn và là người
         nhận cảnh báo khi nó vượt ngưỡng.
 
-        Trả về `deviceKey` **đúng một lần** — máy chủ chỉ giữ SHA-256 của nó.
-        Mất key thì dùng `POST /sensors/{id}/rotate-key` để cấp key khác.
+        Trả về `deviceKey`. Từ migration 014, key được lưu ở dạng đọc được nên
+        **xem lại được** qua `GET /sensors/monitor` (chỉ với người quản lý được
+        thiết bị). Xác thực vẫn dựa trên SHA-256, không dựa vào cột này.
 
         Mỗi tài khoản ghép tối đa **50** cảm biến.
       requestBody:
@@ -1885,6 +1886,14 @@ paths:
                                   type: string
                                   description: Chỉ trả về cho admin.
                                   example: "+84901234567"
+                            deviceKey:
+                              type: string
+                              nullable: true
+                              description: >
+                                Key dạng đọc được — CHỈ có mặt khi `canManage` = true.
+                                `null` với thiết bị ghép trước migration 014 (không
+                                khôi phục lại được, phải xoay key mới).
+                              example: "aqg_XcJ2mQ1p..."
                             canManage:
                               type: boolean
                               description: >
@@ -1997,7 +2006,8 @@ paths:
       summary: Cấp device key mới
       description: |
         Key cũ **mất hiệu lực ngay lập tức** — board đang chạy sẽ nhận `401`
-        cho tới khi được nạp key mới.
+        cho tới khi được nạp key mới. Dùng khi nghi key bị lộ, hoặc với thiết bị
+        cũ không xem lại được key.
 
         Quản trị xoay được key của mọi thiết bị; cứu hộ chỉ thiết bị mình tạo.
       parameters:
