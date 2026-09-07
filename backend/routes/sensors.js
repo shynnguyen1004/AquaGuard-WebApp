@@ -24,6 +24,7 @@ const { authMiddleware, requireRoles } = require("../middleware/auth");
 const { createNotification } = require("../utils/notifications");
 const {
   ONLINE_WINDOW_SEC,
+  publicStatus,
   cleanPoints,
   isCalibrated,
   rawToPercent,
@@ -404,6 +405,58 @@ router.get("/monitor", authMiddleware, requireRoles(["rescuer", "admin"]), async
     });
   } catch (err) {
     console.error("[Sensor] monitor error:", err.message);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// ──────────────────────────────────────────────
+// GET /api/sensors/public — tình hình ngập cho NGƯỜI DÂN
+//
+// Mọi vai trò đăng nhập đều gọi được. Đây là bản rút gọn có chủ ý, khác hẳn
+// /monitor: KHÔNG có chủ thiết bị, KHÔNG có device key, KHÔNG có ngưỡng cảnh
+// báo hay chuỗi số đo — người dân không quản lý thiết bị nên biết những thứ đó
+// chỉ thêm nhiễu, mà lộ ra thì thiệt.
+//
+// Trả về mỗi thiết bị một trạng thái 4 mức (safe/minor/major/danger) kèm toạ
+// độ, để giao diện tính khoảng cách tới người dùng và hiện lời khuyên tương ứng.
+// ──────────────────────────────────────────────
+router.get("/public", authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, name, address, latitude, longitude,
+              last_percent, last_level, last_seen_at
+       FROM water_sensors
+       -- Thiết bị im quá lâu thì không còn nói được gì về TÌNH HÌNH HIỆN TẠI.
+       -- Liệt kê chúng ra chỉ khiến người dân thấy một loạt "chưa rõ" và mất
+       -- tin vào phần còn lại của thẻ. Vẫn giữ thiết bị mới rớt trong ngày:
+       -- một cảm biến vừa mất tín hiệu giữa lúc nước lên là thông tin đáng biết.
+       WHERE last_seen_at >= NOW() - interval '24 hours'
+       ORDER BY last_percent DESC NULLS LAST, id ASC`
+    );
+
+    const now = Date.now();
+    const data = result.rows.map((row) => {
+      const seen = row.last_seen_at ? new Date(row.last_seen_at).getTime() : 0;
+      const online = Boolean(seen && now - seen < ONLINE_WINDOW_SEC * 1000);
+      return {
+        id: row.id,
+        name: row.name,
+        address: row.address || "",
+        latitude: row.latitude,
+        longitude: row.longitude,
+        // Thiết bị mất kết nối thì số đo cuối đã cũ, không được phép làm cơ sở
+        // để trấn an hay doạ người dân — hạ về "không rõ".
+        status: online ? publicStatus(row.last_level) : "unknown",
+        levelKey: levelKey(row.last_level ?? 0),
+        percent: online ? row.last_percent : null,
+        online,
+        lastSeenAt: row.last_seen_at,
+      };
+    });
+
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error("[Sensor] public error:", err.message);
     return res.status(500).json({ success: false, message: "Server error" });
   }
 });

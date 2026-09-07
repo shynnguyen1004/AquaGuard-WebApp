@@ -115,6 +115,27 @@ function percentToLevel(percent) {
   return idx;
 }
 
+/**
+ * Quy đổi 10 mức kỹ thuật → 4 trạng thái cho NGƯỜI DÂN.
+ *
+ * Người trực cần độ phân giải cao để phán đoán xu hướng; người dân chỉ cần
+ * biết nên làm gì. "Ngập vừa–cao 56%" không giúp ai quyết định được điều gì,
+ * còn "ngập nhiều — kê đồ lên cao" thì có.
+ *
+ *   safe   (0-1)  khô, vừa chạm nước
+ *   minor  (2-3)  ngập rất thấp, ngập thấp
+ *   major  (4-7)  từ ngập thấp–vừa tới ngập cao
+ *   danger (8-9)  ngập rất cao, đầy
+ */
+function publicStatus(level) {
+  const idx = Number(level);
+  if (!Number.isFinite(idx)) return "safe";
+  if (idx >= 8) return "danger";
+  if (idx >= 4) return "major";
+  if (idx >= 2) return "minor";
+  return "safe";
+}
+
 /** Khoá i18n của một mức. */
 function levelKey(index) {
   return LEVELS[index]?.key || "dry";
@@ -131,4 +152,5 @@ module.exports = {
   rawToPercent,
   percentToLevel,
   levelKey,
+  publicStatus,
 };

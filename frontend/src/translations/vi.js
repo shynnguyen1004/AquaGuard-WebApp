@@ -438,6 +438,29 @@ const vi = {
     lastUpdated: "Cập nhật lần cuối: vừa xong",
   },
 
+  // ── Cảnh báo ngập cho người dân (đọc từ cảm biến thật) ──
+  floodAlert: {
+    title: "Cảnh báo ngập khu vực",
+    source: "Số đo từ cảm biến của đội cứu hộ",
+    updated: "cập nhật",
+    awayFromYou: "cách bạn {d}",
+    soundHint: "Còi hú khi nước dâng cao. Bấm để tắt tiếng.",
+    status: {
+      safe: "An toàn",
+      minor: "Ngập ít",
+      major: "Ngập nhiều",
+      danger: "Nguy hiểm",
+      unknown: "Chưa rõ",
+    },
+    advice: {
+      safe: "Chưa có dấu hiệu ngập tại các điểm đo gần bạn.",
+      minor: "Nước bắt đầu dâng. Theo dõi thêm và đừng để đồ đạc sát sàn nhà.",
+      major: "Nước đang lên cao. Kê đồ lên chỗ cao, ngắt điện khu vực thấp, hạn chế ra đường.",
+      danger: "Rất nguy hiểm. Di chuyển tới chỗ cao ngay, gửi yêu cầu cứu hộ nếu cần trợ giúp.",
+      unknown: "Cảm biến đang mất kết nối, chưa có số liệu mới để đánh giá.",
+    },
+  },
+
   // ── Cảm biến mực nước (ESP32) ──
   waterSensor: {
     online: "Trực tuyến",

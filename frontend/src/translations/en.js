@@ -439,6 +439,29 @@ const en = {
   },
 
   // ── Status Card ──
+  // ── Flood alert for citizens (from real sensors) ──
+  floodAlert: {
+    title: "Area flood alert",
+    source: "Readings from rescue team sensors",
+    updated: "updated",
+    awayFromYou: "{d} away",
+    soundHint: "The siren sounds while the water is high. Tap to silence.",
+    status: {
+      safe: "Safe",
+      minor: "Light flooding",
+      major: "Heavy flooding",
+      danger: "Dangerous",
+      unknown: "Unknown",
+    },
+    advice: {
+      safe: "No flooding detected at the measuring points near you.",
+      minor: "Water is starting to rise. Keep an eye on it and lift belongings off the floor.",
+      major: "Water is rising fast. Move belongings up high, cut power to low areas, stay indoors.",
+      danger: "Very dangerous. Move to higher ground now and request rescue if you need help.",
+      unknown: "The sensors are offline — no fresh readings to judge from.",
+    },
+  },
+
   // ── Water level sensor (ESP32) ──
   waterSensor: {
     online: "Online",

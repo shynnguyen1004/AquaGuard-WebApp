@@ -1843,6 +1843,56 @@ paths:
           content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
         "500": { $ref: "#/components/responses/ServerError" }
 
+  /sensors/public:
+    get:
+      tags: [Water Sensors]
+      summary: Tình hình ngập rút gọn — cho người dân
+      description: |
+        Mọi vai trò đăng nhập đều gọi được. Bản rút gọn có chủ ý, khác hẳn
+        `/sensors/monitor`: **không** có chủ thiết bị, **không** có device key,
+        **không** có ngưỡng cảnh báo hay chuỗi số đo — người dân không vận hành
+        thiết bị nên biết những thứ đó chỉ thêm nhiễu.
+
+        Mỗi thiết bị quy về **4 trạng thái**: `safe` (mức 0-1) · `minor` (2-3) ·
+        `major` (4-7) · `danger` (8-9). Thiết bị đang mất kết nối trả `unknown`
+        thay vì số đo cũ — số cũ không được phép dùng để trấn an hay doạ ai.
+
+        Chỉ liệt kê thiết bị có tin trong **24 giờ** gần nhất; thiết bị chết lâu
+        không nói được gì về tình hình hiện tại.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer, example: 3 }
+                        name: { type: string, example: "Cống Hải Châu" }
+                        address: { type: string, example: "P. Hải Châu" }
+                        latitude: { type: number, format: double, nullable: true }
+                        longitude: { type: number, format: double, nullable: true }
+                        status:
+                          type: string
+                          enum: [safe, minor, major, danger, unknown]
+                        levelKey:
+                          type: string
+                          enum: [dry, damp, veryLow, low, lowMid, moderate, midHigh, high, veryHigh, critical]
+                        percent:
+                          type: integer
+                          nullable: true
+                          description: "`null` khi thiết bị mất kết nối."
+                        online: { type: boolean }
+                        lastSeenAt: { type: string, format: date-time }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
   /sensors/monitor:
     get:
       tags: [Water Sensors]

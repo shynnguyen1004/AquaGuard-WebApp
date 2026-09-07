@@ -6,6 +6,7 @@ import FamilySafetyBoard from "../components/dashboard/FamilySafetyBoard";
 import DashboardQuickActions from "../components/dashboard/DashboardQuickActions";
 import PendingFamilyInvites from "../components/dashboard/PendingFamilyInvites";
 import SOSRequestHistory from "../components/dashboard/SOSRequestHistory";
+import FloodAlertCard from "../components/dashboard/FloodAlertCard";
 import NotificationBell from "../components/notifications/NotificationBell";
 import { api } from "../services/api";
 
@@ -95,6 +96,13 @@ export default function DashboardHome({ onNavigate }) {
             ZONE B: Active SOS Banner (conditional)
         ════════════════════════════════════════════════ */}
         <ActiveSOSBanner onNavigate={onNavigate} />
+
+        {/* ════════════════════════════════════════════════
+            ZONE B2: Cảnh báo ngập từ cảm biến thật
+            Bản rút gọn cho người dân: 4 trạng thái + việc cần làm, kèm còi hú.
+            Tự ẩn khi hệ thống chưa có cảm biến nào gửi số liệu.
+        ════════════════════════════════════════════════ */}
+        <FloodAlertCard />
 
         {/* ════════════════════════════════════════════════
             ZONE C + D: Two columns — Family + Quick Actions
