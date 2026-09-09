@@ -446,6 +446,10 @@ const en = {
     updated: "updated",
     awayFromYou: "{d} away",
     soundHint: "The siren sounds while the water is high. Tap to silence.",
+    soundWillRing: "The alarm will sound if the water rises further",
+    soundMuted: "Sound is off — tap to turn the alarm on",
+    soundBlocked: "Tap here to allow the alarm sound",
+    soundAcked: "Silenced for this episode — tap to turn back on",
     status: {
       safe: "Safe",
       minor: "Light flooding",

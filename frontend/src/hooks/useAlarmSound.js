@@ -67,6 +67,29 @@ export default function useAlarmSound(alarming) {
     }
   }, [ringing]);
 
+  // Trình duyệt chặn phát tiếng khi trang chưa được người dùng chạm vào lần nào
+  // (mở tab nền, khôi phục phiên, iOS đặc biệt chặt). Thay vì bắt họ hiểu điều
+  // đó, bắt lấy cử chỉ ĐẦU TIÊN bất kỳ rồi thử phát lại — bấm vào đâu cũng được.
+  useEffect(() => {
+    if (!blocked || !ringing) return;
+
+    const retry = () => {
+      const audio = audioRef.current;
+      if (!audio) return;
+      audio.play().then(
+        () => setBlocked(false),
+        () => {} // vẫn chặn thì thôi, nút loa vẫn còn đó để bấm thẳng
+      );
+    };
+
+    window.addEventListener("pointerdown", retry);
+    window.addEventListener("keydown", retry);
+    return () => {
+      window.removeEventListener("pointerdown", retry);
+      window.removeEventListener("keydown", retry);
+    };
+  }, [blocked, ringing]);
+
   // Hết nguy hiểm thì lên đạn lại: đợt ngập sau vẫn hú dù lần này đã bấm tắt.
   useEffect(() => {
     if (!alarming && acknowledged) setAcknowledged(false);

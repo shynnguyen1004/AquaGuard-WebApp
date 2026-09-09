@@ -188,6 +188,31 @@ export default function FloodAlertCard() {
           </button>
         </div>
 
+        {/* Vì sao đang cảnh báo mà không có tiếng — nói thẳng ra.
+            Im lặng không giải thích khiến người dùng tưởng hệ thống hỏng. */}
+        {alarming && !alarm.ringing && (
+          <button
+            onClick={alarm.onToggle}
+            className="mt-3 flex w-full items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-left text-xs font-bold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"
+          >
+            <span className="material-symbols-outlined text-base">volume_off</span>
+            {alarm.blocked
+              ? t("floodAlert.soundBlocked")
+              : alarm.acknowledged
+                ? t("floodAlert.soundAcked")
+                : t("floodAlert.soundMuted")}
+          </button>
+        )}
+
+        {/* Nước đã lên nhưng chưa tới ngưỡng hú: nói trước để người dùng không
+            tưởng còi hỏng khi thấy cảnh báo mà chẳng nghe gì. */}
+        {!alarming && status === "minor" && (
+          <p className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400">
+            <span className="material-symbols-outlined text-sm">notifications_paused</span>
+            {t("floodAlert.soundWillRing")}
+          </p>
+        )}
+
         {/* Danh sách điểm đo — gọn, không số liệu kỹ thuật */}
         <div className="mt-4 space-y-1.5">
           {withDistance.slice(0, 4).map((s) => {

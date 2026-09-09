@@ -445,6 +445,10 @@ const vi = {
     updated: "cập nhật",
     awayFromYou: "cách bạn {d}",
     soundHint: "Còi hú khi nước dâng cao. Bấm để tắt tiếng.",
+    soundWillRing: "Còi sẽ tự hú nếu nước dâng cao hơn",
+    soundMuted: "Âm thanh đang tắt — bấm để bật còi cảnh báo",
+    soundBlocked: "Bấm vào đây để cho phép phát âm thanh cảnh báo",
+    soundAcked: "Đã tắt tiếng đợt này — bấm để bật lại",
     status: {
       safe: "An toàn",
       minor: "Ngập ít",
