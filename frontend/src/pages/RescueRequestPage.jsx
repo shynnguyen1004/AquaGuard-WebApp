@@ -384,6 +384,14 @@ export default function RescueRequestPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // Bản đồ tracking nhận `trackingRequest` như một ảnh chụp lúc mở, nên toạ độ
+  // rescuer về sau không bao giờ tới được map. Bơm lại bản mới nhất mỗi poll.
+  useEffect(() => {
+    setTrackingRequest((prev) =>
+      prev ? requests.find((r) => r.id === prev.id) || prev : prev
+    );
+  }, [requests]);
+
   useEffect(() => {
     const handleProfileUpdated = () => {
       fetchRequests();

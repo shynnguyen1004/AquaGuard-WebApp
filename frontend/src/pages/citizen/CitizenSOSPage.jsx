@@ -79,6 +79,14 @@ export default function CitizenSOSPage() {
     return () => clearInterval(interval);
   }, [myRequests]);
 
+  // Bản đồ tracking nhận `trackingRequest` như một ảnh chụp lúc mở, nên vị trí
+  // đội cứu hộ về sau không bao giờ tới được map. Bơm lại bản mới nhất mỗi poll.
+  useEffect(() => {
+    setTrackingRequest((prev) =>
+      prev ? myRequests.find((r) => r.id === prev.id) || prev : prev
+    );
+  }, [myRequests]);
+
   // Submit new SOS request to API (now with GPS)
   const handleNewRequest = async (formData) => {
     const token = getStoredToken();

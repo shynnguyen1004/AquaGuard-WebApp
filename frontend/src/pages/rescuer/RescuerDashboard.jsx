@@ -300,6 +300,15 @@ export default function RescuerDashboard() {
     return () => clearInterval(interval);
   }, []);
 
+  // Bản đồ tracking nhận `trackingRequest` như một ảnh chụp lúc mở, nên toạ độ
+  // rescuer về sau (poll hoặc auto-dispatch ghi muộn) không bao giờ tới được map.
+  // Bơm lại bản mới nhất mỗi lần poll xong.
+  useEffect(() => {
+    setTrackingRequest((prev) =>
+      prev ? teamRequests.find((r) => r.id === prev.id) || prev : prev
+    );
+  }, [teamRequests]);
+
   useEffect(() => {
     const handleProfileUpdated = () => {
       fetchTeamRequests();

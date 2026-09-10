@@ -13,8 +13,13 @@ const router = express.Router();
 // movement during a session lives in Redis. Override victim (user_id) and
 // rescuer (assigned_to) coords for pending/in_progress requests.
 async function enrichWithLiveLocations(rows) {
+  // 'assigned' counts as active: auto-dispatch parks a request there until the
+  // rescuer confirms, and that window is exactly when the map needs their position.
   const active = rows.filter(
-    (r) => r.status === "pending" || r.status === "in_progress"
+    (r) =>
+      r.status === "pending" ||
+      r.status === "assigned" ||
+      r.status === "in_progress"
   );
   if (active.length === 0) return rows;
 
@@ -152,7 +157,8 @@ router.get("/my", authMiddleware, async (req, res) => {
       [req.user.id]
     );
 
-    return res.json({ success: true, data: result.rows });
+    const data = await enrichWithLiveLocations(result.rows);
+    return res.json({ success: true, data });
   } catch (err) {
     console.error("Get my requests error:", err);
     return res.status(500).json({ success: false, message: "Lỗi server" });
@@ -429,8 +435,11 @@ router.put("/:id/accept", authMiddleware, requireRoles(["rescuer"]), async (req,
            assigned_to = $1,
            assigned_group_id = $2,
            accepted_mode = 'group',
-           rescuer_latitude = $3,
-           rescuer_longitude = $4,
+           -- Giữ lại toạ độ auto-dispatch đã ghi khi giao ca: GPS lúc bấm "Nhận"
+           -- chỉ là best-effort (timeout 3s) và rất hay trả null, ghi đè thẳng
+           -- sẽ xoá mất vị trí tốt → bản đồ mất hẳn marker rescuer.
+           rescuer_latitude = COALESCE($3::double precision, rescuer_latitude),
+           rescuer_longitude = COALESCE($4::double precision, rescuer_longitude),
            assigned_at = COALESCE(assigned_at, NOW())
        WHERE id = $5
          AND (
