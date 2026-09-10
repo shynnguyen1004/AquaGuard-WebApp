@@ -48,6 +48,27 @@ export const SIREN_FLOOR_PCT = 6;
  */
 export const ALARM_CLEAR_MARGIN = 1;
 
+/**
+ * Số đo cũ hơn ngần này (ms) thì KHÔNG được phép làm còi hú, bất kể cờ `online`
+ * lúc tải về nói gì.
+ *
+ * Cờ `online` do server chấm tại thời điểm truy vấn — nó đúng lúc nhận, nhưng
+ * bản sao trong trình duyệt thì già đi. Tab chạy nền bị bóp `setInterval` xuống
+ * còn ~1 lần/phút, nên nó ôm một số đo cũ và hú tiếp dù nước đã rút từ lâu.
+ * Chốt theo dấu thời gian của chính số đo thì không phụ thuộc nhịp poll nữa.
+ *
+ * Rộng hơn cửa sổ online của server (45s) một chút để nhịp poll bình thường
+ * không bị hiểu nhầm là mất dữ liệu.
+ */
+export const SENSOR_STALE_MS = 60000;
+
+/** Số đo còn đủ mới để được phép kích hoạt còi không. */
+export function isFresh(sensor, now = Date.now()) {
+  if (!sensor.lastSeenAt) return false;
+  const t = new Date(sensor.lastSeenAt).getTime();
+  return Number.isFinite(t) && now - t < SENSOR_STALE_MS;
+}
+
 /** Xu hướng suy ra từ chuỗi số đo gần đây (so điểm cuối với ~5 điểm trước). */
 export function waterTrend(history) {
   if (!history || history.length < 3) return "stable";

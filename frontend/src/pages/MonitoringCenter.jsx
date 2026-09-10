@@ -4,7 +4,7 @@ import { useLiveLocation } from "../contexts/LiveLocationContext";
 import { useToast } from "../components/common/Toast";
 import { api } from "../services/api";
 import useAlarmSound from "../hooks/useAlarmSound";
-import { ALARM_CLEAR_MARGIN, SIREN_FLOOR_PCT } from "../components/monitoring/WaterSensorCard";
+import { ALARM_CLEAR_MARGIN, SIREN_FLOOR_PCT, isFresh } from "../components/monitoring/WaterSensorCard";
 import SensorPanel from "../components/monitoring/SensorPanel";
 import DronePanel from "../components/monitoring/DronePanel";
 import {
@@ -153,15 +153,34 @@ export default function MonitoringCenter({ role = "admin" }) {
   //
   // Tính trên đúng dữ liệu đang vẽ nên thiết bị của ai cũng kêu được, kể cả
   // khi chỉ có đường poll hoặc thiết bị đã tắt cảnh báo.
+  // Nhịp đập để đánh giá lại ĐỘ TƯƠI của dữ liệu ngay cả khi không có số đo mới.
+  const [freshTick, setFreshTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setFreshTick((n) => n + 1), 5000);
+    return () => clearInterval(id);
+  }, []);
+
   const [alarming, setAlarming] = useState(false);
   useEffect(() => {
+    const now = Date.now();
     const above = (floor) =>
-      waterSensors.some((s) => s.online && s.percent != null && s.percent >= floor);
+      waterSensors.some(
+        (s) => s.online && isFresh(s, now) && s.percent != null && s.percent >= floor
+      );
 
     setAlarming((prev) =>
       prev ? above(SIREN_FLOOR_PCT - ALARM_CLEAR_MARGIN) : above(SIREN_FLOOR_PCT)
     );
-  }, [waterSensors]);
+  }, [waterSensors, freshTick]);
+
+  // Quay lại tab thì nạp ngay.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") loadWaterSensors();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [loadWaterSensors]);
 
   const alarm = useAlarmSound(alarming);
 

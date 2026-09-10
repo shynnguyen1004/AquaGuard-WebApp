@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import useAlarmSound from "../../hooks/useAlarmSound";
-import { ALARM_CLEAR_MARGIN, SIREN_FLOOR_PCT } from "../monitoring/WaterSensorCard";
+import { ALARM_CLEAR_MARGIN, SIREN_FLOOR_PCT, isFresh } from "../monitoring/WaterSensorCard";
 import { getCachedGpsPosition } from "../../utils/locationSync";
 import { api } from "../../services/api";
 
@@ -107,15 +107,35 @@ export default function FloodAlertCard() {
   // được báo động muộn hơn người trực. Kèm cùng độ trễ khi tắt: bật ở
   // SIREN_FLOOR_PCT nhưng chỉ im khi đã tụt dưới ngưỡng đó vài phần trăm, để
   // nước dao động quanh ranh giới không làm còi bật tắt liên hồi.
+  // Nhịp đập để đánh giá lại ĐỘ TƯƠI của dữ liệu ngay cả khi không có số đo mới
+  // về. Không có nó thì tab chạy nền (bị bóp nhịp poll) sẽ hú mãi với số đo cũ.
+  const [freshTick, setFreshTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setFreshTick((n) => n + 1), 5000);
+    return () => clearInterval(id);
+  }, []);
+
   const [alarming, setAlarming] = useState(false);
   useEffect(() => {
+    const now = Date.now();
     const above = (floor) =>
-      sensors.some((s) => s.online && s.percent != null && s.percent >= floor);
+      sensors.some(
+        (s) => s.online && isFresh(s, now) && s.percent != null && s.percent >= floor
+      );
 
     setAlarming((prev) =>
       prev ? above(SIREN_FLOOR_PCT - ALARM_CLEAR_MARGIN) : above(SIREN_FLOOR_PCT)
     );
-  }, [sensors]);
+  }, [sensors, freshTick]);
+
+  // Quay lại tab thì nạp ngay, đừng bắt người dùng chờ hết chu kỳ poll.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [load]);
 
   const alarm = useAlarmSound(alarming);
 
