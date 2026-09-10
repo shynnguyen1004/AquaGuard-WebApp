@@ -120,8 +120,17 @@ export default function Sidebar({ activePage = "dashboard", onNavigate, collapse
               />
             </div>
           ) : (
-            <div className="size-10 rounded-xl bg-primary flex items-center justify-center text-white">
-              <span className="material-symbols-outlined filled-icon text-xl">water_drop</span>
+            <div className="size-10 flex items-center justify-center">
+              <img
+                alt="AquaGuard"
+                src="/images/Logo/Tranparent_Dark/TD_Shorten_Logo.png"
+                className="hidden dark:block size-full object-contain"
+              />
+              <img
+                alt="AquaGuard"
+                src="/images/Logo/Transparent_Light/TL_Shorten_Logo.png"
+                className="block dark:hidden size-full object-contain"
+              />
             </div>
           )}
         </div>
