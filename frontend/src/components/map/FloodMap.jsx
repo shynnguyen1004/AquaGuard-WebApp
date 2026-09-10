@@ -249,6 +249,11 @@ function PopupAddress({ lat, lng }) {
 
 export default function FloodMap({ onReady }) {
   const { token, role, user } = useAuth();
+  // AuthContext chỉ có `uid` dạng "phone_<id>" — KHÔNG có `user.id`. Đọc nhầm
+  // `user.id` sẽ ra undefined và mọi phép so sánh "có phải mình không" đều sai.
+  const myUserId = user?.uid?.startsWith("phone_")
+    ? Number(user.uid.replace("phone_", ""))
+    : null;
   const isCitizen = role === "citizen";
   const { t, language } = useLanguage();
   const [markers, setMarkers] = useState([]);
@@ -364,13 +369,13 @@ export default function FloodMap({ onReady }) {
         (u) =>
           Number.isFinite(u.lat) &&
           Number.isFinite(u.lng) &&
-          u.userId !== user?.id
+          u.userId !== myUserId
       );
       setLiveRescuers(list);
     } catch (err) {
       console.warn("[FloodMap] live rescuers poll error:", err);
     }
-  }, [token, user?.id]);
+  }, [token, myUserId]);
 
   // Note: this component no longer writes the user's position to Postgres. The
   // always-on LiveLocationProvider streams it to the Redis hot store instead;
