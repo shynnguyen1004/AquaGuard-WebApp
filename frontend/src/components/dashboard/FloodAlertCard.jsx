@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import useAlarmSound from "../../hooks/useAlarmSound";
-import { SIREN_FLOOR_PCT } from "../monitoring/WaterSensorCard";
+import { ALARM_CLEAR_MARGIN, SIREN_FLOOR_PCT } from "../monitoring/WaterSensorCard";
 import { getCachedGpsPosition } from "../../utils/locationSync";
 import { api } from "../../services/api";
 
@@ -101,10 +101,19 @@ export default function FloodAlertCard() {
   }, [load]);
 
   // Còi hú theo đúng ngưỡng mà phòng trực đang dùng — người dân không nên
-  // được báo động muộn hơn người trực.
-  const alarming = sensors.some(
-    (s) => s.online && s.percent != null && s.percent >= SIREN_FLOOR_PCT
-  );
+  // được báo động muộn hơn người trực. Kèm cùng độ trễ khi tắt: bật ở
+  // SIREN_FLOOR_PCT nhưng chỉ im khi đã tụt dưới ngưỡng đó vài phần trăm, để
+  // nước dao động quanh ranh giới không làm còi bật tắt liên hồi.
+  const [alarming, setAlarming] = useState(false);
+  useEffect(() => {
+    const above = (floor) =>
+      sensors.some((s) => s.online && s.percent != null && s.percent >= floor);
+
+    setAlarming((prev) =>
+      prev ? above(SIREN_FLOOR_PCT - ALARM_CLEAR_MARGIN) : above(SIREN_FLOOR_PCT)
+    );
+  }, [sensors]);
+
   const alarm = useAlarmSound(alarming);
 
   // Thiết bị đáng lo nhất quyết định tiêu đề; kèm khoảng cách nếu biết vị trí.

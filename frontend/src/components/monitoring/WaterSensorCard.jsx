@@ -35,12 +35,16 @@ export function waterSensorStatus(s) {
  * của từng thiết bị — cái đó quyết định thông báo/email gửi cho người phụ
  * trách, còn con số này quyết định lúc nào phòng trực có tiếng động.
  */
-export const SIREN_FLOOR_PCT = 30;
+export const SIREN_FLOOR_PCT = 10;
 
 /**
  * Biên độ trễ khi TẮT còi: phải tụt xuống dưới (SIREN_FLOOR_PCT − ngần này)
  * mới cho im. Nước dao động quanh đúng ranh giới mà không có độ trễ thì còi
  * bật tắt liên tục, nghe còn khó chịu hơn để nó hú thẳng.
+ *
+ * Với ngưỡng hú thấp (10%), biên này cũng là thứ quyết định bao lâu sau khi
+ * nhấc cảm biến ra khỏi nước thì còi mới im: vạch lược còn đọng nước vẫn dẫn
+ * điện, phải ráo tới dưới 7% mới hết kêu.
  */
 export const ALARM_CLEAR_MARGIN = 3;
 
