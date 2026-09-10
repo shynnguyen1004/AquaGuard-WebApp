@@ -174,15 +174,12 @@ router.get("/all", authMiddleware, requireRoles(["citizen", "rescuer", "admin"])
   try {
     const result = await pool.query(
       `SELECT r.*,
-              -- For active requests, prefer user's live location from user_locations
-              CASE WHEN r.status IN ('pending', 'in_progress')
-                   THEN COALESCE(loc.latitude, r.latitude)
-                   ELSE r.latitude
-              END AS latitude,
-              CASE WHEN r.status IN ('pending', 'in_progress')
-                   THEN COALESCE(loc.longitude, r.longitude)
-                   ELSE r.longitude
-              END AS longitude,
+              -- Toạ độ của chính request (r.latitude/r.longitude qua r.*) là mốc
+              -- chuẩn: form SOS bắt bằng enableHighAccuracy. KHÔNG đè bằng
+              -- user_locations — bảng đó cũng nhận cả fix thô lúc đăng nhập
+              -- (enableHighAccuracy: false, sai số hàng km) nên hay kéo marker
+              -- nạn nhân đi chỗ khác. Chuyển động thật do Redis phủ lên bên dưới,
+              -- trong enrichWithLiveLocations.
               -- Citizen info (via JOIN)
               u.display_name   AS user_name,
               u.phone_number   AS user_phone,
@@ -246,14 +243,8 @@ router.get("/team", authMiddleware, requireRoles(["rescuer"]), async (req, res) 
     // 2. Fetch all requests assigned to this group
     const result = await pool.query(
       `SELECT r.*,
-              CASE WHEN r.status IN ('pending', 'in_progress')
-                   THEN COALESCE(loc.latitude, r.latitude)
-                   ELSE r.latitude
-              END AS latitude,
-              CASE WHEN r.status IN ('pending', 'in_progress')
-                   THEN COALESCE(loc.longitude, r.longitude)
-                   ELSE r.longitude
-              END AS longitude,
+              -- Xem chú thích ở /sos/all: toạ độ chuẩn là của chính request,
+              -- user_locations không được đè lên.
               u.display_name   AS user_name,
               u.phone_number   AS user_phone,
               u.gender         AS user_gender,

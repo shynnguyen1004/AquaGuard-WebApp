@@ -5,7 +5,7 @@ const { WebSocketServer } = require("ws");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const pool = require("./db");
-const { setLiveLocation, removeLivePresence } = require("./redisClient");
+const { setLiveLocation, removeLivePresence, isRedisReady } = require("./redisClient");
 
 const authRoutes = require("./routes/auth");
 const sosRoutes = require("./routes/sos");
@@ -87,7 +87,13 @@ app.use("/api/sensors", sensorRoutes);
 
 // ── Health check ──
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+  res.json({
+    status: "ok",
+    // Không có Redis thì live location im lặng ngừng hoạt động (marker đứng
+    // yên ở toạ độ lúc gửi SOS) — phơi ra đây để chẩn đoán được từ ngoài.
+    redis: isRedisReady() ? "connected" : "unavailable",
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // ── Create HTTP server & WebSocket server ──
