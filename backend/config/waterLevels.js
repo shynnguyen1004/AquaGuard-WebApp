@@ -122,17 +122,21 @@ function percentToLevel(percent) {
  * biết nên làm gì. "Ngập vừa–cao 56%" không giúp ai quyết định được điều gì,
  * còn "ngập nhiều — kê đồ lên cao" thì có.
  *
- *   safe   (0-1)  khô, vừa chạm nước
- *   minor  (2-3)  ngập rất thấp, ngập thấp
+ *   safe   (0)    khô
+ *   minor  (1-3)  vừa chạm nước → ngập thấp
  *   major  (4-7)  từ ngập thấp–vừa tới ngập cao
  *   danger (8-9)  ngập rất cao, đầy
+ *
+ * Mức 1 ("vừa chạm nước", từ 2%) nằm ở MINOR chứ không phải SAFE, vì còi bắt
+ * đầu hú từ 3%. Để nó ở SAFE thì người dân sẽ thấy màn hình báo "An toàn"
+ * trong khi loa đang rú — mâu thuẫn đó phá hỏng lòng tin vào cả hệ thống.
  */
 function publicStatus(level) {
   const idx = Number(level);
   if (!Number.isFinite(idx)) return "safe";
   if (idx >= 8) return "danger";
   if (idx >= 4) return "major";
-  if (idx >= 2) return "minor";
+  if (idx >= 1) return "minor";
   return "safe";
 }
 

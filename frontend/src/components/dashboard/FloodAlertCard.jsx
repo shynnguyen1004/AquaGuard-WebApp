@@ -17,7 +17,10 @@ import { api } from "../../services/api";
  * tiếng được và tự lên đạn lại khi an toàn.
  */
 
-const POLL_MS = 10000;
+// Người dân KHÔNG sở hữu thiết bị nên server không đẩy WebSocket cho họ —
+// nhịp poll này chính là độ trễ họ cảm nhận được. Bám sát nhịp gửi của board
+// (2 giây) để "nước vừa chạm là còi kêu" đúng nghĩa.
+const POLL_MS = 2000;
 
 // Thứ tự nặng dần — dùng để chọn thiết bị đáng lo nhất làm tiêu đề.
 const RANK = { danger: 3, major: 2, minor: 1, safe: 0, unknown: -1 };
@@ -184,22 +187,30 @@ export default function FloodAlertCard() {
             onClick={alarm.onToggle}
             title={t("floodAlert.soundHint")}
             className={`flex-shrink-0 rounded-xl border p-2 transition-colors ${
-              alarm.ringing
+              alarm.audible
                 ? "animate-pulse border-red-500 bg-red-500 text-white"
-                : alarm.muted
+                : alarm.blocked && alarming
+                  ? "border-amber-400 bg-amber-100 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-300"
+                  : alarm.muted
                   ? "border-slate-200 bg-white text-slate-400 dark:border-slate-700 dark:bg-slate-800"
                   : "border-slate-200 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-800"
             }`}
           >
             <span className="material-symbols-outlined text-xl">
-              {alarm.ringing ? "notifications_active" : alarm.muted ? "volume_off" : "volume_up"}
+              {alarm.audible
+                ? "notifications_active"
+                : alarm.blocked && alarming
+                  ? "volume_up"
+                  : alarm.muted
+                    ? "volume_off"
+                    : "volume_up"}
             </span>
           </button>
         </div>
 
         {/* Vì sao đang cảnh báo mà không có tiếng — nói thẳng ra.
             Im lặng không giải thích khiến người dùng tưởng hệ thống hỏng. */}
-        {alarming && !alarm.ringing && (
+        {alarming && !alarm.audible && (
           <button
             onClick={alarm.onToggle}
             className="mt-3 flex w-full items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-left text-xs font-bold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"

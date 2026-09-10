@@ -60,11 +60,22 @@ PERIOD_MS = 500     # chu kỳ đọc
 # server quy đổi lại từ raw nên làm mượt ở đây thì cả web lẫn serial đều ổn định.
 # 0.35 ≈ hằng số thời gian ~1.5 giây ở nhịp đọc 500ms — đủ chết nhiễu ADC mà
 # vẫn bắt kịp nước dâng. Đặt 1.0 nếu muốn tắt hẳn làm mượt.
-SMOOTH_ALPHA = 0.35
+# Làm mượt BẤT ĐỐI XỨNG. Nước dâng là tin khẩn — phải bám gần như tức thì, nên
+# dùng alpha cao. Nước rút thì không ai chết vì biết muộn vài giây, giữ alpha
+# thấp cho số đỡ nhảy. Đối xứng hai chiều thì muốn hết nhiễu phải chấp nhận trễ
+# cả lúc lên, mà đó đúng là lúc không được phép trễ.
+SMOOTH_ALPHA_RISE = 0.85
+SMOOTH_ALPHA_FALL = 0.35
 
 # Key sai thì thử lại dồn dập cũng vô ích — nó không tự khỏi. Giãn ra ngần này
 # giây, vừa đỡ tốn pin vừa để dòng hướng dẫn không trôi mất khỏi màn hình.
 AUTH_RETRY_S = 60
+
+# Mực nước đổi từ ngần này phần trăm trở lên thì gửi NGAY, không đợi hết
+# POST_PERIOD. Nước đứng yên vẫn chỉ gửi mỗi POST_PERIOD giây nên không tốn
+# thêm băng thông; nhưng lúc vừa chạm nước thì độ trễ tụt từ "tới 2 giây"
+# xuống còn đúng một nhịp đọc.
+POST_ON_DELTA_PCT = 2
 
 # Bảng dự phòng khi chưa hiệu chuẩn: [phần trăm, giá trị raw].
 # Số lấy từ đo thực tế trên board này: khô = 0, ngâm nước = ~39000.
@@ -123,17 +134,22 @@ _smoothed = None
 
 
 def smooth(raw):
-    """EMA: giá trị mới = a*đo được + (1-a)*giá trị cũ.
+    """EMA bất đối xứng: giá trị mới = a*đo được + (1-a)*giá trị cũ.
 
     Cảm biến lược đo độ dẫn điện nên số đọc rung liên tục vài trăm đơn vị dù
     mực nước đứng yên; không làm mượt thì phần trăm nhảy ±2-3% và mức hiển thị
     cứ nhấp nháy qua lại.
+
+    Nhưng làm mượt = trễ, mà lúc nước DÂNG thì trễ là thứ không chấp nhận được.
+    Nên hệ số khác nhau theo chiều: lên thì gần như bám thẳng, xuống mới mượt.
     """
     global _smoothed
-    if _smoothed is None or SMOOTH_ALPHA >= 1:
+    if _smoothed is None:
         _smoothed = raw
-    else:
-        _smoothed = int(SMOOTH_ALPHA * raw + (1 - SMOOTH_ALPHA) * _smoothed)
+        return _smoothed
+
+    alpha = SMOOTH_ALPHA_RISE if raw > _smoothed else SMOOTH_ALPHA_FALL
+    _smoothed = int(alpha * raw + (1 - alpha) * _smoothed)
     return _smoothed
 
 
@@ -350,6 +366,7 @@ def main():
     next_post = time.time()      # gửi ngay lần đọc đầu tiên
     calib_sent = False
     auth_warned = False
+    last_sent_pct = -100     # ép gửi ngay lần đọc đầu
 
     while True:
         raw = smooth(read_raw())
@@ -374,8 +391,11 @@ def main():
             time.sleep_ms(PERIOD_MS)
             continue
 
-        # ── Đẩy lên AquaGuard theo chu kỳ riêng (thưa hơn nhịp đọc) ──
-        if time.time() >= next_post:
+        # ── Đẩy lên AquaGuard ──
+        # Tới hạn chu kỳ, HOẶC mực nước vừa nhảy đủ lớn (bắt khoảnh khắc chạm
+        # nước, không để nó nằm chờ hết chu kỳ).
+        jumped = abs(pct - last_sent_pct) >= POST_ON_DELTA_PCT
+        if time.time() >= next_post or (online and jumped):
             if not online:
                 online = wifi_connect(timeout_s=10)
             wait = config.POST_PERIOD
@@ -386,6 +406,7 @@ def main():
                 if isinstance(result, dict):
                     calib_sent = True
                     auth_warned = False
+                    last_sent_pct = pct
                     if result.get("data", {}).get("alert"):
                         print("  → ĐÃ GỬI CẢNH BÁO NGẬP tới AquaGuard")
                 elif result is None:

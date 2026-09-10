@@ -88,8 +88,8 @@ export default function MonitoringCenter({ role = "admin" }) {
   }, []);
 
   // Poll thay vì WebSocket: server chỉ đẩy `sensor_reading` cho CHỦ thiết bị,
-  // còn trang này xem thiết bị của cả khu — 5 giây một lần là đủ nhanh cho
-  // việc trực mà không phải mở thêm đường đẩy dữ liệu riêng.
+  // còn trang này xem thiết bị của cả khu. Thiết bị của chính mình đã có đường
+  // đẩy tức thì; nhịp 2 giây này là để thiết bị của người khác cũng không trễ.
   const loadWaterSensors = useCallback(async () => {
     try {
       const res = await api.get("/sensors/monitor");
@@ -105,7 +105,7 @@ export default function MonitoringCenter({ role = "admin" }) {
     loadWaterSensors();
     const iv = setInterval(() => {
       if (liveRef.current) loadWaterSensors();
-    }, 5000);
+    }, 2000);
     return () => clearInterval(iv);
   }, [loadWaterSensors]);
 
@@ -191,9 +191,11 @@ export default function MonitoringCenter({ role = "admin" }) {
             onClick={alarm.onToggle}
             title={t("monitoring.sound.hint").replace("{n}", String(SIREN_FLOOR_PCT))}
             className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold border transition-colors ${
-              alarm.ringing
+              alarm.audible
                 ? "bg-danger text-white border-danger animate-pulse"
-                : alarm.muted
+                : alarm.blocked && alarming
+                  ? "bg-warning/10 text-warning border-warning/20"
+                  : alarm.muted
                   ? "bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700"
                   : alarm.blocked
                     ? "bg-warning/10 text-warning border-warning/20"
@@ -201,12 +203,14 @@ export default function MonitoringCenter({ role = "admin" }) {
             }`}
           >
             <span className="material-symbols-outlined text-lg">
-              {alarm.ringing ? "notifications_active" : alarm.muted ? "volume_off" : "volume_up"}
+              {alarm.audible ? "notifications_active" : alarm.muted ? "volume_off" : "volume_up"}
             </span>
             <span className="hidden sm:inline">
-              {alarm.ringing
-                ? t("monitoring.sound.silence")
-                : alarm.blocked
+              {alarm.blocked && alarming
+                ? t("monitoring.sound.blocked")
+                : alarm.audible
+                  ? t("monitoring.sound.silence")
+                  : alarm.blocked
                   ? t("monitoring.sound.blocked")
                   : alarm.muted
                     ? t("monitoring.sound.off")

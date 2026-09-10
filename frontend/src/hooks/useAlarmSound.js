@@ -38,6 +38,8 @@ export default function useAlarmSound(alarming) {
   const [acknowledged, setAcknowledged] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const audioRef = useRef(null);
+  // Thẻ audio đã được "mở khoá" bằng một cử chỉ của người dùng chưa.
+  const primedRef = useRef(false);
 
   useEffect(() => {
     const audio = new Audio(ALARM_URL);
@@ -50,45 +52,87 @@ export default function useAlarmSound(alarming) {
     };
   }, []);
 
+  // `ringing` là Ý ĐỊNH: theo trạng thái nước và các nút tắt tiếng thì còi
+  // ĐÁNG LẼ phải kêu. Nó KHÔNG có nghĩa là tai nghe được — trình duyệt vẫn có
+  // quyền từ chối phát.
   const ringing = alarming && !muted && !acknowledged;
+
+  // `audible` là THỰC TẾ. Giao diện phải bám vào cái này: bám vào `ringing` thì
+  // người dùng thấy nút đỏ nhấp nháy trong khi loa im, mà không có gì giải thích.
+  const audible = ringing && !blocked;
+
+  const tryPlay = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.play().then(
+      () => setBlocked(false),
+      () => setBlocked(true) // chưa có tương tác → trình duyệt từ chối
+    );
+  }, []);
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
     if (ringing) {
-      audio.play().then(
-        () => setBlocked(false),
-        () => setBlocked(true) // chưa có tương tác → trình duyệt từ chối
-      );
+      tryPlay();
     } else {
       audio.pause();
       audio.currentTime = 0;
+      setBlocked(false); // hết đợt thì xoá cờ, đợt sau đánh giá lại từ đầu
     }
-  }, [ringing]);
+  }, [ringing, tryPlay]);
 
-  // Trình duyệt chặn phát tiếng khi trang chưa được người dùng chạm vào lần nào
-  // (mở tab nền, khôi phục phiên, iOS đặc biệt chặt). Thay vì bắt họ hiểu điều
-  // đó, bắt lấy cử chỉ ĐẦU TIÊN bất kỳ rồi thử phát lại — bấm vào đâu cũng được.
+  // ── MỞ KHOÁ ÂM THANH ──
+  //
+  // Trình duyệt chỉ cho phát tiếng nếu trang đã từng được người dùng tương tác.
+  // Trên localhost Chrome dễ dãi nên lúc phát triển không thấy gì; trên tên miền
+  // thật thì chặn thẳng, và Safari còn chặt hơn. Đợi tới lúc nước dâng mới xin
+  // phép là muộn — đúng khoảnh khắc đó người dùng đang NHÌN màn hình chứ không
+  // bấm gì cả, nên tiếng sẽ không bao giờ ra.
+  //
+  // Vì vậy: chộp lấy cử chỉ ĐẦU TIÊN bất kỳ trong phiên (đăng nhập, tắt hướng
+  // dẫn, cuộn trang...) rồi phát câm một nhịp ở âm lượng 0 để đánh dấu thẻ audio
+  // là "đã được người dùng cho phép". Từ đó về sau còi tự kêu, không cần bấm gì.
+  const ringingRef = useRef(ringing);
+  ringingRef.current = ringing;
+
   useEffect(() => {
-    if (!blocked || !ringing) return;
-
-    const retry = () => {
+    const unlock = () => {
       const audio = audioRef.current;
-      if (!audio) return;
+      if (!audio || primedRef.current) return;
+
+      // Đang cần kêu thì phát thẳng, đừng phát câm.
+      if (ringingRef.current) {
+        primedRef.current = true;
+        tryPlay();
+        return;
+      }
+
+      primedRef.current = true;
+      const volume = audio.volume;
+      audio.volume = 0;
       audio.play().then(
-        () => setBlocked(false),
-        () => {} // vẫn chặn thì thôi, nút loa vẫn còn đó để bấm thẳng
+        () => {
+          audio.pause();
+          audio.currentTime = 0;
+          audio.volume = volume;
+          setBlocked(false);
+        },
+        () => {
+          audio.volume = volume;
+          primedRef.current = false; // chưa mở được thì để cử chỉ sau thử tiếp
+        }
       );
     };
 
-    window.addEventListener("pointerdown", retry);
-    window.addEventListener("keydown", retry);
+    window.addEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
     return () => {
-      window.removeEventListener("pointerdown", retry);
-      window.removeEventListener("keydown", retry);
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
     };
-  }, [blocked, ringing]);
+  }, [tryPlay]);
 
   // Hết nguy hiểm thì lên đạn lại: đợt ngập sau vẫn hú dù lần này đã bấm tắt.
   useEffect(() => {
@@ -101,6 +145,13 @@ export default function useAlarmSound(alarming) {
    *   đang im  → bật/tắt hẳn
    */
   const onToggle = useCallback(() => {
+    // Đang bị chặn: chính cú bấm này là cử chỉ mở khoá mà trình duyệt đòi.
+    // Phải THỬ PHÁT, tuyệt đối không hiểu thành "người dùng muốn tắt tiếng" —
+    // họ đang bấm vào dòng chữ mời bật tiếng.
+    if (blocked && ringing) {
+      tryPlay();
+      return;
+    }
     if (ringing) {
       setAcknowledged(true);
       return;
@@ -115,7 +166,7 @@ export default function useAlarmSound(alarming) {
       if (!next) setBlocked(false);
       return next;
     });
-  }, [ringing]);
+  }, [blocked, ringing, tryPlay]);
 
-  return { ringing, muted, acknowledged, blocked, alarming, onToggle };
+  return { ringing, audible, muted, acknowledged, blocked, alarming, onToggle };
 }
