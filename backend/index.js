@@ -5,7 +5,12 @@ const { WebSocketServer } = require("ws");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const pool = require("./db");
-const { setLiveLocation, removeLivePresence, isRedisReady } = require("./redisClient");
+const {
+  setLiveLocation,
+  removeLivePresence,
+  isRedisReady,
+  getLiveLocations,
+} = require("./redisClient");
 
 const authRoutes = require("./routes/auth");
 const sosRoutes = require("./routes/sos");
@@ -141,6 +146,62 @@ async function persistDurableLocation(userId, latitude, longitude) {
 }
 
 /**
+ * Trả lời một lần join phòng bằng vị trí biết được gần nhất của CẢ HAI bên.
+ *
+ * Không có bước này thì bản đồ mở ra trống và đứng yên cho tới khi bên kia đẩy
+ * GPS tiếp theo — mà bên kia thường còn chưa mở bản đồ. `/accept` cũng phát
+ * `tracking_started`, nhưng đúng vào lúc phòng chưa có ai nên rơi vào hư không.
+ *
+ * Redis (live, TTL 60s) được ưu tiên hơn các cột trên rescue_requests vì cột chỉ
+ * là ảnh chụp lúc gửi SOS / lúc giao ca. Nhân tiện đóng dấu ws.trackingRole để
+ * bản tin vị trí xưng danh theo vai trò TRONG ca này, thay vì role của tài khoản
+ * (một admin đi cứu hộ sẽ phát role 'admin' và bị client bỏ qua).
+ */
+async function sendTrackingSnapshot(ws, requestId) {
+  try {
+    const { rows } = await pool.query(
+      `SELECT r.user_id, r.assigned_to,
+              COALESCE(r.latitude,  cloc.latitude)  AS latitude,
+              COALESCE(r.longitude, cloc.longitude) AS longitude,
+              COALESCE(r.rescuer_latitude,  rloc.latitude)  AS rescuer_latitude,
+              COALESCE(r.rescuer_longitude, rloc.longitude) AS rescuer_longitude
+       FROM rescue_requests r
+       LEFT JOIN user_locations cloc ON cloc.user_id = r.user_id
+       LEFT JOIN user_locations rloc ON rloc.user_id = r.assigned_to
+       WHERE r.id = $1`,
+      [requestId]
+    );
+    const r = rows[0];
+    if (!r) return;
+
+    ws.trackingRole =
+      ws.userId === r.user_id ? "citizen" :
+      ws.userId === r.assigned_to ? "rescuer" :
+      "observer";
+
+    const live = await getLiveLocations(
+      [r.user_id, r.assigned_to].filter(Boolean)
+    );
+    const citizen = live.get(r.user_id);
+    const rescuer = r.assigned_to ? live.get(r.assigned_to) : null;
+
+    if (ws.readyState !== 1) return;
+    ws.send(
+      JSON.stringify({
+        type: "tracking_started",
+        requestId,
+        citizenLatitude: citizen ? citizen.lat : r.latitude,
+        citizenLongitude: citizen ? citizen.lng : r.longitude,
+        rescuerLatitude: rescuer ? rescuer.lat : r.rescuer_latitude,
+        rescuerLongitude: rescuer ? rescuer.lng : r.rescuer_longitude,
+      })
+    );
+  } catch (err) {
+    console.warn("[WS] tracking snapshot failed:", err.message);
+  }
+}
+
+/**
  * Handle one live location fix from a client. Used by both `presence_location`
  * (continuous, always-on) and the legacy `location_update` (room) message.
  *   1. Broadcast to the active tracking room (if joined) — every update, smooth.
@@ -158,7 +219,9 @@ function handleLocation(ws, latitude, longitude) {
     const payload = JSON.stringify({
       type: "location_update",
       userId: ws.userId,
-      role: ws.userRole,
+      // Vai trò trong ca này (đặt lúc join), không phải role tài khoản — client
+      // chỉ vẽ marker cho 'citizen'/'rescuer'.
+      role: ws.trackingRole || ws.userRole,
       latitude,
       longitude,
       timestamp: Date.now(),
@@ -347,9 +410,11 @@ wss.on("connection", (ws, req) => {
 
     switch (msg.type) {
       case "join_tracking": {
-        // Join a tracking room for a specific rescue request
-        const { requestId } = msg;
-        if (!requestId) return;
+        // Join a tracking room for a specific rescue request. Mọi broadcast từ
+        // phía route đều khoá phòng bằng parseInt(id), nên ép kiểu ở đây: một id
+        // dạng chuỗi sẽ mở ra phòng song song mà không broadcast nào tới được.
+        const requestId = Number(msg.requestId);
+        if (!Number.isInteger(requestId)) return;
 
         ws.trackingRequestId = requestId;
 
@@ -358,6 +423,7 @@ wss.on("connection", (ws, req) => {
         }
         trackingRooms.get(requestId).set(ws.userId, ws);
         console.log(`[WS] User ${ws.userId} joined tracking room ${requestId}`);
+        sendTrackingSnapshot(ws, requestId);
         break;
       }
 

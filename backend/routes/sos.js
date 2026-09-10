@@ -8,6 +8,27 @@ const dispatch = require("../services/dispatch");
 
 const router = express.Router();
 
+// ── Lớp chót cho toạ độ: không bao giờ để marker trống ──
+//
+// Thứ tự ưu tiên khi vẽ bản đồ tracking, từ đáng tin nhất xuống:
+//   1. Redis  — vị trí live (TTL 60s), do enrichWithLiveLocations phủ lên sau.
+//   2. Cột trên rescue_requests — GPS bắt lúc gửi SOS (enableHighAccuracy) và
+//      lúc giao ca / nhận ca.
+//   3. user_locations — vị trí cuối cùng biết được của người đó.
+//
+// (3) chỉ được dùng khi (2) rỗng, KHÔNG bao giờ đè lên (2): bảng này cũng nhận
+// cả fix thô lúc đăng nhập (sai số hàng km), từng kéo marker nạn nhân đi vài km.
+// Nhưng thà một vị trí cũ còn hơn bản đồ trống, nên nó vẫn đứng ở lớp cuối.
+const LAST_KNOWN_FALLBACK = `
+              COALESCE(r.latitude,  cloc.latitude)  AS latitude,
+              COALESCE(r.longitude, cloc.longitude) AS longitude,
+              COALESCE(r.rescuer_latitude,  rloc.latitude)  AS rescuer_latitude,
+              COALESCE(r.rescuer_longitude, rloc.longitude) AS rescuer_longitude`;
+
+const LAST_KNOWN_JOINS = `
+       LEFT JOIN user_locations cloc ON cloc.user_id = r.user_id
+       LEFT JOIN user_locations rloc ON rloc.user_id = r.assigned_to`;
+
 // ── Helper: overlay live Redis positions onto active requests ──
 // PostgreSQL user_locations only holds first/last positions, so continuous
 // movement during a session lives in Redis. Override victim (user_id) and
@@ -142,6 +163,7 @@ router.get("/my", authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT r.*,
+              ${LAST_KNOWN_FALLBACK},
               u.display_name   AS user_name,
               u.phone_number   AS user_phone,
               a.display_name   AS assigned_name,
@@ -152,6 +174,7 @@ router.get("/my", authMiddleware, async (req, res) => {
        LEFT JOIN users a          ON r.assigned_to = a.id
        LEFT JOIN rescue_groups g  ON r.assigned_group_id = g.id
        LEFT JOIN users c          ON r.last_cancelled_by = c.id
+       ${LAST_KNOWN_JOINS}
        WHERE r.user_id = $1
        ORDER BY r.created_at DESC`,
       [req.user.id]
@@ -174,18 +197,13 @@ router.get("/all", authMiddleware, requireRoles(["citizen", "rescuer", "admin"])
   try {
     const result = await pool.query(
       `SELECT r.*,
-              -- Toạ độ của chính request (r.latitude/r.longitude qua r.*) là mốc
-              -- chuẩn: form SOS bắt bằng enableHighAccuracy. KHÔNG đè bằng
-              -- user_locations — bảng đó cũng nhận cả fix thô lúc đăng nhập
-              -- (enableHighAccuracy: false, sai số hàng km) nên hay kéo marker
-              -- nạn nhân đi chỗ khác. Chuyển động thật do Redis phủ lên bên dưới,
-              -- trong enrichWithLiveLocations.
+              ${LAST_KNOWN_FALLBACK},
               -- Citizen info (via JOIN)
               u.display_name   AS user_name,
               u.phone_number   AS user_phone,
               u.gender         AS user_gender,
               u.date_of_birth  AS user_date_of_birth,
-              COALESCE(loc.address, u.address) AS user_address,
+              COALESCE(cloc.address, u.address) AS user_address,
               CASE
                 WHEN u.date_of_birth IS NULL THEN NULL
                 ELSE DATE_PART('year', AGE(CURRENT_DATE, u.date_of_birth))::int
@@ -198,10 +216,10 @@ router.get("/all", authMiddleware, requireRoles(["citizen", "rescuer", "admin"])
               c.display_name   AS last_cancelled_by_name
        FROM rescue_requests r
        LEFT JOIN users u          ON r.user_id = u.id
-       LEFT JOIN user_locations loc ON loc.user_id = r.user_id
        LEFT JOIN users a          ON r.assigned_to = a.id
        LEFT JOIN rescue_groups g  ON r.assigned_group_id = g.id
        LEFT JOIN users c          ON r.last_cancelled_by = c.id
+       ${LAST_KNOWN_JOINS}
        ORDER BY r.created_at DESC`
     );
 
@@ -243,13 +261,12 @@ router.get("/team", authMiddleware, requireRoles(["rescuer"]), async (req, res) 
     // 2. Fetch all requests assigned to this group
     const result = await pool.query(
       `SELECT r.*,
-              -- Xem chú thích ở /sos/all: toạ độ chuẩn là của chính request,
-              -- user_locations không được đè lên.
+              ${LAST_KNOWN_FALLBACK},
               u.display_name   AS user_name,
               u.phone_number   AS user_phone,
               u.gender         AS user_gender,
               u.date_of_birth  AS user_date_of_birth,
-              COALESCE(loc.address, u.address) AS user_address,
+              COALESCE(cloc.address, u.address) AS user_address,
               CASE
                 WHEN u.date_of_birth IS NULL THEN NULL
                 ELSE DATE_PART('year', AGE(CURRENT_DATE, u.date_of_birth))::int
@@ -259,10 +276,10 @@ router.get("/team", authMiddleware, requireRoles(["rescuer"]), async (req, res) 
               c.display_name   AS last_cancelled_by_name
        FROM rescue_requests r
        LEFT JOIN users u          ON r.user_id = u.id
-       LEFT JOIN user_locations loc ON loc.user_id = r.user_id
        LEFT JOIN users a          ON r.assigned_to = a.id
        LEFT JOIN rescue_groups g  ON r.assigned_group_id = g.id
        LEFT JOIN users c          ON r.last_cancelled_by = c.id
+       ${LAST_KNOWN_JOINS}
        WHERE r.assigned_group_id = $1
        ORDER BY r.created_at DESC`,
       [group.id]
